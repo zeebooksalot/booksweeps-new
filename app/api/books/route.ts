@@ -28,17 +28,6 @@ export async function GET(request: NextRequest) {
           name,
           bio,
           avatar_url
-        ),
-        series (
-          id,
-          name,
-          description
-        ),
-        users (
-          id,
-          display_name,
-          first_name,
-          last_name
         )
       `)
 

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
 
     let query = supabase
-      .from('authors')
+      .from('pen_names')
       .select('*')
 
     if (search) {
@@ -31,14 +31,14 @@ export async function GET(request: NextRequest) {
         query = query.order('created_at', { ascending: false })
         break
       case 'followers':
-        query = query.order('followers_count', { ascending: false })
+        query = query.order('upvotes_count', { ascending: false })
         break
       case 'books':
-        query = query.order('books_count', { ascending: false })
+        query = query.order('upvotes_count', { ascending: false })
         break
       case 'trending':
       default:
-        query = query.order('votes_count', { ascending: false })
+        query = query.order('upvotes_count', { ascending: false })
         break
     }
 
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('authors')
+      .from('pen_names')
       .insert({
         name,
         bio,
@@ -98,10 +98,9 @@ export async function POST(request: NextRequest) {
         website_url,
         twitter_url,
         goodreads_url,
-        books_count: 0,
-        followers_count: 0,
-        votes_count: 0,
-        joined_date: new Date().toISOString()
+        upvotes_count: 0,
+        downvotes_count: 0,
+        status: 'active'
       })
       .select()
       .single()
