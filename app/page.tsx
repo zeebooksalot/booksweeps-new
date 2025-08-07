@@ -77,6 +77,13 @@ export default function BookSweepsHomepage() {
   const [showMobileSearch, setShowMobileSearch] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   
+  // Advanced filtering state
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
+  const [dateRange, setDateRange] = useState<string>("all")
+  const [ratingFilter, setRatingFilter] = useState<number>(0)
+  const [hasGiveaway, setHasGiveaway] = useState<boolean | null>(null)
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  
   // Data fetching state
   const [booksData, setBooksData] = useState<BookItem[]>([])
   const [authorsData, setAuthorsData] = useState<AuthorItem[]>([])
@@ -390,12 +397,12 @@ export default function BookSweepsHomepage() {
                             >
                               Authors
                             </a>
-                            <a
-                              href="#"
+                            <Link
+                              href="/giveaways"
                               className="text-16 font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-500"
                             >
                               Giveaways
-                            </a>
+                            </Link>
                           </nav>
 
                           <div className="flex flex-col gap-3">
@@ -474,12 +481,12 @@ export default function BookSweepsHomepage() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <a
-                href="#"
+              <Link
+                href="/giveaways"
                 className="text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:text-orange-500"
               >
                 Giveaways
-              </a>
+              </Link>
             </nav>
 
             {/* Desktop Actions */}
@@ -820,9 +827,9 @@ export default function BookSweepsHomepage() {
                 <h4 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">For Readers</h4>
                 <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                   <li>
-                    <a href="#" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+                    <Link href="/giveaways" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
                       Browse Giveaways
-                    </a>
+                    </Link>
                   </li>
                   <li>
                     <a href="#" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
@@ -895,10 +902,10 @@ export default function BookSweepsHomepage() {
             <Compass className="h-5 w-5" />
             <span className="text-10 font-medium">Discover</span>
           </button>
-          <button className="flex flex-col items-center gap-1 p-2 text-gray-600 dark:text-gray-400">
+          <Link href="/giveaways" className="flex flex-col items-center gap-1 p-2 text-gray-600 dark:text-gray-400">
             <Trophy className="h-5 w-5" />
             <span className="text-10 font-medium">Giveaways</span>
-          </button>
+          </Link>
           <button className="flex flex-col items-center gap-1 p-2 text-gray-600 dark:text-gray-400">
             <User className="h-5 w-5" />
             <span className="text-10 font-medium">Profile</span>
