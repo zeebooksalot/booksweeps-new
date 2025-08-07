@@ -6,6 +6,14 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check if Supabase client is available
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+
     const { data, error } = await supabase
       .from('books')
       .select(`
@@ -59,6 +67,14 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check if Supabase client is available
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
     const { title, description, cover_url, genres, has_giveaway } = body
 
@@ -94,6 +110,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check if Supabase client is available
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+
     const { error } = await supabase
       .from('books')
       .delete()

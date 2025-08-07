@@ -6,6 +6,14 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check if Supabase client is available
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+
     const { data, error } = await supabase
       .from('authors')
       .select(`
@@ -45,6 +53,14 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check if Supabase client is available
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
     const { name, bio, avatar_url, website_url, twitter_url, goodreads_url } = body
 

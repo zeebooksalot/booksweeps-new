@@ -3,6 +3,14 @@ import { supabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Supabase client is available
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
     const { user_id, book_id, pen_name_id, vote_type } = body
 
@@ -81,6 +89,14 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Check if Supabase client is available
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const user_id = searchParams.get('user_id')
     const book_id = searchParams.get('book_id')
@@ -137,6 +153,8 @@ async function updateVoteCounts(
   oldVoteType: string | null, 
   newVoteType: string | null
 ) {
+  if (!supabase) return
+
   if (book_id) {
     // Handle book vote counts
     if (oldVoteType === 'upvote' && newVoteType !== 'upvote') {
