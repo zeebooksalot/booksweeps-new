@@ -5,22 +5,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
 // Only create the client if both URL and key are available
 export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        // Enable cross-domain authentication
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        // Set cookie domain for cross-subdomain sharing
-        cookieOptions: {
-          domain: process.env.NODE_ENV === 'production' 
-            ? '.booksweeps.com'  // Allows sharing across subdomains
-            : 'localhost',
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax'
-        }
-      }
-    })
+  ? createClient(supabaseUrl, supabaseAnonKey)
   : null
 
 // Updated Database types to match your schema
@@ -432,4 +417,4 @@ export interface PenNameWithVotes {
   upvotes_count: number
   downvotes_count: number
   // ... other fields
-}
+} 
