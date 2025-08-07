@@ -1,0 +1,3365 @@
+
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+
+COMMENT ON SCHEMA "public" IS 'standard public schema';
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_graphql" WITH SCHEMA "graphql";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE OR REPLACE FUNCTION "public"."check_campaign_max_entries"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+DECLARE
+  campaign_max_entries integer;
+  current_entry_count integer;
+BEGIN
+  SELECT max_entries, entry_count INTO campaign_max_entries, current_entry_count
+  FROM campaigns 
+  WHERE id = NEW.campaign_id;
+  
+  IF campaign_max_entries IS NOT NULL AND current_entry_count >= campaign_max_entries THEN
+    RAISE EXCEPTION 'Campaign has reached maximum entries limit of %', campaign_max_entries;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."check_campaign_max_entries"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."check_campaign_max_entries"("campaign_id" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  max_entries integer;
+  current_entries integer;
+BEGIN
+  SELECT c.max_entries, c.entry_count
+  INTO max_entries, current_entries
+  FROM campaigns c
+  WHERE c.id = campaign_id;
+  
+  -- If max_entries is NULL, no limit
+  IF max_entries IS NULL THEN
+    RETURN true;
+  END IF;
+  
+  -- Check if we can accept more entries
+  RETURN current_entries < max_entries;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."check_campaign_max_entries"("campaign_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."check_user_limits"("target_user_id" "uuid", "check_campaigns" integer DEFAULT 0, "check_books" integer DEFAULT 0, "check_pen_names" integer DEFAULT 0) RETURNS TABLE("can_create_campaign" boolean, "can_create_book" boolean, "can_create_pen_name" boolean, "current_campaigns" integer, "current_books" integer, "current_pen_names" integer, "max_campaigns" integer, "max_books" integer, "max_pen_names" integer, "plan_name" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+DECLARE
+  entitlements RECORD;
+  current_counts RECORD;
+BEGIN
+  -- Get user entitlements
+  SELECT * INTO entitlements
+  FROM public.user_entitlements
+  WHERE user_id = target_user_id;
+  
+  -- If no entitlements found, create default ones
+  IF NOT FOUND THEN
+    INSERT INTO public.user_entitlements (user_id, plan_name)
+    VALUES (target_user_id, 'free')
+    ON CONFLICT (user_id) DO NOTHING;
+    
+    SELECT * INTO entitlements
+    FROM public.user_entitlements
+    WHERE user_id = target_user_id;
+  END IF;
+  
+  -- Get current counts
+  SELECT 
+    COALESCE((SELECT COUNT(*) FROM public.campaigns WHERE user_id = target_user_id), 0) as campaign_count,
+    COALESCE((SELECT COUNT(*) FROM public.books WHERE user_id = target_user_id), 0) as book_count,
+    COALESCE((SELECT COUNT(*) FROM public.pen_names WHERE user_id = target_user_id), 0) as pen_name_count
+  INTO current_counts;
+  
+  RETURN QUERY SELECT
+    (entitlements.max_campaigns_allowed = -1 OR current_counts.campaign_count + check_campaigns <= entitlements.max_campaigns_allowed) as can_create_campaign,
+    (entitlements.max_books_allowed = -1 OR current_counts.book_count + check_books <= entitlements.max_books_allowed) as can_create_book,
+    (entitlements.max_pen_names_allowed = -1 OR current_counts.pen_name_count + check_pen_names <= entitlements.max_pen_names_allowed) as can_create_pen_name,
+    current_counts.campaign_count::integer,
+    current_counts.book_count::integer,
+    current_counts.pen_name_count::integer,
+    entitlements.max_campaigns_allowed,
+    entitlements.max_books_allowed,
+    entitlements.max_pen_names_allowed,
+    entitlements.plan_name;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."check_user_limits"("target_user_id" "uuid", "check_campaigns" integer, "check_books" integer, "check_pen_names" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."create_default_user_entitlements"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  default_plan text := 'free';
+  default_campaigns integer := 5;
+  default_books integer := 10;
+  default_pen_names integer := 3;
+BEGIN
+  -- Different defaults based on user type
+  IF NEW.user_type = 'reader' THEN
+    default_plan := 'reader_free';
+    default_campaigns := 0;  -- Readers don't create campaigns
+    default_books := 0;      -- Readers don't manage books  
+    default_pen_names := 0;  -- Readers don't have pen names
+  ELSIF NEW.user_type = 'both' THEN
+    default_plan := 'author_free'; -- Give them author permissions
+  END IF;
+
+  INSERT INTO public.user_entitlements (
+    user_id, 
+    plan_name, 
+    max_campaigns_allowed, 
+    max_books_allowed, 
+    max_pen_names_allowed
+  )
+  VALUES (
+    NEW.id, 
+    default_plan, 
+    default_campaigns, 
+    default_books, 
+    default_pen_names
+  )
+  ON CONFLICT (user_id) DO NOTHING;
+  
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."create_default_user_entitlements"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."create_default_user_settings"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+BEGIN
+  INSERT INTO public.user_settings (user_id)
+  VALUES (NEW.id)
+  ON CONFLICT (user_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."create_default_user_settings"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."decrement_book_downvotes"("book_id_param" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  UPDATE books 
+  SET downvotes_count = GREATEST(downvotes_count - 1, 0) 
+  WHERE id = book_id_param;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."decrement_book_downvotes"("book_id_param" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."decrement_book_upvotes"("book_id_param" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  UPDATE books 
+  SET upvotes_count = GREATEST(upvotes_count - 1, 0) 
+  WHERE id = book_id_param;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."decrement_book_upvotes"("book_id_param" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."decrement_pen_name_downvotes"("pen_name_id_param" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  UPDATE pen_names 
+  SET downvotes_count = GREATEST(downvotes_count - 1, 0) 
+  WHERE id = pen_name_id_param;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."decrement_pen_name_downvotes"("pen_name_id_param" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."decrement_pen_name_upvotes"("pen_name_id_param" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  UPDATE pen_names 
+  SET upvotes_count = GREATEST(upvotes_count - 1, 0) 
+  WHERE id = pen_name_id_param;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."decrement_pen_name_upvotes"("pen_name_id_param" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."ensure_single_primary_pen_name"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+BEGIN
+  IF NEW.is_primary = true THEN
+    UPDATE public.pen_names 
+    SET is_primary = false 
+    WHERE user_id = NEW.user_id AND id != NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."ensure_single_primary_pen_name"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."generate_delivery_slug"("title" "text", "book_id" "uuid") RETURNS "text"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  base_slug TEXT;
+  final_slug TEXT;
+  counter INTEGER := 0;
+BEGIN
+  -- Convert title to slug
+  base_slug := lower(regexp_replace(title, '[^a-zA-Z0-9\s-]', '', 'g'));
+  base_slug := regexp_replace(base_slug, '\s+', '-', 'g');
+  base_slug := trim(both '-' from base_slug);
+  
+  -- Add book ID suffix for uniqueness
+  base_slug := base_slug || '-' || substr(book_id::text, 1, 8);
+  
+  final_slug := base_slug;
+  
+  -- Check if slug exists and append counter if needed
+  WHILE EXISTS (SELECT 1 FROM book_delivery_methods WHERE slug = final_slug) LOOP
+    counter := counter + 1;
+    final_slug := base_slug || '-' || counter;
+  END LOOP;
+  
+  RETURN final_slug;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."generate_delivery_slug"("title" "text", "book_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."generate_storage_path"("user_id" "uuid", "book_id" "uuid", "file_name" "text", "file_type" "text" DEFAULT 'book'::"text") RETURNS "text"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    -- Pattern: {user_id}/{book_id}/{file_type}/{timestamp}_{filename}
+    -- Example: 123e4567-e89b.../987fcdeb-51a2.../book/1699923456_my-book.epub
+    -- For delivery files: 123e4567-e89b.../987fcdeb-51a2.../delivery/1699923456_my-book.epub
+    RETURN user_id::text || '/' || 
+           book_id::text || '/' || 
+           file_type || '/' ||
+           EXTRACT(EPOCH FROM NOW())::bigint || '_' || 
+           file_name;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."generate_storage_path"("user_id" "uuid", "book_id" "uuid", "file_name" "text", "file_type" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_campaign_stats"("campaign_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  result jsonb;
+BEGIN
+  SELECT jsonb_build_object(
+    'total_entries', COALESCE(c.entry_count, 0),
+    'max_entries', c.max_entries,
+    'days_remaining', 
+      CASE 
+        WHEN c.end_date IS NULL THEN NULL
+        ELSE EXTRACT(days FROM c.end_date - now())::integer
+      END,
+    'status', c.status,
+    'start_date', c.start_date,
+    'end_date', c.end_date,
+    'is_accepting_entries', public.is_campaign_accepting_entries(campaign_id)
+  )
+  INTO result
+  FROM campaigns c
+  WHERE c.id = campaign_id;
+  
+  RETURN result;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_campaign_stats"("campaign_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_pen_name_book_count"("pen_name_id" "uuid") RETURNS integer
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  RETURN (
+    SELECT COUNT(*)::integer
+    FROM books b
+    WHERE b.pen_name_id = get_pen_name_book_count.pen_name_id
+  );
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_pen_name_book_count"("pen_name_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_pen_name_campaign_count"("pen_name_id" "uuid") RETURNS integer
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  RETURN (
+    SELECT COUNT(*)::integer
+    FROM campaigns c
+    JOIN books b ON c.book_id = b.id
+    WHERE b.pen_name_id = get_pen_name_campaign_count.pen_name_id
+  );
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_pen_name_campaign_count"("pen_name_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_pen_names_with_counts"("target_user_id" "uuid") RETURNS TABLE("id" "uuid", "user_id" "uuid", "name" "text", "bio" "text", "website" "text", "social_links" "jsonb", "is_primary" boolean, "status" "text", "created_at" timestamp with time zone, "updated_at" timestamp with time zone, "book_count" bigint, "campaign_count" bigint)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    p.id,
+    p.user_id,
+    p.name,
+    p.bio,
+    p.website,
+    p.social_links,
+    p.is_primary,
+    p.status,
+    p.created_at,
+    p.updated_at,
+    (SELECT COUNT(*) FROM books b WHERE b.pen_name_id = p.id) AS book_count,
+    (SELECT COUNT(*) FROM campaigns c WHERE c.pen_name_id = p.id) AS campaign_count
+  FROM 
+    pen_names p
+  WHERE 
+    p.user_id = target_user_id
+  ORDER BY 
+    p.created_at DESC;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_pen_names_with_counts"("target_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_pen_names_with_counts_by_status"("target_user_id" "uuid") RETURNS TABLE("id" "uuid", "name" "text", "bio" "text", "is_primary" boolean, "books_count" bigint, "campaigns_count" bigint, "created_at" timestamp with time zone)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    pn.id,
+    pn.name,
+    pn.bio,
+    pn.is_primary,
+    COALESCE(b.books_count, 0) as books_count,
+    COALESCE(c.campaigns_count, 0) as campaigns_count,
+    pn.created_at
+  FROM pen_names pn
+  LEFT JOIN (
+    SELECT pen_name_id, COUNT(*) as books_count
+    FROM books
+    GROUP BY pen_name_id
+  ) b ON pn.id = b.pen_name_id
+  LEFT JOIN (
+    SELECT b.pen_name_id, COUNT(*) as campaigns_count
+    FROM campaigns camp
+    JOIN books b ON camp.book_id = b.id
+    GROUP BY b.pen_name_id
+  ) c ON pn.id = c.pen_name_id
+  WHERE pn.user_id = target_user_id
+  ORDER BY pn.is_primary DESC, pn.created_at DESC;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_pen_names_with_counts_by_status"("target_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_pen_names_with_counts_by_status"("target_user_id" "uuid", "target_status" "text") RETURNS TABLE("id" "uuid", "user_id" "uuid", "name" "text", "genre" "text", "bio" "text", "website" "text", "avatar_url" "text", "social_links" "jsonb", "is_primary" boolean, "status" "text", "created_at" timestamp with time zone, "updated_at" timestamp with time zone, "book_count" bigint, "campaign_count" bigint)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    p.id,
+    p.user_id,
+    p.name,
+    p.genre,
+    p.bio,
+    p.website,
+    p.avatar_url,
+    p.social_links,
+    p.is_primary,
+    p.status,
+    p.created_at,
+    p.updated_at,
+    (SELECT COUNT(*) FROM books b WHERE b.pen_name_id = p.id) AS book_count,
+    (SELECT COUNT(*) FROM campaigns c WHERE c.pen_name_id = p.id) AS campaign_count
+  FROM 
+    pen_names p
+  WHERE 
+    p.user_id = target_user_id AND
+    p.status = target_status
+  ORDER BY 
+    p.is_primary DESC, p.created_at DESC;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_pen_names_with_counts_by_status"("target_user_id" "uuid", "target_status" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_user_campaign_entries"("target_user_id" "uuid") RETURNS TABLE("campaign_id" "uuid", "campaign_title" "text", "book_title" "text", "entry_date" timestamp with time zone, "campaign_status" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    c.id as campaign_id,
+    c.title as campaign_title,
+    b.title as book_title,
+    ce.created_at as entry_date,
+    c.status as campaign_status
+  FROM campaign_entries ce
+  JOIN campaigns c ON ce.campaign_id = c.id
+  LEFT JOIN books b ON c.book_id = b.id
+  WHERE ce.user_id = target_user_id
+  ORDER BY ce.created_at DESC;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_user_campaign_entries"("target_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_user_campaign_entries"("campaign_uuid" "uuid", "wp_user_id" bigint) RETURNS TABLE("entry_method" "text", "entry_data" "jsonb", "created_at" timestamp with time zone)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    re.entry_method,
+    re.entry_data,
+    re.created_at
+  FROM reader_entries re
+  WHERE re.campaign_id = campaign_uuid 
+    AND re.wordpress_user_id = wp_user_id
+    AND re.status = 'valid'
+  ORDER BY re.created_at ASC;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_user_campaign_entries"("campaign_uuid" "uuid", "wp_user_id" bigint) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_user_dashboard_data"("target_user_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  result jsonb;
+BEGIN
+  SELECT jsonb_build_object(
+    'books_count', (SELECT COUNT(*) FROM books WHERE user_id = target_user_id),
+    'campaigns_count', (SELECT COUNT(*) FROM campaigns WHERE user_id = target_user_id),
+    'pen_names_count', (SELECT COUNT(*) FROM pen_names WHERE user_id = target_user_id),
+    'active_campaigns', (SELECT COUNT(*) FROM campaigns WHERE user_id = target_user_id AND status = 'active')
+  ) INTO result;
+  
+  RETURN result;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_user_dashboard_data"("target_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_user_settings"("target_user_id" "uuid") RETURNS TABLE("id" "uuid", "user_id" "uuid", "theme" "text", "font" "text", "sidebar_collapsed" boolean, "keyboard_shortcuts_enabled" boolean, "email_notifications" boolean, "marketing_emails" boolean, "weekly_reports" boolean, "language" "text", "timezone" "text", "usage_analytics" boolean, "auto_save_drafts" boolean, "created_at" timestamp with time zone, "updated_at" timestamp with time zone, "mailerlite_group_id" "text", "mailerlite_enabled" boolean, "mailchimp_list_id" "text", "mailchimp_enabled" boolean, "convertkit_form_id" "text", "convertkit_enabled" boolean, "klaviyo_list_id" "text", "klaviyo_enabled" boolean, "mailerlite_api_key_encrypted" "jsonb", "mailchimp_api_key_encrypted" "jsonb", "convertkit_api_key_encrypted" "jsonb", "klaviyo_api_key_encrypted" "jsonb", "authorletters_list_id" "text", "authorletters_enabled" boolean, "authorletters_api_key_encrypted" "jsonb")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    us.id,
+    us.user_id,
+    us.theme,
+    us.font,
+    us.sidebar_collapsed,
+    us.keyboard_shortcuts_enabled,
+    us.email_notifications,
+    us.marketing_emails,
+    us.weekly_reports,
+    us.language,
+    us.timezone,
+    us.usage_analytics,
+    us.auto_save_drafts,
+    us.created_at,
+    us.updated_at,
+    us.mailerlite_group_id,
+    us.mailerlite_enabled,
+    us.mailchimp_list_id,
+    us.mailchimp_enabled,
+    us.convertkit_form_id,
+    us.convertkit_enabled,
+    us.klaviyo_list_id,
+    us.klaviyo_enabled,
+    us.mailerlite_api_key_encrypted,
+    us.mailchimp_api_key_encrypted,
+    us.convertkit_api_key_encrypted,
+    us.klaviyo_api_key_encrypted,
+    us.authorletters_list_id,
+    us.authorletters_enabled,
+    us.authorletters_api_key_encrypted
+  FROM user_settings us
+  WHERE us.user_id = target_user_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_user_settings"("target_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+BEGIN
+  INSERT INTO public.users (
+    id, email, first_name, last_name, display_name, created_at, updated_at
+  ) VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'last_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'display_name', ''),
+    NOW(), NOW()
+  );
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."increment_book_downvotes"("book_id_param" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  UPDATE books 
+  SET downvotes_count = downvotes_count + 1 
+  WHERE id = book_id_param;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."increment_book_downvotes"("book_id_param" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."increment_book_upvotes"("book_id_param" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  UPDATE books 
+  SET upvotes_count = upvotes_count + 1 
+  WHERE id = book_id_param;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."increment_book_upvotes"("book_id_param" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."increment_download_count"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    -- Update reader_deliveries download count
+    UPDATE public.reader_deliveries
+    SET download_count = download_count + 1,
+        last_download_at = NOW()
+    WHERE id = NEW.delivery_id;
+    
+    -- Update reader_library download count if exists
+    UPDATE public.reader_library rl
+    SET download_count = download_count + 1,
+        last_accessed_at = NOW()
+    FROM public.reader_deliveries rd
+    JOIN public.book_delivery_methods bdm ON rd.delivery_method_id = bdm.id
+    WHERE rd.id = NEW.delivery_id
+    AND rl.book_id = bdm.book_id
+    AND rl.reader_id = (SELECT id FROM public.users WHERE email = rd.reader_email LIMIT 1);
+    
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."increment_download_count"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."increment_pen_name_downvotes"("pen_name_id_param" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  UPDATE pen_names 
+  SET downvotes_count = downvotes_count + 1 
+  WHERE id = pen_name_id_param;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."increment_pen_name_downvotes"("pen_name_id_param" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."increment_pen_name_upvotes"("pen_name_id_param" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  UPDATE pen_names 
+  SET upvotes_count = upvotes_count + 1 
+  WHERE id = pen_name_id_param;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."increment_pen_name_upvotes"("pen_name_id_param" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."is_campaign_accepting_entries"("campaign_id" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  campaign_status text;
+  campaign_start timestamptz;
+  campaign_end timestamptz;
+  can_accept_entries boolean;
+BEGIN
+  SELECT status, start_date, end_date
+  INTO campaign_status, campaign_start, campaign_end
+  FROM campaigns
+  WHERE id = campaign_id;
+  
+  -- Check if campaign is active
+  IF campaign_status != 'active' THEN
+    RETURN false;
+  END IF;
+  
+  -- Check if we're within the campaign dates
+  IF campaign_start IS NOT NULL AND now() < campaign_start THEN
+    RETURN false;
+  END IF;
+  
+  IF campaign_end IS NOT NULL AND now() > campaign_end THEN
+    RETURN false;
+  END IF;
+  
+  -- Check entry count limits
+  SELECT public.check_campaign_max_entries(campaign_id) INTO can_accept_entries;
+  
+  RETURN can_accept_entries;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."is_campaign_accepting_entries"("campaign_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."migrate_api_keys_to_encrypted"() RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  -- This function will be called from the application to migrate existing keys
+  -- The actual encryption will happen in the application layer for security
+  RAISE NOTICE 'API key migration function created. Call from application to migrate existing keys.';
+END;
+$$;
+
+
+ALTER FUNCTION "public"."migrate_api_keys_to_encrypted"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_book_files_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_book_files_updated_at"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_campaign_entry_count"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status = 'valid' THEN
+      UPDATE campaigns 
+      SET entry_count = entry_count + 1 
+      WHERE id = NEW.campaign_id;
+    END IF;
+    RETURN NEW;
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF OLD.status = 'valid' AND NEW.status != 'valid' THEN
+      UPDATE campaigns 
+      SET entry_count = entry_count - 1 
+      WHERE id = NEW.campaign_id;
+    ELSIF OLD.status != 'valid' AND NEW.status = 'valid' THEN
+      UPDATE campaigns 
+      SET entry_count = entry_count + 1 
+      WHERE id = NEW.campaign_id;
+    END IF;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    IF OLD.status = 'valid' THEN
+      UPDATE campaigns 
+      SET entry_count = entry_count - 1 
+      WHERE id = OLD.campaign_id;
+    END IF;
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_campaign_entry_count"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_campaign_entry_count"("campaign_id" "uuid", "new_count" integer) RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  UPDATE campaigns
+  SET entry_count = new_count,
+      updated_at = now()
+  WHERE id = campaign_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_campaign_entry_count"("campaign_id" "uuid", "new_count" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_delivery_methods_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_delivery_methods_updated_at"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_reader_preferences"("target_user_id" "uuid", "preferences" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  UPDATE user_settings
+  SET reader_preferences = preferences,
+      updated_at = now()
+  WHERE user_id = target_user_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_reader_preferences"("target_user_id" "uuid", "preferences" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_reader_preferences"("target_user_id" "uuid", "new_favorite_genres" "text"[] DEFAULT NULL::"text"[], "new_reading_preferences" "jsonb" DEFAULT NULL::"jsonb", "new_email_notifications" boolean DEFAULT NULL::boolean, "new_giveaway_reminders" boolean DEFAULT NULL::boolean) RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  -- Security check
+  IF auth.uid() != target_user_id THEN
+    RAISE EXCEPTION 'Access denied: You can only update your own preferences';
+  END IF;
+
+  UPDATE users
+  SET
+    favorite_genres = COALESCE(new_favorite_genres, favorite_genres),
+    reading_preferences = COALESCE(new_reading_preferences, reading_preferences),
+    email_notifications = COALESCE(new_email_notifications, email_notifications),
+    giveaway_reminders = COALESCE(new_giveaway_reminders, giveaway_reminders),
+    updated_at = now()
+  WHERE id = target_user_id AND user_type IN ('reader', 'both');
+
+  RETURN FOUND;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_reader_preferences"("target_user_id" "uuid", "new_favorite_genres" "text"[], "new_reading_preferences" "jsonb", "new_email_notifications" boolean, "new_giveaway_reminders" boolean) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_series_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_series_updated_at"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_updated_at_column"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_updated_at_column"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_user_settings"("target_user_id" "uuid", "settings_data" "jsonb") RETURNS TABLE("id" "uuid", "user_id" "uuid", "theme" "text", "font" "text", "sidebar_collapsed" boolean, "keyboard_shortcuts_enabled" boolean, "email_notifications" boolean, "marketing_emails" boolean, "weekly_reports" boolean, "language" "text", "timezone" "text", "usage_analytics" boolean, "auto_save_drafts" boolean, "created_at" timestamp with time zone, "updated_at" timestamp with time zone, "mailerlite_group_id" "text", "mailerlite_enabled" boolean, "mailchimp_list_id" "text", "mailchimp_enabled" boolean, "convertkit_form_id" "text", "convertkit_enabled" boolean, "klaviyo_list_id" "text", "klaviyo_enabled" boolean, "mailerlite_api_key_encrypted" "jsonb", "mailchimp_api_key_encrypted" "jsonb", "convertkit_api_key_encrypted" "jsonb", "klaviyo_api_key_encrypted" "jsonb", "authorletters_list_id" "text", "authorletters_enabled" boolean, "authorletters_api_key_encrypted" "jsonb")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  rows_affected integer;
+BEGIN
+  UPDATE user_settings 
+  SET 
+    theme = COALESCE((settings_data->>'theme')::text, user_settings.theme),
+    font = COALESCE((settings_data->>'font')::text, user_settings.font),
+    sidebar_collapsed = COALESCE((settings_data->>'sidebar_collapsed')::boolean, user_settings.sidebar_collapsed),
+    keyboard_shortcuts_enabled = COALESCE((settings_data->>'keyboard_shortcuts_enabled')::boolean, user_settings.keyboard_shortcuts_enabled),
+    email_notifications = COALESCE((settings_data->>'email_notifications')::boolean, user_settings.email_notifications),
+    marketing_emails = COALESCE((settings_data->>'marketing_emails')::boolean, user_settings.marketing_emails),
+    weekly_reports = COALESCE((settings_data->>'weekly_reports')::boolean, user_settings.weekly_reports),
+    language = COALESCE((settings_data->>'language')::text, user_settings.language),
+    timezone = COALESCE((settings_data->>'timezone')::text, user_settings.timezone),
+    usage_analytics = COALESCE((settings_data->>'usage_analytics')::boolean, user_settings.usage_analytics),
+    auto_save_drafts = COALESCE((settings_data->>'auto_save_drafts')::boolean, user_settings.auto_save_drafts),
+    mailerlite_group_id = COALESCE((settings_data->>'mailerlite_group_id')::text, user_settings.mailerlite_group_id),
+    mailerlite_enabled = COALESCE((settings_data->>'mailerlite_enabled')::boolean, user_settings.mailerlite_enabled),
+    mailchimp_list_id = COALESCE((settings_data->>'mailchimp_list_id')::text, user_settings.mailchimp_list_id),
+    mailchimp_enabled = COALESCE((settings_data->>'mailchimp_enabled')::boolean, user_settings.mailchimp_enabled),
+    convertkit_form_id = COALESCE((settings_data->>'convertkit_form_id')::text, user_settings.convertkit_form_id),
+    convertkit_enabled = COALESCE((settings_data->>'convertkit_enabled')::boolean, user_settings.convertkit_enabled),
+    klaviyo_list_id = COALESCE((settings_data->>'klaviyo_list_id')::text, user_settings.klaviyo_list_id),
+    klaviyo_enabled = COALESCE((settings_data->>'klaviyo_enabled')::boolean, user_settings.klaviyo_enabled),
+    mailerlite_api_key_encrypted = COALESCE((settings_data->>'mailerlite_api_key_encrypted')::jsonb, user_settings.mailerlite_api_key_encrypted),
+    mailchimp_api_key_encrypted = COALESCE((settings_data->>'mailchimp_api_key_encrypted')::jsonb, user_settings.mailchimp_api_key_encrypted),
+    convertkit_api_key_encrypted = COALESCE((settings_data->>'convertkit_api_key_encrypted')::jsonb, user_settings.convertkit_api_key_encrypted),
+    klaviyo_api_key_encrypted = COALESCE((settings_data->>'klaviyo_api_key_encrypted')::jsonb, user_settings.klaviyo_api_key_encrypted),
+    authorletters_list_id = COALESCE((settings_data->>'authorletters_list_id')::text, user_settings.authorletters_list_id),
+    authorletters_enabled = COALESCE((settings_data->>'authorletters_enabled')::boolean, user_settings.authorletters_enabled),
+    authorletters_api_key_encrypted = COALESCE((settings_data->>'authorletters_api_key_encrypted')::jsonb, user_settings.authorletters_api_key_encrypted),
+    updated_at = now()
+  WHERE user_settings.user_id = target_user_id;
+  
+  GET DIAGNOSTICS rows_affected = ROW_COUNT;
+  
+  -- Return the updated settings data with explicit table references
+  RETURN QUERY
+  SELECT 
+    us.id,
+    us.user_id,
+    us.theme,
+    us.font,
+    us.sidebar_collapsed,
+    us.keyboard_shortcuts_enabled,
+    us.email_notifications,
+    us.marketing_emails,
+    us.weekly_reports,
+    us.language,
+    us.timezone,
+    us.usage_analytics,
+    us.auto_save_drafts,
+    us.created_at,
+    us.updated_at,
+    us.mailerlite_group_id,
+    us.mailerlite_enabled,
+    us.mailchimp_list_id,
+    us.mailchimp_enabled,
+    us.convertkit_form_id,
+    us.convertkit_enabled,
+    us.klaviyo_list_id,
+    us.klaviyo_enabled,
+    us.mailerlite_api_key_encrypted,
+    us.mailchimp_api_key_encrypted,
+    us.convertkit_api_key_encrypted,
+    us.klaviyo_api_key_encrypted,
+    us.authorletters_list_id,
+    us.authorletters_enabled,
+    us.authorletters_api_key_encrypted
+  FROM user_settings us
+  WHERE us.user_id = target_user_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_user_settings"("target_user_id" "uuid", "settings_data" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_user_settings"("target_user_id" "uuid", "new_font" "text" DEFAULT NULL::"text", "new_theme" "text" DEFAULT NULL::"text", "new_sidebar_collapsed" boolean DEFAULT NULL::boolean, "new_keyboard_shortcuts_enabled" boolean DEFAULT NULL::boolean, "new_email_notifications" boolean DEFAULT NULL::boolean, "new_marketing_emails" boolean DEFAULT NULL::boolean, "new_weekly_reports" boolean DEFAULT NULL::boolean, "new_language" "text" DEFAULT NULL::"text", "new_timezone" "text" DEFAULT NULL::"text", "new_usage_analytics" boolean DEFAULT NULL::boolean, "new_auto_save_drafts" boolean DEFAULT NULL::boolean, "new_mailerlite_api_key" "text" DEFAULT NULL::"text", "new_mailerlite_group_id" "text" DEFAULT NULL::"text", "new_mailerlite_enabled" boolean DEFAULT NULL::boolean, "new_mailchimp_api_key" "text" DEFAULT NULL::"text", "new_mailchimp_list_id" "text" DEFAULT NULL::"text", "new_mailchimp_enabled" boolean DEFAULT NULL::boolean) RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  UPDATE user_settings
+  SET 
+    font = COALESCE(new_font, font),
+    theme = COALESCE(new_theme, theme),
+    sidebar_collapsed = COALESCE(new_sidebar_collapsed, sidebar_collapsed),
+    keyboard_shortcuts_enabled = COALESCE(new_keyboard_shortcuts_enabled, keyboard_shortcuts_enabled),
+    email_notifications = COALESCE(new_email_notifications, email_notifications),
+    marketing_emails = COALESCE(new_marketing_emails, marketing_emails),
+    weekly_reports = COALESCE(new_weekly_reports, weekly_reports),
+    language = COALESCE(new_language, language),
+    timezone = COALESCE(new_timezone, timezone),
+    usage_analytics = COALESCE(new_usage_analytics, usage_analytics),
+    auto_save_drafts = COALESCE(new_auto_save_drafts, auto_save_drafts),
+    mailerlite_api_key = COALESCE(new_mailerlite_api_key, mailerlite_api_key),
+    mailerlite_group_id = COALESCE(new_mailerlite_group_id, mailerlite_group_id),
+    mailerlite_enabled = COALESCE(new_mailerlite_enabled, mailerlite_enabled),
+    mailchimp_api_key = COALESCE(new_mailchimp_api_key, mailchimp_api_key),
+    mailchimp_list_id = COALESCE(new_mailchimp_list_id, mailchimp_list_id),
+    mailchimp_enabled = COALESCE(new_mailchimp_enabled, mailchimp_enabled),
+    updated_at = now()
+  WHERE user_id = target_user_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_user_settings"("target_user_id" "uuid", "new_font" "text", "new_theme" "text", "new_sidebar_collapsed" boolean, "new_keyboard_shortcuts_enabled" boolean, "new_email_notifications" boolean, "new_marketing_emails" boolean, "new_weekly_reports" boolean, "new_language" "text", "new_timezone" "text", "new_usage_analytics" boolean, "new_auto_save_drafts" boolean, "new_mailerlite_api_key" "text", "new_mailerlite_group_id" "text", "new_mailerlite_enabled" boolean, "new_mailchimp_api_key" "text", "new_mailchimp_list_id" "text", "new_mailchimp_enabled" boolean) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_user_type"("target_user_id" "uuid", "new_user_type" "text") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  UPDATE users
+  SET user_type = new_user_type,
+      updated_at = now()
+  WHERE id = target_user_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_user_type"("target_user_id" "uuid", "new_user_type" "text") OWNER TO "postgres";
+
+SET default_tablespace = '';
+
+SET default_table_access_method = "heap";
+
+
+CREATE TABLE IF NOT EXISTS "public"."book_delivery_methods" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "book_id" "uuid" NOT NULL,
+    "format" character varying(20) NOT NULL,
+    "title" character varying(255) NOT NULL,
+    "description" "text",
+    "slug" character varying(255) NOT NULL,
+    "is_active" boolean DEFAULT true,
+    "requires_email" boolean DEFAULT true,
+    "email_template" "text",
+    "download_limit" integer,
+    "expiry_days" integer,
+    "custom_css" "text",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "delivery_method" character varying(50) NOT NULL,
+    CONSTRAINT "book_delivery_methods_format_check" CHECK ((("format")::"text" = ANY (ARRAY[('epub'::character varying)::"text", ('pdf'::character varying)::"text", ('mobi'::character varying)::"text", ('audio'::character varying)::"text", ('print'::character varying)::"text"]))),
+    CONSTRAINT "check_delivery_method" CHECK ((("delivery_method")::"text" = ANY (ARRAY[('ebook'::character varying)::"text", ('audiobook'::character varying)::"text", ('print'::character varying)::"text"])))
+);
+
+
+ALTER TABLE "public"."book_delivery_methods" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."book_delivery_methods" IS 'Stores delivery methods for books (reader magnets, direct downloads, etc.)';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."id" IS 'Unique identifier for the delivery method';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."book_id" IS 'ID of the book this delivery method is for';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."format" IS 'File format for delivery (epub, pdf, mobi, etc.)';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."title" IS 'Title for the delivery method (e.g., "Free eBook Download")';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."description" IS 'Description of the delivery method';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."slug" IS 'Unique slug for public access URL';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."is_active" IS 'Whether this delivery method is currently active';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."requires_email" IS 'Whether email capture is required';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."email_template" IS 'Custom email template for delivery';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."download_limit" IS 'Maximum number of downloads allowed (NULL for unlimited)';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."expiry_days" IS 'Number of days before download expires (NULL for no expiry)';
+
+
+
+COMMENT ON COLUMN "public"."book_delivery_methods"."custom_css" IS 'Custom CSS for the reader magnet page';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."book_files" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "book_id" "uuid" NOT NULL,
+    "delivery_method_id" "uuid",
+    "format" character varying(20) NOT NULL,
+    "file_path" "text" NOT NULL,
+    "file_name" character varying(255) NOT NULL,
+    "file_size" bigint NOT NULL,
+    "mime_type" character varying(100) NOT NULL,
+    "storage_provider" character varying(50) DEFAULT 'supabase'::character varying,
+    "status" character varying(20) DEFAULT 'active'::character varying,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "book_files_format_check" CHECK ((("format")::"text" = ANY (ARRAY[('epub'::character varying)::"text", ('pdf'::character varying)::"text", ('mobi'::character varying)::"text", ('audio'::character varying)::"text", ('print'::character varying)::"text"]))),
+    CONSTRAINT "book_files_status_check" CHECK ((("status")::"text" = ANY (ARRAY[('active'::character varying)::"text", ('archived'::character varying)::"text", ('processing'::character varying)::"text"]))),
+    CONSTRAINT "book_files_storage_provider_check" CHECK ((("storage_provider")::"text" = ANY (ARRAY[('supabase'::character varying)::"text", ('bunny'::character varying)::"text", ('aws'::character varying)::"text"])))
+);
+
+
+ALTER TABLE "public"."book_files" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."book_files" IS 'Stores file references for book delivery';
+
+
+
+COMMENT ON COLUMN "public"."book_files"."id" IS 'Unique identifier for the file record';
+
+
+
+COMMENT ON COLUMN "public"."book_files"."book_id" IS 'ID of the book this file belongs to';
+
+
+
+COMMENT ON COLUMN "public"."book_files"."delivery_method_id" IS 'ID of the delivery method this file is for';
+
+
+
+COMMENT ON COLUMN "public"."book_files"."format" IS 'File format (epub, pdf, mobi, etc.)';
+
+
+
+COMMENT ON COLUMN "public"."book_files"."file_path" IS 'Path to the file in storage';
+
+
+
+COMMENT ON COLUMN "public"."book_files"."file_name" IS 'Original filename';
+
+
+
+COMMENT ON COLUMN "public"."book_files"."file_size" IS 'File size in bytes';
+
+
+
+COMMENT ON COLUMN "public"."book_files"."mime_type" IS 'MIME type of the file';
+
+
+
+COMMENT ON COLUMN "public"."book_files"."storage_provider" IS 'Storage provider (supabase, bunny, aws)';
+
+
+
+COMMENT ON COLUMN "public"."book_files"."status" IS 'Status of the file (active, archived, processing)';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."books" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "isbn" "text",
+    "title" "text" NOT NULL,
+    "author" "text" NOT NULL,
+    "description" "text",
+    "cover_image_url" "text",
+    "publisher" "text",
+    "published_date" "text",
+    "genre" "text",
+    "page_count" integer,
+    "language" "text" DEFAULT 'English'::"text",
+    "source" "text" DEFAULT 'manual'::"text",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "pen_name_id" "uuid",
+    "asin" "text",
+    "status" "text" DEFAULT 'active'::"text" NOT NULL,
+    "series_id" "uuid",
+    "series_order" integer,
+    "upvotes_count" integer DEFAULT 0,
+    "downvotes_count" integer DEFAULT 0,
+    CONSTRAINT "books_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'archived'::"text"])))
+);
+
+
+ALTER TABLE "public"."books" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."books"."status" IS 'Status of the book (active or archived)';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."campaign_entry_methods" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "campaign_id" "uuid" NOT NULL,
+    "entry_method_id" "text" NOT NULL,
+    "bonus_entries" integer DEFAULT 1,
+    "is_required" boolean DEFAULT false,
+    "method_config" "jsonb" DEFAULT '{}'::"jsonb",
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."campaign_entry_methods" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."campaigns" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "title" "text" NOT NULL,
+    "description" "text",
+    "book_id" "uuid",
+    "status" "text" DEFAULT 'draft'::"text",
+    "start_date" timestamp with time zone,
+    "end_date" timestamp with time zone,
+    "max_entries" integer,
+    "entry_count" integer DEFAULT 0,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "pen_name_id" "uuid",
+    "campaign_type" "text" DEFAULT 'giveaway'::"text" NOT NULL,
+    "prize_description" "text",
+    "rules" "text",
+    "book_cover_url" "text",
+    "book_genre" "text",
+    "book_description" "text",
+    "author_name" "text",
+    "winner_selection_date" timestamp with time zone,
+    "winner_announcement_date" timestamp with time zone,
+    "is_featured" boolean DEFAULT false,
+    "social_sharing_message" "text",
+    "thank_you_message" "text",
+    "minimum_age" integer DEFAULT 18,
+    "eligibility_countries" "text"[],
+    "campaign_genre" "text",
+    "prize_value" numeric(10,2),
+    "prize_format" "text",
+    "number_of_winners" integer DEFAULT 1,
+    "target_entries" integer DEFAULT 100,
+    "duration" integer,
+    "entry_methods" "text"[] DEFAULT '{}'::"text"[],
+    "selected_books" "text"[] DEFAULT '{}'::"text"[],
+    "gdpr_checkbox" boolean DEFAULT false,
+    "custom_thank_you_page" "text",
+    "social_media_config" "jsonb" DEFAULT '{}'::"jsonb",
+    CONSTRAINT "campaigns_campaign_genre_check" CHECK ((("campaign_genre" IS NULL) OR ("campaign_genre" = ANY (ARRAY['romance'::"text", 'mystery'::"text", 'thriller'::"text", 'fantasy'::"text", 'sci-fi'::"text", 'horror'::"text", 'biography'::"text", 'self-help'::"text", 'history'::"text", 'science'::"text"])))),
+    CONSTRAINT "campaigns_campaign_type_check" CHECK (("campaign_type" = ANY (ARRAY['giveaway'::"text", 'book_tour'::"text", 'launch_campaign'::"text", 'contest'::"text"]))),
+    CONSTRAINT "campaigns_duration_check" CHECK ((("duration" >= 1) AND ("duration" <= 30))),
+    CONSTRAINT "campaigns_number_of_winners_check" CHECK ((("number_of_winners" > 0) AND ("number_of_winners" <= 100))),
+    CONSTRAINT "campaigns_prize_format_check" CHECK ((("prize_format" IS NULL) OR ("prize_format" = ANY (ARRAY['ebook'::"text", 'print'::"text", 'audiobook'::"text"])))),
+    CONSTRAINT "campaigns_prize_value_check" CHECK (("prize_value" >= (0)::numeric)),
+    CONSTRAINT "campaigns_status_check" CHECK (("status" = ANY (ARRAY['draft'::"text", 'active'::"text", 'paused'::"text", 'completed'::"text"]))),
+    CONSTRAINT "campaigns_target_entries_check" CHECK ((("target_entries" >= 100) AND ("target_entries" <= 50000)))
+);
+
+
+ALTER TABLE "public"."campaigns" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."campaigns"."campaign_genre" IS 'Primary genre category for the campaign (e.g., romance, mystery, fantasy)';
+
+
+
+COMMENT ON COLUMN "public"."campaigns"."prize_value" IS 'Estimated prize value in USD';
+
+
+
+COMMENT ON COLUMN "public"."campaigns"."prize_format" IS 'Format of the prize (ebook, print, audiobook)';
+
+
+
+COMMENT ON COLUMN "public"."campaigns"."number_of_winners" IS 'Number of winners for this campaign';
+
+
+
+COMMENT ON COLUMN "public"."campaigns"."target_entries" IS 'Target number of reader entries for the campaign';
+
+
+
+COMMENT ON COLUMN "public"."campaigns"."duration" IS 'Duration of the campaign in days';
+
+
+
+COMMENT ON COLUMN "public"."campaigns"."entry_methods" IS 'Array of entry method IDs (newsletter, social_follow, etc.)';
+
+
+
+COMMENT ON COLUMN "public"."campaigns"."selected_books" IS 'Array of book IDs selected for this campaign';
+
+
+
+COMMENT ON COLUMN "public"."campaigns"."gdpr_checkbox" IS 'Whether to show GDPR consent checkbox on landing page';
+
+
+
+COMMENT ON COLUMN "public"."campaigns"."custom_thank_you_page" IS 'Custom URL to redirect participants after entry';
+
+
+
+COMMENT ON COLUMN "public"."campaigns"."social_media_config" IS 'JSON object mapping social media platforms to boolean values for follow requirements';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."entry_methods" (
+    "id" "text" NOT NULL,
+    "label" "text" NOT NULL,
+    "description" "text",
+    "requires_verification" boolean DEFAULT false,
+    "is_active" boolean DEFAULT true,
+    "sort_order" integer DEFAULT 0,
+    "config" "jsonb" DEFAULT '{}'::"jsonb"
+);
+
+
+ALTER TABLE "public"."entry_methods" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."pen_names" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "name" "text" NOT NULL,
+    "bio" "text",
+    "website" "text",
+    "social_links" "jsonb" DEFAULT '{}'::"jsonb",
+    "is_primary" boolean DEFAULT false,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "status" "text" DEFAULT 'active'::"text" NOT NULL,
+    "avatar_url" "text",
+    "genre" "text",
+    "upvotes_count" integer DEFAULT 0,
+    "downvotes_count" integer DEFAULT 0,
+    CONSTRAINT "pen_names_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'archived'::"text"])))
+);
+
+
+ALTER TABLE "public"."pen_names" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."reader_deliveries" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "delivery_method_id" "uuid" NOT NULL,
+    "reader_email" character varying(255) NOT NULL,
+    "reader_name" character varying(255),
+    "ip_address" "inet",
+    "user_agent" "text",
+    "delivered_at" timestamp with time zone DEFAULT "now"(),
+    "download_count" integer DEFAULT 1,
+    "last_download_at" timestamp with time zone DEFAULT "now"(),
+    "status" character varying(20) DEFAULT 'delivered'::character varying,
+    "access_token" "uuid" DEFAULT "gen_random_uuid"(),
+    "expires_at" timestamp with time zone,
+    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
+    CONSTRAINT "reader_deliveries_status_check" CHECK ((("status")::"text" = ANY (ARRAY[('delivered'::character varying)::"text", ('failed'::character varying)::"text", ('expired'::character varying)::"text"])))
+);
+
+
+ALTER TABLE "public"."reader_deliveries" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."reader_deliveries" IS 'Tracks reader downloads and email captures';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."id" IS 'Unique identifier for the delivery record';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."delivery_method_id" IS 'ID of the delivery method used';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."reader_email" IS 'Email address of the reader';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."reader_name" IS 'Name of the reader (optional)';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."ip_address" IS 'IP address of the reader';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."user_agent" IS 'User agent string';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."delivered_at" IS 'When the delivery was made';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."download_count" IS 'Number of times downloaded';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."last_download_at" IS 'Last download timestamp';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."status" IS 'Status of the delivery';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."access_token" IS 'Unique token for accessing the download';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."expires_at" IS 'When the download link expires';
+
+
+
+COMMENT ON COLUMN "public"."reader_deliveries"."metadata" IS 'Additional metadata (utm params, referrer, etc.)';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."reader_download_logs" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "delivery_id" "uuid" NOT NULL,
+    "file_id" "uuid" NOT NULL,
+    "downloaded_at" timestamp with time zone DEFAULT "now"(),
+    "ip_address" "inet",
+    "user_agent" "text",
+    "download_size" bigint,
+    "download_duration" integer,
+    "status" character varying(20) DEFAULT 'success'::character varying,
+    CONSTRAINT "reader_download_logs_status_check" CHECK ((("status")::"text" = ANY ((ARRAY['success'::character varying, 'failed'::character varying, 'partial'::character varying])::"text"[])))
+);
+
+
+ALTER TABLE "public"."reader_download_logs" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."reader_download_logs" IS 'Logs individual download attempts for analytics';
+
+
+
+COMMENT ON COLUMN "public"."reader_download_logs"."download_duration" IS 'Download duration in milliseconds';
+
+
+
+COMMENT ON COLUMN "public"."reader_download_logs"."status" IS 'Download status (success, failed, partial)';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."reader_entries" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "campaign_id" "uuid" NOT NULL,
+    "email" "text" NOT NULL,
+    "first_name" "text",
+    "last_name" "text",
+    "entry_method" "text" NOT NULL,
+    "entry_data" "jsonb" DEFAULT '{}'::"jsonb",
+    "ip_address" "inet",
+    "user_agent" "text",
+    "verified" boolean DEFAULT true,
+    "status" "text" DEFAULT 'valid'::"text",
+    "marketing_opt_in" boolean DEFAULT false,
+    "referral_code" "text",
+    "referred_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "user_id" "uuid" NOT NULL,
+    CONSTRAINT "reader_entries_email_check" CHECK (("email" ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'::"text")),
+    CONSTRAINT "reader_entries_status_check" CHECK (("status" = ANY (ARRAY['valid'::"text", 'invalid'::"text", 'disqualified'::"text"])))
+);
+
+
+ALTER TABLE "public"."reader_entries" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."reader_library" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "reader_id" "uuid" NOT NULL,
+    "book_id" "uuid" NOT NULL,
+    "acquired_from" character varying(50) NOT NULL,
+    "acquired_at" timestamp with time zone DEFAULT "now"(),
+    "campaign_id" "uuid",
+    "delivery_method_id" "uuid",
+    "status" character varying(20) DEFAULT 'available'::character varying,
+    "download_count" integer DEFAULT 0,
+    "last_accessed_at" timestamp with time zone,
+    "notes" "text",
+    CONSTRAINT "reader_library_acquired_from_check" CHECK ((("acquired_from")::"text" = ANY ((ARRAY['giveaway'::character varying, 'purchase'::character varying, 'gift'::character varying, 'author_direct'::character varying])::"text"[]))),
+    CONSTRAINT "reader_library_status_check" CHECK ((("status")::"text" = ANY ((ARRAY['available'::character varying, 'downloaded'::character varying, 'expired'::character varying, 'removed'::character varying])::"text"[])))
+);
+
+
+ALTER TABLE "public"."reader_library" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."reader_library" IS 'Stores books won/acquired by readers in their personal library';
+
+
+
+COMMENT ON COLUMN "public"."reader_library"."acquired_from" IS 'How the book was acquired (giveaway, purchase, gift, author_direct)';
+
+
+
+COMMENT ON COLUMN "public"."reader_library"."status" IS 'Book status in library (available, downloaded, expired, removed)';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."reader_preferences" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "preferred_format" character varying(20) DEFAULT 'epub'::character varying,
+    "reading_theme" character varying(20) DEFAULT 'light'::character varying,
+    "font_size" integer DEFAULT 16,
+    "font_family" character varying(50) DEFAULT 'sans-serif'::character varying,
+    "line_spacing" numeric(3,2) DEFAULT 1.5,
+    "text_alignment" character varying(20) DEFAULT 'left'::character varying,
+    "auto_sync" boolean DEFAULT true,
+    "offline_reading" boolean DEFAULT true,
+    "notifications_enabled" boolean DEFAULT true,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "reader_preferences_font_size_check" CHECK ((("font_size" >= 10) AND ("font_size" <= 32))),
+    CONSTRAINT "reader_preferences_line_spacing_check" CHECK ((("line_spacing" >= 1.0) AND ("line_spacing" <= 3.0))),
+    CONSTRAINT "reader_preferences_preferred_format_check" CHECK ((("preferred_format")::"text" = ANY ((ARRAY['epub'::character varying, 'pdf'::character varying, 'mobi'::character varying, 'audio'::character varying])::"text"[]))),
+    CONSTRAINT "reader_preferences_reading_theme_check" CHECK ((("reading_theme")::"text" = ANY ((ARRAY['light'::character varying, 'dark'::character varying, 'sepia'::character varying, 'auto'::character varying])::"text"[]))),
+    CONSTRAINT "reader_preferences_text_alignment_check" CHECK ((("text_alignment")::"text" = ANY ((ARRAY['left'::character varying, 'justify'::character varying, 'center'::character varying, 'right'::character varying])::"text"[])))
+);
+
+
+ALTER TABLE "public"."reader_preferences" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."reader_preferences" IS 'Stores reader app preferences and reading settings';
+
+
+
+COMMENT ON COLUMN "public"."reader_preferences"."auto_sync" IS 'Auto-sync reading progress across devices';
+
+
+
+COMMENT ON COLUMN "public"."reader_preferences"."offline_reading" IS 'Enable offline reading mode';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."reading_progress" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "book_id" "uuid" NOT NULL,
+    "current_position" "text",
+    "total_pages" integer,
+    "percentage_complete" numeric(5,2) DEFAULT 0,
+    "last_read_at" timestamp with time zone DEFAULT "now"(),
+    "reading_time_minutes" integer DEFAULT 0,
+    "bookmarks" "jsonb" DEFAULT '[]'::"jsonb",
+    "notes" "jsonb" DEFAULT '[]'::"jsonb",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "reading_progress_percentage_complete_check" CHECK ((("percentage_complete" >= (0)::numeric) AND ("percentage_complete" <= (100)::numeric)))
+);
+
+
+ALTER TABLE "public"."reading_progress" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."reading_progress" IS 'Tracks reading progress for each book';
+
+
+
+COMMENT ON COLUMN "public"."reading_progress"."current_position" IS 'Current reading position (page, percentage, or chapter)';
+
+
+
+COMMENT ON COLUMN "public"."reading_progress"."reading_time_minutes" IS 'Total reading time in minutes';
+
+
+
+COMMENT ON COLUMN "public"."reading_progress"."bookmarks" IS 'Array of bookmarked positions';
+
+
+
+COMMENT ON COLUMN "public"."reading_progress"."notes" IS 'Array of reader notes and highlights';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."series" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "name" character varying(255) NOT NULL,
+    "description" "text",
+    "cover_image_url" "text",
+    "genre" character varying(100),
+    "status" character varying(20) DEFAULT 'active'::character varying,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "series_status_check" CHECK ((("status")::"text" = ANY (ARRAY[('active'::character varying)::"text", ('archived'::character varying)::"text"])))
+);
+
+
+ALTER TABLE "public"."series" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."user_entitlements" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "max_campaigns_allowed" integer DEFAULT 5 NOT NULL,
+    "max_books_allowed" integer DEFAULT 10 NOT NULL,
+    "max_pen_names_allowed" integer DEFAULT 3 NOT NULL,
+    "plan_name" "text" DEFAULT 'free'::"text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "user_entitlements_max_books_allowed_check" CHECK (("max_books_allowed" >= 0)),
+    CONSTRAINT "user_entitlements_max_campaigns_allowed_check" CHECK (("max_campaigns_allowed" >= 0)),
+    CONSTRAINT "user_entitlements_max_pen_names_allowed_check" CHECK (("max_pen_names_allowed" >= 0))
+);
+
+
+ALTER TABLE "public"."user_entitlements" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."user_settings" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "theme" "text" DEFAULT 'system'::"text" NOT NULL,
+    "font" "text" DEFAULT 'Inter'::"text" NOT NULL,
+    "sidebar_collapsed" boolean DEFAULT false NOT NULL,
+    "keyboard_shortcuts_enabled" boolean DEFAULT true NOT NULL,
+    "email_notifications" boolean DEFAULT true NOT NULL,
+    "marketing_emails" boolean DEFAULT false NOT NULL,
+    "weekly_reports" boolean DEFAULT true NOT NULL,
+    "language" "text" DEFAULT 'en'::"text" NOT NULL,
+    "timezone" "text" DEFAULT 'America/New_York'::"text" NOT NULL,
+    "usage_analytics" boolean DEFAULT true NOT NULL,
+    "auto_save_drafts" boolean DEFAULT true NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "mailerlite_group_id" "text",
+    "mailerlite_enabled" boolean DEFAULT false NOT NULL,
+    "mailchimp_list_id" "text",
+    "mailchimp_enabled" boolean DEFAULT false NOT NULL,
+    "convertkit_form_id" "text",
+    "convertkit_enabled" boolean DEFAULT false NOT NULL,
+    "klaviyo_list_id" "text",
+    "klaviyo_enabled" boolean DEFAULT false NOT NULL,
+    "mailerlite_api_key_encrypted" "jsonb",
+    "mailchimp_api_key_encrypted" "jsonb",
+    "convertkit_api_key_encrypted" "jsonb",
+    "klaviyo_api_key_encrypted" "jsonb",
+    "authorletters_list_id" "text",
+    "authorletters_enabled" boolean DEFAULT false NOT NULL,
+    "authorletters_api_key_encrypted" "jsonb"
+);
+
+
+ALTER TABLE "public"."user_settings" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."user_settings"."mailerlite_group_id" IS 'MailerLite group ID for subscriber management';
+
+
+
+COMMENT ON COLUMN "public"."user_settings"."mailerlite_enabled" IS 'Whether MailerLite integration is enabled for this user';
+
+
+
+COMMENT ON COLUMN "public"."user_settings"."mailchimp_list_id" IS 'MailChimp audience/list ID for subscriber management';
+
+
+
+COMMENT ON COLUMN "public"."user_settings"."mailchimp_enabled" IS 'Whether MailChimp integration is enabled for this user';
+
+
+
+COMMENT ON COLUMN "public"."user_settings"."convertkit_form_id" IS 'ConvertKit form ID for subscriber management';
+
+
+
+COMMENT ON COLUMN "public"."user_settings"."convertkit_enabled" IS 'Whether ConvertKit integration is enabled';
+
+
+
+COMMENT ON COLUMN "public"."user_settings"."klaviyo_list_id" IS 'Klaviyo list ID for subscriber management';
+
+
+
+COMMENT ON COLUMN "public"."user_settings"."klaviyo_enabled" IS 'Whether Klaviyo integration is enabled';
+
+
+
+COMMENT ON COLUMN "public"."user_settings"."mailerlite_api_key_encrypted" IS 'Encrypted MailerLite API key stored as JSON with encrypted, iv, and salt';
+
+
+
+COMMENT ON COLUMN "public"."user_settings"."mailchimp_api_key_encrypted" IS 'Encrypted MailChimp API key stored as JSON with encrypted, iv, and salt';
+
+
+
+COMMENT ON COLUMN "public"."user_settings"."convertkit_api_key_encrypted" IS 'Encrypted ConvertKit API key stored as JSON with encrypted, iv, and salt';
+
+
+
+COMMENT ON COLUMN "public"."user_settings"."klaviyo_api_key_encrypted" IS 'Encrypted Klaviyo API key stored as JSON with encrypted, iv, and salt';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."users" (
+    "id" "uuid" NOT NULL,
+    "email" "text" NOT NULL,
+    "first_name" "text" DEFAULT ''::"text",
+    "last_name" "text" DEFAULT ''::"text",
+    "display_name" "text" DEFAULT ''::"text",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "user_type" "text" DEFAULT 'author'::"text",
+    "auth_source" "text",
+    "favorite_genres" "text"[] DEFAULT '{}'::"text"[],
+    "reading_preferences" "jsonb" DEFAULT '{}'::"jsonb",
+    "giveaway_reminders" boolean DEFAULT true,
+    CONSTRAINT "users_auth_source_check" CHECK (("auth_source" = ANY (ARRAY['crm'::"text", 'talk'::"text"]))),
+    CONSTRAINT "users_user_type_check" CHECK (("user_type" = ANY (ARRAY['author'::"text", 'reader'::"text", 'both'::"text"])))
+);
+
+
+ALTER TABLE "public"."users" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."votes" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid",
+    "book_id" "uuid",
+    "pen_name_id" "uuid",
+    "vote_type" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "votes_vote_type_check" CHECK (("vote_type" = ANY (ARRAY['upvote'::"text", 'downvote'::"text"])))
+);
+
+
+ALTER TABLE "public"."votes" OWNER TO "postgres";
+
+
+ALTER TABLE ONLY "public"."book_delivery_methods"
+    ADD CONSTRAINT "book_delivery_methods_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."book_delivery_methods"
+    ADD CONSTRAINT "book_delivery_methods_slug_key" UNIQUE ("slug");
+
+
+
+ALTER TABLE ONLY "public"."book_files"
+    ADD CONSTRAINT "book_files_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."books"
+    ADD CONSTRAINT "books_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."campaign_entry_methods"
+    ADD CONSTRAINT "campaign_entry_methods_campaign_id_entry_method_id_key" UNIQUE ("campaign_id", "entry_method_id");
+
+
+
+ALTER TABLE ONLY "public"."campaign_entry_methods"
+    ADD CONSTRAINT "campaign_entry_methods_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."campaigns"
+    ADD CONSTRAINT "campaigns_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."entry_methods"
+    ADD CONSTRAINT "entry_methods_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."pen_names"
+    ADD CONSTRAINT "pen_names_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."reader_deliveries"
+    ADD CONSTRAINT "reader_deliveries_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."reader_download_logs"
+    ADD CONSTRAINT "reader_download_logs_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."reader_entries"
+    ADD CONSTRAINT "reader_entries_campaign_id_user_id_entry_method_key" UNIQUE ("campaign_id", "user_id", "entry_method");
+
+
+
+ALTER TABLE ONLY "public"."reader_entries"
+    ADD CONSTRAINT "reader_entries_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."reader_library"
+    ADD CONSTRAINT "reader_library_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."reader_library"
+    ADD CONSTRAINT "reader_library_reader_id_book_id_key" UNIQUE ("reader_id", "book_id");
+
+
+
+ALTER TABLE ONLY "public"."reader_preferences"
+    ADD CONSTRAINT "reader_preferences_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."reader_preferences"
+    ADD CONSTRAINT "reader_preferences_user_id_key" UNIQUE ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."reading_progress"
+    ADD CONSTRAINT "reading_progress_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."reading_progress"
+    ADD CONSTRAINT "reading_progress_user_id_book_id_key" UNIQUE ("user_id", "book_id");
+
+
+
+ALTER TABLE ONLY "public"."series"
+    ADD CONSTRAINT "series_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."user_entitlements"
+    ADD CONSTRAINT "user_entitlements_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."user_entitlements"
+    ADD CONSTRAINT "user_entitlements_user_id_key" UNIQUE ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."user_settings"
+    ADD CONSTRAINT "user_settings_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."user_settings"
+    ADD CONSTRAINT "user_settings_user_id_key" UNIQUE ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."users"
+    ADD CONSTRAINT "users_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."votes"
+    ADD CONSTRAINT "votes_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."votes"
+    ADD CONSTRAINT "votes_user_id_book_id_key" UNIQUE ("user_id", "book_id");
+
+
+
+ALTER TABLE ONLY "public"."votes"
+    ADD CONSTRAINT "votes_user_id_pen_name_id_key" UNIQUE ("user_id", "pen_name_id");
+
+
+
+CREATE UNIQUE INDEX "books_asin_unique_idx" ON "public"."books" USING "btree" ("user_id", "lower"("asin")) WHERE (("asin" IS NOT NULL) AND ("asin" <> ''::"text"));
+
+
+
+COMMENT ON INDEX "public"."books_asin_unique_idx" IS 'Prevents duplicate ASIN entries per user';
+
+
+
+CREATE INDEX "books_isbn_idx" ON "public"."books" USING "btree" ("isbn") WHERE ("isbn" IS NOT NULL);
+
+
+
+CREATE UNIQUE INDEX "books_isbn_unique_idx" ON "public"."books" USING "btree" ("user_id", "lower"("isbn")) WHERE (("isbn" IS NOT NULL) AND ("isbn" <> ''::"text"));
+
+
+
+COMMENT ON INDEX "public"."books_isbn_unique_idx" IS 'Prevents duplicate ISBN entries per user';
+
+
+
+CREATE UNIQUE INDEX "books_title_author_unique_idx" ON "public"."books" USING "btree" ("user_id", "lower"("title"), "lower"("author"));
+
+
+
+COMMENT ON INDEX "public"."books_title_author_unique_idx" IS 'Prevents duplicate title/author combinations per user';
+
+
+
+CREATE INDEX "books_user_id_idx" ON "public"."books" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "campaign_entry_methods_campaign_id_idx" ON "public"."campaign_entry_methods" USING "btree" ("campaign_id");
+
+
+
+CREATE INDEX "campaigns_book_genre_idx" ON "public"."campaigns" USING "btree" ("book_genre");
+
+
+
+CREATE INDEX "campaigns_campaign_genre_idx" ON "public"."campaigns" USING "btree" ("campaign_genre");
+
+
+
+CREATE INDEX "campaigns_campaign_type_idx" ON "public"."campaigns" USING "btree" ("campaign_type");
+
+
+
+CREATE INDEX "campaigns_duration_idx" ON "public"."campaigns" USING "btree" ("duration");
+
+
+
+CREATE INDEX "campaigns_end_date_idx" ON "public"."campaigns" USING "btree" ("end_date");
+
+
+
+CREATE INDEX "campaigns_gdpr_checkbox_idx" ON "public"."campaigns" USING "btree" ("gdpr_checkbox");
+
+
+
+CREATE INDEX "campaigns_is_featured_idx" ON "public"."campaigns" USING "btree" ("is_featured");
+
+
+
+CREATE INDEX "campaigns_number_of_winners_idx" ON "public"."campaigns" USING "btree" ("number_of_winners");
+
+
+
+CREATE INDEX "campaigns_prize_format_idx" ON "public"."campaigns" USING "btree" ("prize_format");
+
+
+
+CREATE INDEX "campaigns_status_idx" ON "public"."campaigns" USING "btree" ("status");
+
+
+
+CREATE INDEX "campaigns_target_entries_idx" ON "public"."campaigns" USING "btree" ("target_entries");
+
+
+
+CREATE INDEX "campaigns_user_id_idx" ON "public"."campaigns" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "idx_book_files_book_id" ON "public"."book_files" USING "btree" ("book_id");
+
+
+
+CREATE UNIQUE INDEX "idx_book_files_delivery_format_unique" ON "public"."book_files" USING "btree" ("delivery_method_id", "format") WHERE (("status")::"text" = 'active'::"text");
+
+
+
+CREATE INDEX "idx_book_files_delivery_method_id" ON "public"."book_files" USING "btree" ("delivery_method_id");
+
+
+
+CREATE INDEX "idx_book_files_format" ON "public"."book_files" USING "btree" ("format");
+
+
+
+CREATE INDEX "idx_book_files_status" ON "public"."book_files" USING "btree" ("status");
+
+
+
+CREATE INDEX "idx_books_series_id" ON "public"."books" USING "btree" ("series_id");
+
+
+
+CREATE INDEX "idx_books_series_order" ON "public"."books" USING "btree" ("series_order");
+
+
+
+CREATE INDEX "idx_books_status" ON "public"."books" USING "btree" ("status");
+
+
+
+CREATE INDEX "idx_books_user_status" ON "public"."books" USING "btree" ("user_id", "status");
+
+
+
+CREATE UNIQUE INDEX "idx_delivery_methods_book_format_unique" ON "public"."book_delivery_methods" USING "btree" ("book_id", "format") WHERE ("is_active" = true);
+
+
+
+CREATE INDEX "idx_delivery_methods_book_id" ON "public"."book_delivery_methods" USING "btree" ("book_id");
+
+
+
+CREATE INDEX "idx_delivery_methods_created_at" ON "public"."book_delivery_methods" USING "btree" ("created_at");
+
+
+
+CREATE INDEX "idx_delivery_methods_is_active" ON "public"."book_delivery_methods" USING "btree" ("is_active");
+
+
+
+CREATE INDEX "idx_delivery_methods_slug" ON "public"."book_delivery_methods" USING "btree" ("slug");
+
+
+
+CREATE INDEX "idx_reader_deliveries_access_token" ON "public"."reader_deliveries" USING "btree" ("access_token");
+
+
+
+CREATE INDEX "idx_reader_deliveries_delivered_at" ON "public"."reader_deliveries" USING "btree" ("delivered_at");
+
+
+
+CREATE INDEX "idx_reader_deliveries_delivery_method_id" ON "public"."reader_deliveries" USING "btree" ("delivery_method_id");
+
+
+
+CREATE INDEX "idx_reader_deliveries_expires_at" ON "public"."reader_deliveries" USING "btree" ("expires_at");
+
+
+
+CREATE INDEX "idx_reader_deliveries_reader_email" ON "public"."reader_deliveries" USING "btree" ("reader_email");
+
+
+
+CREATE INDEX "idx_reader_deliveries_status" ON "public"."reader_deliveries" USING "btree" ("status");
+
+
+
+CREATE INDEX "idx_reader_download_logs_delivery_id" ON "public"."reader_download_logs" USING "btree" ("delivery_id");
+
+
+
+CREATE INDEX "idx_reader_download_logs_downloaded_at" ON "public"."reader_download_logs" USING "btree" ("downloaded_at");
+
+
+
+CREATE INDEX "idx_reader_download_logs_file_id" ON "public"."reader_download_logs" USING "btree" ("file_id");
+
+
+
+CREATE INDEX "idx_reader_library_acquired_at" ON "public"."reader_library" USING "btree" ("acquired_at");
+
+
+
+CREATE INDEX "idx_reader_library_book_id" ON "public"."reader_library" USING "btree" ("book_id");
+
+
+
+CREATE INDEX "idx_reader_library_campaign_id" ON "public"."reader_library" USING "btree" ("campaign_id");
+
+
+
+CREATE INDEX "idx_reader_library_reader_id" ON "public"."reader_library" USING "btree" ("reader_id");
+
+
+
+CREATE INDEX "idx_reader_library_status" ON "public"."reader_library" USING "btree" ("status");
+
+
+
+CREATE INDEX "idx_reader_preferences_user_id" ON "public"."reader_preferences" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "idx_reading_progress_book_id" ON "public"."reading_progress" USING "btree" ("book_id");
+
+
+
+CREATE INDEX "idx_reading_progress_last_read_at" ON "public"."reading_progress" USING "btree" ("last_read_at");
+
+
+
+CREATE INDEX "idx_reading_progress_user_id" ON "public"."reading_progress" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "idx_series_created_at" ON "public"."series" USING "btree" ("created_at");
+
+
+
+CREATE INDEX "idx_series_status" ON "public"."series" USING "btree" ("status");
+
+
+
+CREATE INDEX "idx_series_user_id" ON "public"."series" USING "btree" ("user_id");
+
+
+
+CREATE UNIQUE INDEX "idx_series_user_name_unique" ON "public"."series" USING "btree" ("user_id", "name") WHERE (("status")::"text" = 'active'::"text");
+
+
+
+CREATE INDEX "idx_votes_book_id" ON "public"."votes" USING "btree" ("book_id");
+
+
+
+CREATE INDEX "idx_votes_pen_name_id" ON "public"."votes" USING "btree" ("pen_name_id");
+
+
+
+CREATE INDEX "idx_votes_user_id" ON "public"."votes" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "idx_votes_vote_type" ON "public"."votes" USING "btree" ("vote_type");
+
+
+
+CREATE INDEX "pen_names_genre_idx" ON "public"."pen_names" USING "btree" ("genre");
+
+
+
+CREATE INDEX "pen_names_status_idx" ON "public"."pen_names" USING "btree" ("status");
+
+
+
+CREATE INDEX "pen_names_user_id_idx" ON "public"."pen_names" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "reader_entries_campaign_id_idx" ON "public"."reader_entries" USING "btree" ("campaign_id");
+
+
+
+CREATE INDEX "reader_entries_created_at_idx" ON "public"."reader_entries" USING "btree" ("created_at");
+
+
+
+CREATE INDEX "reader_entries_email_idx" ON "public"."reader_entries" USING "btree" ("email");
+
+
+
+CREATE INDEX "reader_entries_status_idx" ON "public"."reader_entries" USING "btree" ("status");
+
+
+
+CREATE INDEX "reader_entries_user_id_idx" ON "public"."reader_entries" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "user_entitlements_plan_name_idx" ON "public"."user_entitlements" USING "btree" ("plan_name");
+
+
+
+CREATE INDEX "user_entitlements_user_id_idx" ON "public"."user_entitlements" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "user_settings_user_id_idx" ON "public"."user_settings" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "users_auth_source_idx" ON "public"."users" USING "btree" ("auth_source");
+
+
+
+CREATE INDEX "users_favorite_genres_idx" ON "public"."users" USING "gin" ("favorite_genres") WHERE ("user_type" = ANY (ARRAY['reader'::"text", 'both'::"text"]));
+
+
+
+CREATE INDEX "users_user_type_idx" ON "public"."users" USING "btree" ("user_type");
+
+
+
+CREATE OR REPLACE TRIGGER "create_user_entitlements_trigger" AFTER INSERT ON "public"."users" FOR EACH ROW EXECUTE FUNCTION "public"."create_default_user_entitlements"();
+
+
+
+CREATE OR REPLACE TRIGGER "create_user_settings_trigger" AFTER INSERT ON "public"."users" FOR EACH ROW EXECUTE FUNCTION "public"."create_default_user_settings"();
+
+
+
+CREATE OR REPLACE TRIGGER "ensure_single_primary_pen_name_trigger" BEFORE INSERT OR UPDATE ON "public"."pen_names" FOR EACH ROW EXECUTE FUNCTION "public"."ensure_single_primary_pen_name"();
+
+
+
+CREATE OR REPLACE TRIGGER "increment_download_count_trigger" AFTER INSERT ON "public"."reader_download_logs" FOR EACH ROW WHEN ((("new"."status")::"text" = 'success'::"text")) EXECUTE FUNCTION "public"."increment_download_count"();
+
+
+
+CREATE OR REPLACE TRIGGER "trigger_check_campaign_max_entries" BEFORE INSERT ON "public"."reader_entries" FOR EACH ROW EXECUTE FUNCTION "public"."check_campaign_max_entries"();
+
+
+
+CREATE OR REPLACE TRIGGER "trigger_update_campaign_entry_count" AFTER INSERT OR DELETE OR UPDATE ON "public"."reader_entries" FOR EACH ROW EXECUTE FUNCTION "public"."update_campaign_entry_count"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_book_files_updated_at_trigger" BEFORE UPDATE ON "public"."book_files" FOR EACH ROW EXECUTE FUNCTION "public"."update_book_files_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_books_updated_at" BEFORE UPDATE ON "public"."books" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_campaigns_updated_at" BEFORE UPDATE ON "public"."campaigns" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_delivery_methods_updated_at_trigger" BEFORE UPDATE ON "public"."book_delivery_methods" FOR EACH ROW EXECUTE FUNCTION "public"."update_delivery_methods_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_pen_names_updated_at" BEFORE UPDATE ON "public"."pen_names" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_reader_entries_updated_at" BEFORE UPDATE ON "public"."reader_entries" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_reader_library_updated_at" BEFORE UPDATE ON "public"."reader_library" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_reader_preferences_updated_at" BEFORE UPDATE ON "public"."reader_preferences" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_reading_progress_updated_at" BEFORE UPDATE ON "public"."reading_progress" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_series_updated_at_trigger" BEFORE UPDATE ON "public"."series" FOR EACH ROW EXECUTE FUNCTION "public"."update_series_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_user_entitlements_updated_at" BEFORE UPDATE ON "public"."user_entitlements" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_user_settings_updated_at" BEFORE UPDATE ON "public"."user_settings" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_users_updated_at" BEFORE UPDATE ON "public"."users" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+ALTER TABLE ONLY "public"."book_delivery_methods"
+    ADD CONSTRAINT "book_delivery_methods_book_id_fkey" FOREIGN KEY ("book_id") REFERENCES "public"."books"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."book_files"
+    ADD CONSTRAINT "book_files_book_id_fkey" FOREIGN KEY ("book_id") REFERENCES "public"."books"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."book_files"
+    ADD CONSTRAINT "book_files_delivery_method_id_fkey" FOREIGN KEY ("delivery_method_id") REFERENCES "public"."book_delivery_methods"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."books"
+    ADD CONSTRAINT "books_pen_name_id_fkey" FOREIGN KEY ("pen_name_id") REFERENCES "public"."pen_names"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."books"
+    ADD CONSTRAINT "books_series_id_fkey" FOREIGN KEY ("series_id") REFERENCES "public"."series"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."books"
+    ADD CONSTRAINT "books_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."campaign_entry_methods"
+    ADD CONSTRAINT "campaign_entry_methods_campaign_id_fkey" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaigns"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."campaign_entry_methods"
+    ADD CONSTRAINT "campaign_entry_methods_entry_method_id_fkey" FOREIGN KEY ("entry_method_id") REFERENCES "public"."entry_methods"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."campaigns"
+    ADD CONSTRAINT "campaigns_book_id_fkey" FOREIGN KEY ("book_id") REFERENCES "public"."books"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."campaigns"
+    ADD CONSTRAINT "campaigns_pen_name_id_fkey" FOREIGN KEY ("pen_name_id") REFERENCES "public"."pen_names"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."campaigns"
+    ADD CONSTRAINT "campaigns_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."pen_names"
+    ADD CONSTRAINT "pen_names_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."reader_deliveries"
+    ADD CONSTRAINT "reader_deliveries_delivery_method_id_fkey" FOREIGN KEY ("delivery_method_id") REFERENCES "public"."book_delivery_methods"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."reader_download_logs"
+    ADD CONSTRAINT "reader_download_logs_delivery_id_fkey" FOREIGN KEY ("delivery_id") REFERENCES "public"."reader_deliveries"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."reader_download_logs"
+    ADD CONSTRAINT "reader_download_logs_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "public"."book_files"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."reader_entries"
+    ADD CONSTRAINT "reader_entries_campaign_id_fkey" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaigns"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."reader_entries"
+    ADD CONSTRAINT "reader_entries_referred_by_fkey" FOREIGN KEY ("referred_by") REFERENCES "public"."reader_entries"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."reader_entries"
+    ADD CONSTRAINT "reader_entries_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."reader_library"
+    ADD CONSTRAINT "reader_library_book_id_fkey" FOREIGN KEY ("book_id") REFERENCES "public"."books"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."reader_library"
+    ADD CONSTRAINT "reader_library_campaign_id_fkey" FOREIGN KEY ("campaign_id") REFERENCES "public"."campaigns"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."reader_library"
+    ADD CONSTRAINT "reader_library_delivery_method_id_fkey" FOREIGN KEY ("delivery_method_id") REFERENCES "public"."book_delivery_methods"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."reader_library"
+    ADD CONSTRAINT "reader_library_reader_id_fkey" FOREIGN KEY ("reader_id") REFERENCES "public"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."reader_preferences"
+    ADD CONSTRAINT "reader_preferences_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."reading_progress"
+    ADD CONSTRAINT "reading_progress_book_id_fkey" FOREIGN KEY ("book_id") REFERENCES "public"."books"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."reading_progress"
+    ADD CONSTRAINT "reading_progress_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."series"
+    ADD CONSTRAINT "series_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."user_entitlements"
+    ADD CONSTRAINT "user_entitlements_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."user_settings"
+    ADD CONSTRAINT "user_settings_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."users"
+    ADD CONSTRAINT "users_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."votes"
+    ADD CONSTRAINT "votes_book_id_fkey" FOREIGN KEY ("book_id") REFERENCES "public"."books"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."votes"
+    ADD CONSTRAINT "votes_pen_name_id_fkey" FOREIGN KEY ("pen_name_id") REFERENCES "public"."pen_names"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."votes"
+    ADD CONSTRAINT "votes_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE CASCADE;
+
+
+
+CREATE POLICY "Allow entitlements creation during signup" ON "public"."user_entitlements" FOR INSERT TO "authenticated", "anon" WITH CHECK (true);
+
+
+
+CREATE POLICY "Anyone can view active entry methods" ON "public"."entry_methods" FOR SELECT TO "authenticated", "anon" USING (("is_active" = true));
+
+
+
+CREATE POLICY "Authors can view download logs for their books" ON "public"."reader_download_logs" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM ("public"."book_files" "bf"
+     JOIN "public"."books" "b" ON (("bf"."book_id" = "b"."id")))
+  WHERE (("bf"."id" = "reader_download_logs"."file_id") AND ("b"."user_id" = "auth"."uid"())))));
+
+
+
+CREATE POLICY "Authors can view their delivery methods" ON "public"."book_delivery_methods" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."books"
+  WHERE (("books"."id" = "book_delivery_methods"."book_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "Campaign owners can delete entry methods" ON "public"."campaign_entry_methods" FOR DELETE TO "authenticated" USING (("campaign_id" IN ( SELECT "campaigns"."id"
+   FROM "public"."campaigns"
+  WHERE ("campaigns"."user_id" = ( SELECT "auth"."uid"() AS "uid")))));
+
+
+
+CREATE POLICY "Campaign owners can insert entry methods" ON "public"."campaign_entry_methods" FOR INSERT TO "authenticated" WITH CHECK (("campaign_id" IN ( SELECT "campaigns"."id"
+   FROM "public"."campaigns"
+  WHERE ("campaigns"."user_id" = ( SELECT "auth"."uid"() AS "uid")))));
+
+
+
+CREATE POLICY "Campaign owners can update entry methods" ON "public"."campaign_entry_methods" FOR UPDATE TO "authenticated" USING (("campaign_id" IN ( SELECT "campaigns"."id"
+   FROM "public"."campaigns"
+  WHERE ("campaigns"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))) WITH CHECK (("campaign_id" IN ( SELECT "campaigns"."id"
+   FROM "public"."campaigns"
+  WHERE ("campaigns"."user_id" = ( SELECT "auth"."uid"() AS "uid")))));
+
+
+
+CREATE POLICY "Service role can manage all entitlements" ON "public"."user_entitlements" TO "service_role" USING (true) WITH CHECK (true);
+
+
+
+CREATE POLICY "Service role can manage entry methods" ON "public"."entry_methods" TO "service_role" USING (true) WITH CHECK (true);
+
+
+
+CREATE POLICY "Users and campaign owners can view entries" ON "public"."reader_entries" FOR SELECT TO "authenticated" USING (((( SELECT "auth"."uid"() AS "uid") = "user_id") OR ("campaign_id" IN ( SELECT "campaigns"."id"
+   FROM "public"."campaigns"
+  WHERE ("campaigns"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "Users can add books to their library" ON "public"."reader_library" FOR INSERT WITH CHECK (("auth"."uid"() = "reader_id"));
+
+
+
+CREATE POLICY "Users can delete their own book files" ON "public"."book_files" FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM "public"."books"
+  WHERE (("books"."id" = "book_files"."book_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "Users can delete their own books" ON "public"."books" FOR DELETE TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can delete their own campaigns" ON "public"."campaigns" FOR DELETE TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can delete their own delivery methods" ON "public"."book_delivery_methods" FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM "public"."books"
+  WHERE (("books"."id" = "book_delivery_methods"."book_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "Users can delete their own pen names" ON "public"."pen_names" FOR DELETE TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can delete their own series" ON "public"."series" FOR DELETE USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "Users can insert reader deliveries" ON "public"."reader_deliveries" FOR INSERT WITH CHECK (true);
+
+
+
+CREATE POLICY "Users can insert their own book files" ON "public"."book_files" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."books"
+  WHERE (("books"."id" = "book_files"."book_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "Users can insert their own books" ON "public"."books" FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can insert their own campaigns" ON "public"."campaigns" FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can insert their own delivery methods" ON "public"."book_delivery_methods" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."books"
+  WHERE (("books"."id" = "book_delivery_methods"."book_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "Users can insert their own entries" ON "public"."reader_entries" FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can insert their own pen names" ON "public"."pen_names" FOR INSERT TO "authenticated" WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can insert their own series" ON "public"."series" FOR INSERT WITH CHECK (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "Users can insert their preferences" ON "public"."reader_preferences" FOR INSERT WITH CHECK (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Users can track their reading progress" ON "public"."reading_progress" FOR INSERT WITH CHECK (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Users can update their library" ON "public"."reader_library" FOR UPDATE USING (("auth"."uid"() = "reader_id"));
+
+
+
+CREATE POLICY "Users can update their own book files" ON "public"."book_files" FOR UPDATE USING ((EXISTS ( SELECT 1
+   FROM "public"."books"
+  WHERE (("books"."id" = "book_files"."book_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid")))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."books"
+  WHERE (("books"."id" = "book_files"."book_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "Users can update their own books" ON "public"."books" FOR UPDATE TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id")) WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can update their own campaigns" ON "public"."campaigns" FOR UPDATE TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id")) WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can update their own delivery methods" ON "public"."book_delivery_methods" FOR UPDATE USING ((EXISTS ( SELECT 1
+   FROM "public"."books"
+  WHERE (("books"."id" = "book_delivery_methods"."book_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid")))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."books"
+  WHERE (("books"."id" = "book_delivery_methods"."book_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "Users can update their own pen names" ON "public"."pen_names" FOR UPDATE TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id")) WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can update their own profile" ON "public"."users" FOR UPDATE TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "id")) WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "id"));
+
+
+
+CREATE POLICY "Users can update their own reader deliveries" ON "public"."reader_deliveries" FOR UPDATE USING ((EXISTS ( SELECT 1
+   FROM ("public"."book_delivery_methods"
+     JOIN "public"."books" ON (("books"."id" = "book_delivery_methods"."book_id")))
+  WHERE (("book_delivery_methods"."id" = "reader_deliveries"."delivery_method_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid")))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM ("public"."book_delivery_methods"
+     JOIN "public"."books" ON (("books"."id" = "book_delivery_methods"."book_id")))
+  WHERE (("book_delivery_methods"."id" = "reader_deliveries"."delivery_method_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "Users can update their own series" ON "public"."series" FOR UPDATE USING (("user_id" = ( SELECT "auth"."uid"() AS "uid"))) WITH CHECK (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "Users can update their own settings" ON "public"."user_settings" FOR UPDATE TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id")) WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can update their preferences" ON "public"."reader_preferences" FOR UPDATE USING (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Users can update their reading progress" ON "public"."reading_progress" FOR UPDATE USING (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Users can view their own book files" ON "public"."book_files" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."books"
+  WHERE (("books"."id" = "book_files"."book_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "Users can view their own books" ON "public"."books" FOR SELECT TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can view their own campaigns" ON "public"."campaigns" FOR SELECT TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can view their own entitlements" ON "public"."user_entitlements" FOR SELECT TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can view their own library" ON "public"."reader_library" FOR SELECT USING (("auth"."uid"() = "reader_id"));
+
+
+
+CREATE POLICY "Users can view their own pen names" ON "public"."pen_names" FOR SELECT TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can view their own preferences" ON "public"."reader_preferences" FOR SELECT USING (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Users can view their own profile" ON "public"."users" FOR SELECT TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "id"));
+
+
+
+CREATE POLICY "Users can view their own reader deliveries" ON "public"."reader_deliveries" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM ("public"."book_delivery_methods"
+     JOIN "public"."books" ON (("books"."id" = "book_delivery_methods"."book_id")))
+  WHERE (("book_delivery_methods"."id" = "reader_deliveries"."delivery_method_id") AND ("books"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+
+
+
+CREATE POLICY "Users can view their own reading progress" ON "public"."reading_progress" FOR SELECT USING (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Users can view their own series" ON "public"."series" FOR SELECT USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));
+
+
+
+CREATE POLICY "Users can view their own settings" ON "public"."user_settings" FOR SELECT TO "authenticated" USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "View entry methods" ON "public"."campaign_entry_methods" FOR SELECT TO "authenticated", "anon" USING ((("campaign_id" IN ( SELECT "campaigns"."id"
+   FROM "public"."campaigns"
+  WHERE ("campaigns"."status" = 'active'::"text"))) OR ((( SELECT "auth"."role"() AS "role") = 'authenticated'::"text") AND ("campaign_id" IN ( SELECT "campaigns"."id"
+   FROM "public"."campaigns"
+  WHERE ("campaigns"."user_id" = ( SELECT "auth"."uid"() AS "uid")))))));
+
+
+
+ALTER TABLE "public"."book_delivery_methods" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."book_files" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."books" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."campaign_entry_methods" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."campaigns" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."entry_methods" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."pen_names" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."reader_deliveries" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."reader_download_logs" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."reader_entries" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."reader_library" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."reader_preferences" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."reading_progress" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."series" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."user_entitlements" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."user_settings" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."users" ENABLE ROW LEVEL SECURITY;
+
+
+
+
+ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
+
+
+GRANT USAGE ON SCHEMA "public" TO "postgres";
+GRANT USAGE ON SCHEMA "public" TO "anon";
+GRANT USAGE ON SCHEMA "public" TO "authenticated";
+GRANT USAGE ON SCHEMA "public" TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+GRANT ALL ON FUNCTION "public"."check_campaign_max_entries"() TO "anon";
+GRANT ALL ON FUNCTION "public"."check_campaign_max_entries"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."check_campaign_max_entries"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."check_campaign_max_entries"("campaign_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."check_campaign_max_entries"("campaign_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."check_campaign_max_entries"("campaign_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."check_user_limits"("target_user_id" "uuid", "check_campaigns" integer, "check_books" integer, "check_pen_names" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."check_user_limits"("target_user_id" "uuid", "check_campaigns" integer, "check_books" integer, "check_pen_names" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."check_user_limits"("target_user_id" "uuid", "check_campaigns" integer, "check_books" integer, "check_pen_names" integer) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."create_default_user_entitlements"() TO "anon";
+GRANT ALL ON FUNCTION "public"."create_default_user_entitlements"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."create_default_user_entitlements"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."create_default_user_settings"() TO "anon";
+GRANT ALL ON FUNCTION "public"."create_default_user_settings"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."create_default_user_settings"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."decrement_book_downvotes"("book_id_param" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."decrement_book_downvotes"("book_id_param" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."decrement_book_downvotes"("book_id_param" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."decrement_book_upvotes"("book_id_param" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."decrement_book_upvotes"("book_id_param" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."decrement_book_upvotes"("book_id_param" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."decrement_pen_name_downvotes"("pen_name_id_param" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."decrement_pen_name_downvotes"("pen_name_id_param" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."decrement_pen_name_downvotes"("pen_name_id_param" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."decrement_pen_name_upvotes"("pen_name_id_param" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."decrement_pen_name_upvotes"("pen_name_id_param" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."decrement_pen_name_upvotes"("pen_name_id_param" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."ensure_single_primary_pen_name"() TO "anon";
+GRANT ALL ON FUNCTION "public"."ensure_single_primary_pen_name"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."ensure_single_primary_pen_name"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."generate_delivery_slug"("title" "text", "book_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."generate_delivery_slug"("title" "text", "book_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."generate_delivery_slug"("title" "text", "book_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."generate_storage_path"("user_id" "uuid", "book_id" "uuid", "file_name" "text", "file_type" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."generate_storage_path"("user_id" "uuid", "book_id" "uuid", "file_name" "text", "file_type" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."generate_storage_path"("user_id" "uuid", "book_id" "uuid", "file_name" "text", "file_type" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_campaign_stats"("campaign_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_campaign_stats"("campaign_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_campaign_stats"("campaign_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_pen_name_book_count"("pen_name_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_pen_name_book_count"("pen_name_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_pen_name_book_count"("pen_name_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_pen_name_campaign_count"("pen_name_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_pen_name_campaign_count"("pen_name_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_pen_name_campaign_count"("pen_name_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_pen_names_with_counts"("target_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_pen_names_with_counts"("target_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_pen_names_with_counts"("target_user_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_pen_names_with_counts_by_status"("target_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_pen_names_with_counts_by_status"("target_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_pen_names_with_counts_by_status"("target_user_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_pen_names_with_counts_by_status"("target_user_id" "uuid", "target_status" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_pen_names_with_counts_by_status"("target_user_id" "uuid", "target_status" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_pen_names_with_counts_by_status"("target_user_id" "uuid", "target_status" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_user_campaign_entries"("target_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_user_campaign_entries"("target_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_user_campaign_entries"("target_user_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_user_campaign_entries"("campaign_uuid" "uuid", "wp_user_id" bigint) TO "anon";
+GRANT ALL ON FUNCTION "public"."get_user_campaign_entries"("campaign_uuid" "uuid", "wp_user_id" bigint) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_user_campaign_entries"("campaign_uuid" "uuid", "wp_user_id" bigint) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_user_dashboard_data"("target_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_user_dashboard_data"("target_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_user_dashboard_data"("target_user_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_user_settings"("target_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_user_settings"("target_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_user_settings"("target_user_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "anon";
+GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."increment_book_downvotes"("book_id_param" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."increment_book_downvotes"("book_id_param" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."increment_book_downvotes"("book_id_param" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."increment_book_upvotes"("book_id_param" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."increment_book_upvotes"("book_id_param" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."increment_book_upvotes"("book_id_param" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."increment_download_count"() TO "anon";
+GRANT ALL ON FUNCTION "public"."increment_download_count"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."increment_download_count"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."increment_pen_name_downvotes"("pen_name_id_param" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."increment_pen_name_downvotes"("pen_name_id_param" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."increment_pen_name_downvotes"("pen_name_id_param" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."increment_pen_name_upvotes"("pen_name_id_param" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."increment_pen_name_upvotes"("pen_name_id_param" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."increment_pen_name_upvotes"("pen_name_id_param" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."is_campaign_accepting_entries"("campaign_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."is_campaign_accepting_entries"("campaign_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_campaign_accepting_entries"("campaign_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."migrate_api_keys_to_encrypted"() TO "anon";
+GRANT ALL ON FUNCTION "public"."migrate_api_keys_to_encrypted"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."migrate_api_keys_to_encrypted"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_book_files_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."update_book_files_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_book_files_updated_at"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_campaign_entry_count"() TO "anon";
+GRANT ALL ON FUNCTION "public"."update_campaign_entry_count"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_campaign_entry_count"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_campaign_entry_count"("campaign_id" "uuid", "new_count" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."update_campaign_entry_count"("campaign_id" "uuid", "new_count" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_campaign_entry_count"("campaign_id" "uuid", "new_count" integer) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_delivery_methods_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."update_delivery_methods_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_delivery_methods_updated_at"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_reader_preferences"("target_user_id" "uuid", "preferences" "jsonb") TO "anon";
+GRANT ALL ON FUNCTION "public"."update_reader_preferences"("target_user_id" "uuid", "preferences" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_reader_preferences"("target_user_id" "uuid", "preferences" "jsonb") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_reader_preferences"("target_user_id" "uuid", "new_favorite_genres" "text"[], "new_reading_preferences" "jsonb", "new_email_notifications" boolean, "new_giveaway_reminders" boolean) TO "anon";
+GRANT ALL ON FUNCTION "public"."update_reader_preferences"("target_user_id" "uuid", "new_favorite_genres" "text"[], "new_reading_preferences" "jsonb", "new_email_notifications" boolean, "new_giveaway_reminders" boolean) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_reader_preferences"("target_user_id" "uuid", "new_favorite_genres" "text"[], "new_reading_preferences" "jsonb", "new_email_notifications" boolean, "new_giveaway_reminders" boolean) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_series_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."update_series_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_series_updated_at"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "anon";
+GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_user_settings"("target_user_id" "uuid", "settings_data" "jsonb") TO "anon";
+GRANT ALL ON FUNCTION "public"."update_user_settings"("target_user_id" "uuid", "settings_data" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_user_settings"("target_user_id" "uuid", "settings_data" "jsonb") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_user_settings"("target_user_id" "uuid", "new_font" "text", "new_theme" "text", "new_sidebar_collapsed" boolean, "new_keyboard_shortcuts_enabled" boolean, "new_email_notifications" boolean, "new_marketing_emails" boolean, "new_weekly_reports" boolean, "new_language" "text", "new_timezone" "text", "new_usage_analytics" boolean, "new_auto_save_drafts" boolean, "new_mailerlite_api_key" "text", "new_mailerlite_group_id" "text", "new_mailerlite_enabled" boolean, "new_mailchimp_api_key" "text", "new_mailchimp_list_id" "text", "new_mailchimp_enabled" boolean) TO "anon";
+GRANT ALL ON FUNCTION "public"."update_user_settings"("target_user_id" "uuid", "new_font" "text", "new_theme" "text", "new_sidebar_collapsed" boolean, "new_keyboard_shortcuts_enabled" boolean, "new_email_notifications" boolean, "new_marketing_emails" boolean, "new_weekly_reports" boolean, "new_language" "text", "new_timezone" "text", "new_usage_analytics" boolean, "new_auto_save_drafts" boolean, "new_mailerlite_api_key" "text", "new_mailerlite_group_id" "text", "new_mailerlite_enabled" boolean, "new_mailchimp_api_key" "text", "new_mailchimp_list_id" "text", "new_mailchimp_enabled" boolean) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_user_settings"("target_user_id" "uuid", "new_font" "text", "new_theme" "text", "new_sidebar_collapsed" boolean, "new_keyboard_shortcuts_enabled" boolean, "new_email_notifications" boolean, "new_marketing_emails" boolean, "new_weekly_reports" boolean, "new_language" "text", "new_timezone" "text", "new_usage_analytics" boolean, "new_auto_save_drafts" boolean, "new_mailerlite_api_key" "text", "new_mailerlite_group_id" "text", "new_mailerlite_enabled" boolean, "new_mailchimp_api_key" "text", "new_mailchimp_list_id" "text", "new_mailchimp_enabled" boolean) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_user_type"("target_user_id" "uuid", "new_user_type" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."update_user_type"("target_user_id" "uuid", "new_user_type" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_user_type"("target_user_id" "uuid", "new_user_type" "text") TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+GRANT ALL ON TABLE "public"."book_delivery_methods" TO "anon";
+GRANT ALL ON TABLE "public"."book_delivery_methods" TO "authenticated";
+GRANT ALL ON TABLE "public"."book_delivery_methods" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."book_files" TO "anon";
+GRANT ALL ON TABLE "public"."book_files" TO "authenticated";
+GRANT ALL ON TABLE "public"."book_files" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."books" TO "anon";
+GRANT ALL ON TABLE "public"."books" TO "authenticated";
+GRANT ALL ON TABLE "public"."books" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."campaign_entry_methods" TO "anon";
+GRANT ALL ON TABLE "public"."campaign_entry_methods" TO "authenticated";
+GRANT ALL ON TABLE "public"."campaign_entry_methods" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."campaigns" TO "anon";
+GRANT ALL ON TABLE "public"."campaigns" TO "authenticated";
+GRANT ALL ON TABLE "public"."campaigns" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."entry_methods" TO "anon";
+GRANT ALL ON TABLE "public"."entry_methods" TO "authenticated";
+GRANT ALL ON TABLE "public"."entry_methods" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."pen_names" TO "anon";
+GRANT ALL ON TABLE "public"."pen_names" TO "authenticated";
+GRANT ALL ON TABLE "public"."pen_names" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."reader_deliveries" TO "anon";
+GRANT ALL ON TABLE "public"."reader_deliveries" TO "authenticated";
+GRANT ALL ON TABLE "public"."reader_deliveries" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."reader_download_logs" TO "anon";
+GRANT ALL ON TABLE "public"."reader_download_logs" TO "authenticated";
+GRANT ALL ON TABLE "public"."reader_download_logs" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."reader_entries" TO "anon";
+GRANT ALL ON TABLE "public"."reader_entries" TO "authenticated";
+GRANT ALL ON TABLE "public"."reader_entries" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."reader_library" TO "anon";
+GRANT ALL ON TABLE "public"."reader_library" TO "authenticated";
+GRANT ALL ON TABLE "public"."reader_library" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."reader_preferences" TO "anon";
+GRANT ALL ON TABLE "public"."reader_preferences" TO "authenticated";
+GRANT ALL ON TABLE "public"."reader_preferences" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."reading_progress" TO "anon";
+GRANT ALL ON TABLE "public"."reading_progress" TO "authenticated";
+GRANT ALL ON TABLE "public"."reading_progress" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."series" TO "anon";
+GRANT ALL ON TABLE "public"."series" TO "authenticated";
+GRANT ALL ON TABLE "public"."series" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."user_entitlements" TO "anon";
+GRANT ALL ON TABLE "public"."user_entitlements" TO "authenticated";
+GRANT ALL ON TABLE "public"."user_entitlements" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."user_settings" TO "anon";
+GRANT ALL ON TABLE "public"."user_settings" TO "authenticated";
+GRANT ALL ON TABLE "public"."user_settings" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."users" TO "anon";
+GRANT ALL ON TABLE "public"."users" TO "authenticated";
+GRANT ALL ON TABLE "public"."users" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."votes" TO "anon";
+GRANT ALL ON TABLE "public"."votes" TO "authenticated";
+GRANT ALL ON TABLE "public"."votes" TO "service_role";
+
+
+
+
+
+
+
+
+
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "postgres";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "anon";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "authenticated";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "service_role";
+
+
+
+
+
+
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "postgres";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "anon";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "authenticated";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "service_role";
+
+
+
+
+
+
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "postgres";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RESET ALL;
