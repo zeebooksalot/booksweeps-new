@@ -26,6 +26,9 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react'],
   },
+  // Netlify compatibility
+  trailingSlash: false,
+  output: 'standalone',
 }
 
 export default nextConfig

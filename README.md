@@ -1,152 +1,170 @@
-# BookSweeps 📚
+# BookSweeps Platform
 
-The place to discover and vote on amazing books through author giveaways.
+A modern book discovery and voting platform built with Next.js 14, TypeScript, and Supabase.
 
-![BookSweeps Screenshot](public/booksweeps-hero.png)
+## 🚀 Features
 
-## Features
+- **Book Discovery**: Browse and discover new books and authors
+- **Voting System**: Vote on books and pen names
+- **Responsive Design**: Mobile-first approach with beautiful UI
+- **Real-time Updates**: Powered by Supabase
+- **Type Safety**: Full TypeScript implementation
+- **Modern UI**: Built with shadcn/ui components
 
-- 📖 **Book Discovery** - Browse and vote on the latest books
-- 👥 **Author Profiles** - Follow your favorite authors
-- 🎁 **Giveaways** - Enter book giveaways and win free copies
-- 🌙 **Dark Mode** - Beautiful dark/light theme support
-- 📱 **Mobile First** - Optimized for mobile with swipe gestures
-- 🔍 **Search & Filter** - Find books by genre, rating, and more
+## 🛠️ Tech Stack
 
-## Tech Stack
+- **Frontend**: Next.js 14, React 19, TypeScript
+- **Styling**: Tailwind CSS, shadcn/ui
+- **Backend**: Supabase (PostgreSQL, Auth, Storage)
+- **Deployment**: Netlify
+- **State Management**: React hooks
+- **Icons**: Lucide React
 
-- **Framework:** Next.js 15 with App Router
-- **Styling:** Tailwind CSS + shadcn/ui components
-- **Language:** TypeScript
-- **Icons:** Lucide React
-- **Theme:** Custom dark/light mode implementation
+## 📦 Installation
 
-## Getting Started
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/zeebooksalot/booksweeps-new.git
+   cd booksweeps-new
+   ```
 
-### Prerequisites
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-- Node.js 18+ 
-- npm or yarn
+3. **Set up environment variables**
+   Create a `.env.local` file:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   ```
 
-### Installation
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
 
-1. Clone the repository:
-\`\`\`bash
-git clone https://github.com/yourusername/booksweeps.git
-cd booksweeps
-\`\`\`
+## 🗄️ Database Setup
 
-2. Install dependencies:
-\`\`\`bash
-npm install
-# or
-yarn install
-\`\`\`
+1. **Create Supabase project** at [supabase.com](https://supabase.com)
+2. **Run the voting migration** in your Supabase SQL Editor:
+   ```sql
+   -- Copy the contents of supabase/migrations/006_voting_system.sql
+   ```
+3. **Set up environment variables** with your Supabase credentials
 
-3. Copy environment variables:
-\`\`\`bash
-cp .env.example .env.local
-\`\`\`
+## 🚀 Deployment
 
-4. Run the development server:
-\`\`\`bash
-npm run dev
-# or
-yarn dev
-\`\`\`
+### Netlify Deployment
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+1. **Connect to Netlify**
+   - Go to [netlify.com](https://netlify.com)
+   - Click "New site from Git"
+   - Connect your GitHub repository
 
-## Project Structure
+2. **Configure build settings**
+   - Build command: `npm run build`
+   - Publish directory: `.next`
+   - Node version: 18
 
-\`\`\`
-booksweeps/
-├── app/                    # Next.js App Router
+3. **Set environment variables**
+   In Netlify dashboard → Site settings → Environment variables:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   ```
+
+4. **Deploy**
+   - Netlify will automatically deploy on every push to main
+   - Your site will be available at `https://your-site-name.netlify.app`
+
+### Manual Deployment
+
+1. **Build the project**
+   ```bash
+   npm run build
+   ```
+
+2. **Deploy to your preferred platform**
+   - Vercel: `vercel --prod`
+   - Netlify CLI: `netlify deploy --prod`
+   - Or upload the `.next` folder to your hosting provider
+
+## 📁 Project Structure
+
+```
+booksweeps-new/
+├── app/                    # Next.js app directory
+│   ├── api/               # API routes
 │   ├── globals.css        # Global styles
 │   ├── layout.tsx         # Root layout
-│   ├── loading.tsx        # Loading UI
-│   └── page.tsx           # Homepage
-├── components/            # Reusable components
+│   └── page.tsx           # Home page
+├── components/            # React components
 │   ├── ui/               # shadcn/ui components
-│   ├── book-card.tsx     # Book display component
-│   ├── author-card.tsx   # Author display component
-│   └── theme-*.tsx       # Theme components
+│   ├── author-card.tsx   # Author card component
+│   └── book-card.tsx     # Book card component
+├── hooks/                # Custom React hooks
+├── lib/                  # Utility libraries
+│   └── supabase.ts       # Supabase client
 ├── public/               # Static assets
-└── ...config files
-\`\`\`
+├── scripts/              # Build and migration scripts
+└── styles/               # Additional styles
+```
 
-## Features Roadmap
+## 🔧 Development
 
-- [ ] User authentication & profiles
-- [ ] Database integration (Supabase/Neon)
-- [ ] Real giveaway system
-- [ ] Author dashboard
-- [ ] Book reviews & ratings
-- [ ] Social features (following, sharing)
-- [ ] Email notifications
-- [ ] Advanced search & filtering
-- [ ] Mobile app (React Native)
+### Available Scripts
 
-## Contributing
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run migrate` - Run database migrations
+- `npm run db:seed` - Seed database with sample data
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+### API Endpoints
+
+- `GET /api/books` - Get all books
+- `POST /api/books` - Create a book
+- `GET /api/authors` - Get all authors
+- `POST /api/authors` - Create an author
+- `POST /api/votes` - Vote on books/authors
+- `GET /api/campaigns` - Get campaigns
+- `POST /api/entries` - Submit campaign entry
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit your changes: `git commit -m 'Add feature'`
+4. Push to the branch: `git push origin feature-name`
+5. Submit a pull request
 
-## Deployment
+## 📄 License
 
-### Vercel (Recommended)
+This project is licensed under the MIT License.
 
-1. Push your code to GitHub
-2. Connect your repository to [Vercel](https://vercel.com)
-3. Deploy with zero configuration
+## 🆘 Support
 
-### Other Platforms
+If you encounter any issues:
 
-The app can be deployed to any platform that supports Next.js:
-- Netlify
-- Railway
-- DigitalOcean App Platform
-- AWS Amplify
+1. Check the [Issues](https://github.com/zeebooksalot/booksweeps-new/issues) page
+2. Create a new issue with detailed information
+3. Include your environment and steps to reproduce
 
-## Environment Variables
+## 🎯 Roadmap
 
-See `.env.example` for all available environment variables. Key variables include:
-
-- `DATABASE_URL` - Database connection string
-- `NEXTAUTH_SECRET` - Authentication secret
-- `SMTP_*` - Email configuration
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-- 📧 Email: support@booksweeps.com
-- 💬 Discord: [Join our community](https://discord.gg/booksweeps)
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/booksweeps/issues)
-
-## Acknowledgments
-
-- Built with [Next.js](https://nextjs.org/)
-- UI components from [shadcn/ui](https://ui.shadcn.com/)
-- Icons by [Lucide](https://lucide.dev/)
-- Inspired by Product Hunt and Goodreads
+- [ ] User authentication
+- [ ] Book recommendations
+- [ ] Social sharing
+- [ ] Email notifications
+- [ ] Admin dashboard
+- [ ] Analytics
+- [ ] Mobile app
 
 ---
 
-Made with ❤️ for book lovers everywhere.
-\`\`\`
-
-```text file="postcss.config.js"
-module.exports = {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-}
+Built with ❤️ by the BookSweeps team
