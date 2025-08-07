@@ -54,12 +54,16 @@ export default function GiveawaysPage() {
   const [giveaways, setGiveaways] = useState<Giveaway[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
   const [filters, setFilters] = useState({
     genre: '',
     featured: false,
-    endingSoon: false
+    endingSoon: false,
+    status: 'all' as 'all' | 'active' | 'ending_soon',
+    prizeType: 'all' as 'all' | 'signed' | 'digital' | 'physical'
   })
   const [sortBy, setSortBy] = useState('featured')
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   
   const campaignsApi = useApi<{ campaigns: any[]; pagination: any }>()
 
@@ -200,6 +204,59 @@ export default function GiveawaysPage() {
     return Math.min((entryCount / maxEntries) * 100, 100)
   }
 
+  // Filter and sort giveaways
+  const filteredGiveaways = giveaways.filter((giveaway) => {
+    // Search query filtering
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      const searchText = `${giveaway.title} ${giveaway.book.title} ${giveaway.book.author} ${giveaway.author.name} ${giveaway.description}`.toLowerCase()
+      if (!searchText.includes(query)) return false
+    }
+
+    // Genre filtering
+    if (filters.genre && filters.genre !== '') {
+      if (giveaway.book.genre.toLowerCase() !== filters.genre.toLowerCase()) return false
+    }
+
+    // Featured filtering
+    if (filters.featured && !giveaway.is_featured) return false
+
+    // Status filtering
+    if (filters.status === 'active' && giveaway.status !== 'active') return false
+    if (filters.status === 'ending_soon') {
+      const endDate = new Date(giveaway.end_date)
+      const now = new Date()
+      const daysUntilEnd = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      if (daysUntilEnd > 7) return false
+    }
+
+    // Prize type filtering
+    if (filters.prizeType !== 'all') {
+      const prizeText = giveaway.prize_description.toLowerCase()
+      if (filters.prizeType === 'signed' && !prizeText.includes('signed')) return false
+      if (filters.prizeType === 'digital' && !prizeText.includes('digital')) return false
+      if (filters.prizeType === 'physical' && !prizeText.includes('physical') && !prizeText.includes('copy')) return false
+    }
+
+    return true
+  }).sort((a, b) => {
+    // Sorting logic
+    switch (sortBy) {
+      case 'featured':
+        return b.is_featured ? 1 : -1
+      case 'ending_soon':
+        const aEnd = new Date(a.end_date)
+        const bEnd = new Date(b.end_date)
+        return aEnd.getTime() - bEnd.getTime()
+      case 'most_entries':
+        return b.entry_count - a.entry_count
+      case 'newest':
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      default:
+        return 0
+    }
+  })
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -221,17 +278,136 @@ export default function GiveawaysPage() {
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                 <Input
                   placeholder="Search giveaways..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 w-full sm:w-64"
                 />
               </div>
-              <Button variant="outline" className="gap-2">
-                <Filter className="h-4 w-4" />
-                Filters
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                >
+                  <Filter className="h-4 w-4" />
+                  Filters
+                  {(filters.genre || filters.featured || filters.status !== 'all' || filters.prizeType !== 'all') && (
+                    <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
+                      {[filters.genre, filters.featured, filters.status !== 'all', filters.prizeType !== 'all'].filter(Boolean).length}
+                    </Badge>
+                  )}
+                </Button>
+                <Button variant="outline" className="gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Sort
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Advanced Filters Panel */}
+      {showAdvancedFilters && (
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Advanced Filters</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFilters({
+                    genre: '',
+                    featured: false,
+                    endingSoon: false,
+                    status: 'all',
+                    prizeType: 'all'
+                  })
+                }}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Clear All
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Genre Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Genre
+                </label>
+                <select
+                  value={filters.genre}
+                  onChange={(e) => setFilters({...filters, genre: e.target.value})}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                >
+                  <option value="">All Genres</option>
+                  <option value="Fantasy">Fantasy</option>
+                  <option value="Romance">Romance</option>
+                  <option value="Mystery">Mystery</option>
+                  <option value="Sci-Fi">Sci-Fi</option>
+                  <option value="Thriller">Thriller</option>
+                  <option value="Historical">Historical</option>
+                  <option value="Contemporary">Contemporary</option>
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Status
+                </label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters({...filters, status: e.target.value as any})}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="ending_soon">Ending Soon</option>
+                </select>
+              </div>
+
+              {/* Prize Type Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Prize Type
+                </label>
+                <select
+                  value={filters.prizeType}
+                  onChange={(e) => setFilters({...filters, prizeType: e.target.value as any})}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                >
+                  <option value="all">All Prizes</option>
+                  <option value="signed">Signed Copies</option>
+                  <option value="digital">Digital Books</option>
+                  <option value="physical">Physical Books</option>
+                </select>
+              </div>
+
+              {/* Featured Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Featured Only
+                </label>
+                <Button
+                  variant={filters.featured ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilters({...filters, featured: !filters.featured})}
+                  className={`w-full ${
+                    filters.featured 
+                      ? "bg-orange-500 hover:bg-orange-600" 
+                      : "border-gray-200 dark:border-gray-700"
+                  }`}
+                >
+                  {filters.featured ? "Yes" : "No"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -252,8 +428,16 @@ export default function GiveawaysPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {giveaways.map((giveaway) => (
+          <>
+            {/* Results Count */}
+            <div className="mb-6">
+              <p className="text-gray-600 dark:text-gray-400">
+                Showing {filteredGiveaways.length} of {giveaways.length} giveaways
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredGiveaways.map((giveaway) => (
               <div
                 key={giveaway.id}
                 className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-xl transition-shadow"
@@ -336,7 +520,8 @@ export default function GiveawaysPage() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>

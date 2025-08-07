@@ -233,13 +233,74 @@ export default function BookSweepsHomepage() {
     fetchData()
   }, [sortBy])
 
-  // Combine and filter data based on activeTab
+  // Combine and filter data based on activeTab and advanced filters
   const allData = [...booksData, ...authorsData]
+  
   const filteredData = allData.filter((item) => {
-    if (activeTab === "all") return true
-    if (activeTab === "books") return item.type === "book"
-    if (activeTab === "authors") return item.type === "author"
-    if (activeTab === "giveaways") return item.hasGiveaway
+    // Basic tab filtering
+    if (activeTab === "books" && item.type !== "book") return false
+    if (activeTab === "authors" && item.type !== "author") return false
+    if (activeTab === "giveaways" && !item.hasGiveaway) return false
+    
+    // Search query filtering
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      if (item.type === "book") {
+        const book = item as BookItem
+        const searchText = `${book.title} ${book.author} ${book.description} ${book.genres.join(" ")}`.toLowerCase()
+        if (!searchText.includes(query)) return false
+      } else {
+        const author = item as AuthorItem
+        const searchText = `${author.name} ${author.bio}`.toLowerCase()
+        if (!searchText.includes(query)) return false
+      }
+    }
+    
+    // Genre filtering
+    if (selectedGenres.length > 0) {
+      if (item.type === "book") {
+        const book = item as BookItem
+        const hasMatchingGenre = book.genres.some(genre => selectedGenres.includes(genre))
+        if (!hasMatchingGenre) return false
+      }
+    }
+    
+    // Rating filtering
+    if (ratingFilter > 0) {
+      if (item.type === "book") {
+        const book = item as BookItem
+        if (book.rating < ratingFilter) return false
+      }
+    }
+    
+    // Giveaway filtering
+    if (hasGiveaway !== null) {
+      if (item.hasGiveaway !== hasGiveaway) return false
+    }
+    
+    // Date range filtering
+    if (dateRange !== "all") {
+      const itemDate = item.type === "book" 
+        ? new Date((item as BookItem).publishDate)
+        : new Date((item as AuthorItem).joinedDate)
+      const now = new Date()
+      
+      switch (dateRange) {
+        case "week":
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          if (itemDate < weekAgo) return false
+          break
+        case "month":
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+          if (itemDate < monthAgo) return false
+          break
+        case "year":
+          const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+          if (itemDate < yearAgo) return false
+          break
+      }
+    }
+    
     return true
   })
 
@@ -573,6 +634,23 @@ export default function BookSweepsHomepage() {
                 >
                   🎁 Giveaways
                 </Button>
+                
+                {/* Mobile Filter Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className={`gap-1 border-gray-200 dark:border-gray-700 bg-transparent ${
+                    showAdvancedFilters ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : ''
+                  }`}
+                >
+                  <Filter className="h-3 w-3" />
+                  {(selectedGenres.length > 0 || ratingFilter > 0 || hasGiveaway !== null || dateRange !== "all") && (
+                    <Badge variant="secondary" className="ml-1 h-4 w-4 rounded-full p-0 text-xs">
+                      {[selectedGenres.length > 0, ratingFilter > 0, hasGiveaway !== null, dateRange !== "all"].filter(Boolean).length}
+                    </Badge>
+                  )}
+                </Button>
               </div>
             </div>
 
@@ -629,37 +707,321 @@ export default function BookSweepsHomepage() {
                 </Button>
               </div>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 bg-transparent border-gray-200 dark:border-gray-700"
-                  >
-                    <Filter className="h-4 w-4" />
-                    Sort by: {sortBy === "trending" ? "Trending" : sortBy === "newest" ? "Newest" : "Top Rated"}
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 bg-transparent border-gray-200 dark:border-gray-700"
+                    >
+                      <Filter className="h-4 w-4" />
+                      Sort by
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    <DropdownMenuItem 
+                      className="text-gray-700 dark:text-gray-300"
+                      onClick={() => setSortBy("trending")}
+                    >
+                      Trending
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className="text-gray-700 dark:text-gray-300"
+                      onClick={() => setSortBy("newest")}
+                    >
+                      Newest
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className="text-gray-700 dark:text-gray-300"
+                      onClick={() => setSortBy("votes")}
+                    >
+                      Most Voted
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className="text-gray-700 dark:text-gray-300"
+                      onClick={() => setSortBy("rating")}
+                    >
+                      Highest Rated
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className={`gap-2 bg-transparent border-gray-200 dark:border-gray-700 ${
+                    showAdvancedFilters ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : ''
+                  }`}
                 >
-                  <DropdownMenuItem onClick={() => setSortBy("trending")} className="text-gray-700 dark:text-gray-300">
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Trending
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy("newest")} className="text-gray-700 dark:text-gray-300">
-                    <Clock className="h-4 w-4 mr-2" />
-                    Newest
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy("top")} className="text-gray-700 dark:text-gray-300">
-                    <Star className="h-4 w-4 mr-2" />
-                    Top Rated
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  <Filter className="h-4 w-4" />
+                  Filters
+                  {(selectedGenres.length > 0 || ratingFilter > 0 || hasGiveaway !== null || dateRange !== "all") && (
+                    <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
+                      {[selectedGenres.length > 0, ratingFilter > 0, hasGiveaway !== null, dateRange !== "all"].filter(Boolean).length}
+                    </Badge>
+                  )}
+                </Button>
+              </div>
             </div>
+
+            {/* Advanced Filters Panel */}
+            {showAdvancedFilters && (
+              <div className="mx-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                {/* Mobile Filters */}
+                <div className="md:hidden">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Filters</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedGenres([])
+                        setRatingFilter(0)
+                        setHasGiveaway(null)
+                        setDateRange("all")
+                      }}
+                      className="text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {/* Genre Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Genres
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {["Fantasy", "Romance", "Mystery", "Sci-Fi", "Thriller", "Historical", "Contemporary"].map((genre) => (
+                          <Button
+                            key={genre}
+                            variant={selectedGenres.includes(genre) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              if (selectedGenres.includes(genre)) {
+                                setSelectedGenres(selectedGenres.filter(g => g !== genre))
+                              } else {
+                                setSelectedGenres([...selectedGenres, genre])
+                              }
+                            }}
+                            className={`text-xs ${
+                              selectedGenres.includes(genre) 
+                                ? "bg-orange-500 hover:bg-orange-600" 
+                                : "border-gray-200 dark:border-gray-700"
+                            }`}
+                          >
+                            {genre}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Rating Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Minimum Rating
+                      </label>
+                      <div className="flex items-center gap-2">
+                        {[1, 2, 3, 4, 5].map((rating) => (
+                          <Button
+                            key={rating}
+                            variant={ratingFilter >= rating ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setRatingFilter(ratingFilter === rating ? 0 : rating)}
+                            className={`text-xs ${
+                              ratingFilter >= rating 
+                                ? "bg-orange-500 hover:bg-orange-600" 
+                                : "border-gray-200 dark:border-gray-700"
+                            }`}
+                          >
+                            {rating}+
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Giveaway Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Giveaway Status
+                      </label>
+                      <div className="flex gap-2">
+                        <Button
+                          variant={hasGiveaway === true ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setHasGiveaway(hasGiveaway === true ? null : true)}
+                          className={`text-xs ${
+                            hasGiveaway === true 
+                              ? "bg-orange-500 hover:bg-orange-600" 
+                              : "border-gray-200 dark:border-gray-700"
+                          }`}
+                        >
+                          Has Giveaway
+                        </Button>
+                        <Button
+                          variant={hasGiveaway === false ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setHasGiveaway(hasGiveaway === false ? null : false)}
+                          className={`text-xs ${
+                            hasGiveaway === false 
+                              ? "bg-orange-500 hover:bg-orange-600" 
+                              : "border-gray-200 dark:border-gray-700"
+                          }`}
+                        >
+                          No Giveaway
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Date Range Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Date Range
+                      </label>
+                      <select
+                        value={dateRange}
+                        onChange={(e) => setDateRange(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                      >
+                        <option value="all">All Time</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="year">This Year</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desktop Filters */}
+                <div className="hidden md:block">
+                  <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Advanced Filters</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedGenres([])
+                      setRatingFilter(0)
+                      setHasGiveaway(null)
+                      setDateRange("all")
+                    }}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Clear All
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Genre Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Genres
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {["Fantasy", "Romance", "Mystery", "Sci-Fi", "Thriller", "Historical", "Contemporary"].map((genre) => (
+                        <Button
+                          key={genre}
+                          variant={selectedGenres.includes(genre) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            if (selectedGenres.includes(genre)) {
+                              setSelectedGenres(selectedGenres.filter(g => g !== genre))
+                            } else {
+                              setSelectedGenres([...selectedGenres, genre])
+                            }
+                          }}
+                          className={`text-xs ${
+                            selectedGenres.includes(genre) 
+                              ? "bg-orange-500 hover:bg-orange-600" 
+                              : "border-gray-200 dark:border-gray-700"
+                          }`}
+                        >
+                          {genre}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Rating Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Minimum Rating
+                    </label>
+                    <div className="flex items-center gap-2">
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <Button
+                          key={rating}
+                          variant={ratingFilter >= rating ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setRatingFilter(ratingFilter === rating ? 0 : rating)}
+                          className={`text-xs ${
+                            ratingFilter >= rating 
+                              ? "bg-orange-500 hover:bg-orange-600" 
+                              : "border-gray-200 dark:border-gray-700"
+                          }`}
+                        >
+                          {rating}+
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Giveaway Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Giveaway Status
+                    </label>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={hasGiveaway === true ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setHasGiveaway(hasGiveaway === true ? null : true)}
+                        className={`text-xs ${
+                          hasGiveaway === true 
+                            ? "bg-orange-500 hover:bg-orange-600" 
+                            : "border-gray-200 dark:border-gray-700"
+                        }`}
+                      >
+                        Has Giveaway
+                      </Button>
+                      <Button
+                        variant={hasGiveaway === false ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setHasGiveaway(hasGiveaway === false ? null : false)}
+                        className={`text-xs ${
+                          hasGiveaway === false 
+                            ? "bg-orange-500 hover:bg-orange-600" 
+                            : "border-gray-200 dark:border-gray-700"
+                        }`}
+                      >
+                        No Giveaway
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Date Range Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Date Range
+                    </label>
+                    <select
+                      value={dateRange}
+                      onChange={(e) => setDateRange(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                    >
+                      <option value="all">All Time</option>
+                      <option value="week">This Week</option>
+                      <option value="month">This Month</option>
+                      <option value="year">This Year</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            )}
 
             {/* Content */}
             <div className="mb-12 flex flex-col gap-4 md:gap-10">
