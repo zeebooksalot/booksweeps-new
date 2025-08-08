@@ -50,36 +50,6 @@ interface Giveaway {
   updated_at: string
 }
 
-interface ApiGiveaway {
-  id: string
-  title: string
-  description: string
-  book_id: string
-  book?: {
-    title: string
-  }
-  author_name: string
-  book_cover_url?: string
-  campaign_genre?: string
-  book_description?: string
-  pen_name_id: string
-  pen_names?: {
-    avatar_url: string
-    bio: string
-  }
-  start_date: string
-  end_date: string
-  max_entries: number
-  entry_count: number
-  number_of_winners: number
-  prize_description: string
-  rules: string
-  status: 'active' | 'ended' | 'draft'
-  is_featured: boolean
-  created_at: string
-  updated_at: string
-}
-
 export default function GiveawaysPage() {
   const [giveaways, setGiveaways] = useState<Giveaway[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -95,7 +65,7 @@ export default function GiveawaysPage() {
   const [sortBy, setSortBy] = useState('featured')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   
-  const campaignsApi = useApi<{ campaigns: ApiGiveaway[]; pagination: { page: number; total: number; limit: number } }>()
+  const campaignsApi = useApi<{ campaigns: any[]; pagination: any }>()
 
   const fetchGiveaways = async () => {
     setIsLoading(true)
@@ -171,7 +141,7 @@ export default function GiveawaysPage() {
         setGiveaways(mockGiveaways)
       } else {
         // Map API data to Giveaway interface
-        const mappedGiveaways = response.campaigns.map((campaign: ApiGiveaway) => ({
+        const mappedGiveaways = response.campaigns.map((campaign: any) => ({
           id: campaign.id,
           title: campaign.title,
           description: campaign.description || "",

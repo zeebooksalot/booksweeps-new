@@ -20,7 +20,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
 
 interface ReaderMagnet {
   id: string
@@ -213,10 +212,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
     return Array.from({ length: 5 }, (_, i) => (
       <Star
         key={i}
-        className={cn(
-          "h-4 w-4",
-          i < rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-        )}
+        className={`h-4 w-4 ${i < rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
       />
     ))
   }

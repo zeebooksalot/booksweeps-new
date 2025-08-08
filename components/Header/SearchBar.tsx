@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback } from "react"
 import { Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useDebouncedSearch } from "@/hooks/use-debounced-search"
-import { cn } from "@/lib/utils"
 
 interface SearchBarProps {
   searchQuery: string
@@ -15,6 +13,23 @@ interface SearchBarProps {
   showMobileToggle?: boolean
   onMobileToggle?: (show: boolean) => void
   isMobileSearchOpen?: boolean
+}
+
+// Custom hook for debounced search
+const useDebouncedSearch = (callback: (query: string) => void, delay: number = 300) => {
+  const [debouncedValue, setDebouncedValue] = useState("")
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      callback(debouncedValue)
+    }, delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [debouncedValue, callback, delay])
+
+  return setDebouncedValue
 }
 
 export function SearchBar({ 
@@ -28,7 +43,7 @@ export function SearchBar({
 }: SearchBarProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
 
-  // Use the extracted hook
+  // Debounced search implementation
   const debouncedSearchChange = useDebouncedSearch(onSearchChange, 300)
 
   // Update local search query when prop changes
@@ -68,11 +83,7 @@ export function SearchBar({
                 autoFocus
                 aria-label="Search books and authors"
                 role="searchbox"
-                aria-describedby="mobile-search-description"
               />
-              <span id="mobile-search-description" className="sr-only">
-                Search for books and authors by title, author name, or genre
-              </span>
             </div>
             <Button 
               variant="ghost" 
@@ -103,7 +114,7 @@ export function SearchBar({
   }
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={`relative ${className}`}>
       <Search 
         className="absolute left-4 top-3 h-4 w-4 text-gray-500 dark:text-gray-400" 
         aria-hidden="true"
@@ -115,11 +126,7 @@ export function SearchBar({
         className="h-10 w-full min-w-[200px] max-w-[250px] cursor-pointer appearance-none rounded-full border-0 bg-gray-100 dark:bg-gray-700 px-10 pl-[40px] text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none"
         aria-label="Search books and authors"
         role="searchbox"
-        aria-describedby="search-description"
       />
-      <span id="search-description" className="sr-only">
-        Search for books and authors by title, author name, or genre
-      </span>
     </div>
   )
 }
