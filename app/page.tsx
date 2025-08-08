@@ -95,6 +95,37 @@ export default function BookSweepsHomepage() {
   const booksApi = useApi<{ books: any[]; pagination: any }>()
   const authorsApi = useApi<{ authors: any[]; pagination: any }>()
 
+  // Data mapping functions
+  const mapBookFromApi = (book: any, rank: number): BookItem => ({
+    id: book.id,
+    type: "book" as const,
+    title: book.title,
+    author: book.author,
+    description: book.description || "",
+    cover: book.cover_image_url || "/placeholder.svg?height=80&width=64",
+    votes: book.upvotes_count || 0,
+    comments: book.comments_count || 0,
+    rating: book.rating || 0,
+    genres: book.genre ? [book.genre] : [],
+    hasGiveaway: book.has_giveaway || false,
+    publishDate: book.published_date ? new Date(book.published_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "Unknown",
+    rank
+  })
+
+  const mapAuthorFromApi = (author: any, rank: number): AuthorItem => ({
+    id: author.id,
+    type: "author" as const,
+    name: author.name,
+    bio: author.bio || "",
+    avatar: author.avatar_url || "/placeholder.svg?height=64&width=64",
+    votes: author.votes_count || 0,
+    books: author.books_count || 0,
+    followers: author.followers_count || 0,
+    joinedDate: author.joined_date ? new Date(author.joined_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "Unknown",
+    hasGiveaway: author.has_giveaway || false,
+    rank
+  })
+
   // Memoize the fetchData function to prevent infinite loops
   const fetchData = useCallback(async () => {
     try {
