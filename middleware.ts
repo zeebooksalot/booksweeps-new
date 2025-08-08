@@ -31,11 +31,14 @@ export async function middleware(req: NextRequest) {
       req.nextUrl.pathname.startsWith(route)
     )
 
-    // Auth pages
-    const authPages = ['/login', '/signup', '/forgot-password']
+    // Auth pages (include update-password for recovery flow)
+    const authPages = ['/login', '/signup', '/forgot-password', '/update-password']
     const isAuthPage = authPages.some(page => 
       req.nextUrl.pathname.startsWith(page)
     )
+
+    // Allow update-password even if a session exists (Supabase recovery creates temp session)
+    const isUpdatePassword = req.nextUrl.pathname.startsWith('/update-password')
 
     // Handle authentication for protected routes
     if (isProtectedRoute && !session) {
@@ -45,8 +48,8 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(redirectUrl)
     }
 
-    // Redirect authenticated users away from auth pages
-    if (session && isAuthPage) {
+    // Redirect authenticated users away from auth pages (except update-password)
+    if (session && isAuthPage && !isUpdatePassword) {
       const redirectUrl = req.nextUrl.clone()
       redirectUrl.pathname = '/dashboard'
       return NextResponse.redirect(redirectUrl)

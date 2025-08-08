@@ -29,9 +29,10 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { ThemeToggle, SimpleThemeToggle } from "@/components/theme-toggle"
+// import { ThemeToggle, SimpleThemeToggle } from "@/components/theme-toggle"
 import { FeedItemDisplay } from "@/components/feed-item-display"
 import { useApi } from "@/hooks/use-api"
+import { useAuth } from "@/components/auth/AuthProvider"
 
 interface BookItem {
   id: string
@@ -76,6 +77,11 @@ export default function BookSweepsHomepage() {
   const [isMobileView, setIsMobileView] = useState(false)
   const [showMobileSearch, setShowMobileSearch] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [booksDropdownOpen, setBooksDropdownOpen] = useState(false)
+  const [authorsDropdownOpen, setAuthorsDropdownOpen] = useState(false)
+  const [booksDropdownTimeout, setBooksDropdownTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [authorsDropdownTimeout, setAuthorsDropdownTimeout] = useState<NodeJS.Timeout | null>(null)
+  const { user, signOut } = useAuth()
   
   // Advanced filtering state
   const [selectedGenres, setSelectedGenres] = useState<string[]>([])
@@ -97,13 +103,64 @@ export default function BookSweepsHomepage() {
   // Check if mobile view
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobileView(window.innerWidth < 768)
+      const newIsMobile = window.innerWidth < 768
+      if (newIsMobile !== isMobileView) {
+        setIsMobileView(newIsMobile)
+      }
     }
 
     checkMobile()
-    window.addEventListener("resize", checkMobile)
-    return () => window.removeEventListener("resize", checkMobile)
-  }, [])
+    const debouncedCheckMobile = debounce(checkMobile, 100)
+    window.addEventListener("resize", debouncedCheckMobile)
+    return () => window.removeEventListener("resize", debouncedCheckMobile)
+  }, [isMobileView])
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (booksDropdownTimeout) clearTimeout(booksDropdownTimeout)
+      if (authorsDropdownTimeout) clearTimeout(authorsDropdownTimeout)
+    }
+  }, [booksDropdownTimeout, authorsDropdownTimeout])
+
+  // Debounce helper function
+  const debounce = (func: Function, wait: number) => {
+    let timeout: NodeJS.Timeout
+    return function executedFunction(...args: any[]) {
+      const later = () => {
+        clearTimeout(timeout)
+        func(...args)
+      }
+      clearTimeout(timeout)
+      timeout = setTimeout(later, wait)
+    }
+  }
+
+  const handleBooksDropdownEnter = () => {
+    if (booksDropdownTimeout) {
+      clearTimeout(booksDropdownTimeout)
+      setBooksDropdownTimeout(null)
+    }
+    setBooksDropdownOpen(true)
+  }
+
+  const handleBooksDropdownLeave = () => {
+    const timeout = setTimeout(() => setBooksDropdownOpen(false), 150)
+    setBooksDropdownTimeout(timeout)
+  }
+
+  const handleAuthorsDropdownEnter = () => {
+    if (authorsDropdownTimeout) {
+      clearTimeout(authorsDropdownTimeout)
+      setAuthorsDropdownTimeout(null)
+    }
+    setAuthorsDropdownOpen(true)
+  }
+
+  const handleAuthorsDropdownLeave = () => {
+    const timeout = setTimeout(() => setAuthorsDropdownOpen(false), 150)
+    setAuthorsDropdownTimeout(timeout)
+  }
 
   // Data mapping functions
   const mapBookFromApi = (book: any, rank: number): BookItem => ({
@@ -388,157 +445,174 @@ export default function BookSweepsHomepage() {
             <div className="flex items-center gap-3 md:gap-8 w-full md:w-auto">
               {/* Logo */}
               <Link href="/" className="flex items-center space-x-2">
-                <BookOpen className="h-8 w-8 md:h-10 md:w-10 text-orange-500" />
                 <span className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100">BookSweeps</span>
               </Link>
 
               {/* Mobile Search Toggle */}
               <div className="flex-1 md:hidden">
-                {showMobileSearch ? (
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500 dark:text-gray-400" />
-                      <Input
-                        placeholder="Search books and authors..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="h-10 w-full rounded-full border-0 bg-gray-100 dark:bg-gray-700 pl-10 pr-12 text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none"
-                        autoFocus
-                      />
-                      <button
-                        className="absolute right-3 top-3"
-                        onClick={() => {
-                          /* Voice search */
-                        }}
-                      >
-                        <Mic className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                      </button>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => setShowMobileSearch(false)} className="px-2">
-                      <X className="h-5 w-5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-end gap-2">
-                    <SimpleThemeToggle />
-                    <Button variant="ghost" size="sm" onClick={() => setShowMobileSearch(true)} className="px-2">
-                      <Search className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                    </Button>
+                <div className="flex items-center gap-2">
+                  {showMobileSearch ? (
+                    <>
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500 dark:text-gray-400" />
+                        <Input
+                          placeholder="Search books, authors..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="h-10 w-full rounded-full border-0 bg-gray-100 dark:bg-gray-700 pl-10 pr-12 text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none"
+                          autoFocus
+                        />
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setShowMobileSearch(false)} className="px-2">
+                        <X className="h-5 w-5" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex-1" />
+                      <Button variant="ghost" size="sm" onClick={() => setShowMobileSearch(true)} className="px-2">
+                        <Search className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                      </Button>
 
-                    {/* Mobile Menu */}
-                    <Sheet>
-                      <SheetTrigger asChild>
-                        <Button variant="ghost" size="sm" className="px-2 md:hidden">
-                          <Menu className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                        </Button>
-                      </SheetTrigger>
-                      <SheetContent side="right" className="w-80 bg-white dark:bg-gray-800">
-                        <div className="flex flex-col gap-6 pt-6">
-                          <div className="flex items-center space-x-2">
-                            <BookOpen className="h-6 w-6 text-orange-500" />
-                            <span className="text-lg font-bold text-gray-900 dark:text-gray-100">BookSweeps</span>
+                      {/* Mobile Menu */}
+                      <Sheet>
+                        <SheetTrigger asChild>
+                          <Button variant="ghost" size="sm" className="px-2 md:hidden">
+                            <Menu className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                          </Button>
+                        </SheetTrigger>
+                        <SheetContent side="right" className="w-80 bg-white dark:bg-gray-800">
+                          <div className="flex flex-col gap-6 pt-6">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-lg font-bold text-gray-900 dark:text-gray-100">BookSweeps</span>
+                            </div>
+
+                            <nav className="flex flex-col gap-4">
+                              <a
+                                href="#"
+                                className="text-16 font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-500"
+                              >
+                                Books
+                              </a>
+                              <a
+                                href="#"
+                                className="text-16 font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-500"
+                              >
+                                Authors
+                              </a>
+                              <Link
+                                href="/giveaways"
+                                className="text-16 font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-500"
+                              >
+                                Giveaways
+                              </Link>
+                            </nav>
+
+                            <div className="flex flex-col gap-3">
+                              <Button
+                                asChild
+                                variant="outline"
+                                className="justify-start gap-2 bg-transparent border-gray-200 dark:border-gray-700"
+                              >
+                                <Link href="/signup" className="flex items-center gap-2">
+                                  <Mail className="h-4 w-4" />
+                                  Subscribe to Newsletter
+                                </Link>
+                              </Button>
+                              {user ? (
+                                <>
+                                  <Button asChild variant="outline" className="justify-start gap-2 bg-transparent border-gray-200 dark:border-gray-700">
+                                    <Link href="/dashboard">Dashboard</Link>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    className="justify-start gap-2 bg-transparent border-gray-200 dark:border-gray-700"
+                                    onClick={() => signOut().catch(console.error)}
+                                  >
+                                    Sign out
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button asChild variant="outline" className="justify-start gap-2 bg-transparent border-gray-200 dark:border-gray-700">
+                                    <Link href="/login">
+                                      <span>Sign In</span>
+                                    </Link>
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </div>
-
-                          <nav className="flex flex-col gap-4">
-                            <a
-                              href="#"
-                              className="text-16 font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-500"
-                            >
-                              Launches
-                            </a>
-                            <a
-                              href="#"
-                              className="text-16 font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-500"
-                            >
-                              Books
-                            </a>
-                            <a
-                              href="#"
-                              className="text-16 font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-500"
-                            >
-                              Authors
-                            </a>
-                            <Link
-                              href="/giveaways"
-                              className="text-16 font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-500"
-                            >
-                              Giveaways
-                            </Link>
-                          </nav>
-
-                          <div className="flex flex-col gap-3">
-                            <Button
-                              variant="outline"
-                              className="justify-start gap-2 bg-transparent border-gray-200 dark:border-gray-700"
-                            >
-                              <Mail className="h-4 w-4" />
-                              Subscribe to Newsletter
-                            </Button>
-                            <Button className="bg-orange-500 hover:bg-orange-600">Sign In</Button>
-                          </div>
-                        </div>
-                      </SheetContent>
-                    </Sheet>
-                  </div>
-                )}
+                        </SheetContent>
+                      </Sheet>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Desktop Search */}
               <div className="relative hidden md:block">
                 <Search className="absolute left-4 top-3 h-4 w-4 text-gray-500 dark:text-gray-400" />
                 <Input
-                  placeholder="Search books and authors..."
+                  placeholder="Search books, authors..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-10 w-full min-w-[200px] max-w-[300px] cursor-pointer appearance-none rounded-full border-0 bg-gray-100 dark:bg-gray-700 px-10 pl-[40px] text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none"
+                  className="h-10 w-full min-w-[200px] max-w-[250px] cursor-pointer appearance-none rounded-full border-0 bg-gray-100 dark:bg-gray-700 px-10 pl-[40px] text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none"
                 />
-                <button className="absolute right-4 top-3">
-                  <Mic className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                </button>
               </div>
             </div>
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-6 lg:gap-8">
-              <DropdownMenu>
+              <DropdownMenu open={booksDropdownOpen} onOpenChange={setBooksDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1 text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:text-orange-500">
-                    Launches
-                    <ChevronDown className="h-4 w-4" />
+                  <button 
+                    className="flex items-center gap-1 text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:text-orange-500 focus:outline-none"
+                    onMouseEnter={handleBooksDropdownEnter}
+                    onMouseLeave={handleBooksDropdownLeave}
+                  >
+                    <span>Books</span>
+                    <div className="w-4 h-4 flex items-center justify-center">
+                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${booksDropdownOpen ? 'rotate-180' : ''}`} style={{ transformOrigin: 'center' }} />
+                    </div>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300">Today&apos;s Launches</DropdownMenuItem>
-                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300">This Week</DropdownMenuItem>
-                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300">Popular</DropdownMenuItem>
+                <DropdownMenuContent 
+                  className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-lg"
+                  align="start"
+                  sideOffset={8}
+                  onMouseEnter={handleBooksDropdownEnter}
+                  onMouseLeave={handleBooksDropdownLeave}
+                >
+                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">New Releases</DropdownMenuItem>
+                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Bestsellers</DropdownMenuItem>
+                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">By Genre</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <DropdownMenu>
+              <DropdownMenu open={authorsDropdownOpen} onOpenChange={setAuthorsDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1 text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:text-orange-500">
-                    Books
-                    <ChevronDown className="h-4 w-4" />
+                  <button 
+                    className="flex items-center gap-1 text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:text-orange-500 focus:outline-none"
+                    onMouseEnter={handleAuthorsDropdownEnter}
+                    onMouseLeave={handleAuthorsDropdownLeave}
+                  >
+                    <span>Authors</span>
+                    <div className="w-4 h-4 flex items-center justify-center">
+                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${authorsDropdownOpen ? 'rotate-180' : ''}`} style={{ transformOrigin: 'center' }} />
+                    </div>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300">New Releases</DropdownMenuItem>
-                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300">Bestsellers</DropdownMenuItem>
-                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300">By Genre</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1 text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:text-orange-500">
-                    Authors
-                    <ChevronDown className="h-4 w-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300">Featured Authors</DropdownMenuItem>
-                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300">New Authors</DropdownMenuItem>
-                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300">Author Interviews</DropdownMenuItem>
+                <DropdownMenuContent 
+                  className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-lg"
+                  align="start"
+                  sideOffset={8}
+                  onMouseEnter={handleAuthorsDropdownEnter}
+                  onMouseLeave={handleAuthorsDropdownLeave}
+                >
+                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Featured Authors</DropdownMenuItem>
+                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">New Authors</DropdownMenuItem>
+                  <DropdownMenuItem className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Author Interviews</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -552,17 +626,33 @@ export default function BookSweepsHomepage() {
 
             {/* Desktop Actions */}
             <div className="hidden md:flex items-center gap-3">
-              <ThemeToggle />
-              <a
-                href="#"
+              <Link
+                href="/signup"
                 className="flex h-10 items-center gap-1 rounded-full border-2 border-gray-200 dark:border-gray-700 px-4 text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 <Mail className="h-4 w-4" />
                 Subscribe
-              </a>
-              <button className="h-10 px-4 rounded-full bg-orange-500 text-16 font-semibold text-white hover:bg-orange-600 transition-colors">
-                Sign in
-              </button>
+              </Link>
+              {user ? (
+                <>
+                  <Link href="/dashboard" className="inline-flex items-center justify-center h-10 px-4 rounded-full bg-orange-500 text-16 font-semibold text-white hover:bg-orange-600 transition-colors">
+                    Dashboard
+                  </Link>
+                  <Button
+                    variant="outline"
+                    className="h-10 px-4 rounded-full border-2 border-gray-200 dark:border-gray-700 text-16 font-semibold text-gray-600 dark:text-gray-400 hover:border-orange-500"
+                    onClick={() => signOut().catch(console.error)}
+                  >
+                    Sign out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" className="inline-flex items-center justify-center h-10 px-4 rounded-full bg-orange-500 text-16 font-semibold text-white hover:bg-orange-600 transition-colors">
+                    Sign in
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1099,7 +1189,7 @@ export default function BookSweepsHomepage() {
                   Get the best of BookSweeps, directly in your inbox.
                 </div>
                 <a
-                  href="/newsletters"
+                  href="/signup"
                   className="w-full md:w-auto inline-block max-h-11 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-center text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm"
                 >
                   Sign Up

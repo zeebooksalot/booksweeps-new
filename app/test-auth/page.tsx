@@ -5,6 +5,16 @@ import { useState } from 'react'
 import { getPlatformUrls } from '@/lib/config'
 
 export default function TestAuthPage() {
+  if (process.env.NODE_ENV === 'production') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-8 text-center">
+        <div className="text-gray-600 dark:text-gray-400">
+          This page is disabled in production.
+        </div>
+      </div>
+    )
+  }
+
   const { user, loading, signIn, signOut } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

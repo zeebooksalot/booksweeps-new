@@ -65,6 +65,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    scrollbar-gutter: stable;
+  }
+  html {
+    scrollbar-gutter: stable;
   }
 }
 
@@ -117,6 +121,27 @@
 /* Smooth transitions for theme switching */
 * {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* Prevent layout shifts and twitching */
+[data-radix-popper-content-wrapper] {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Ensure dropdowns don't cause layout shifts */
+[data-state="open"][data-radix-dropdown-menu-content] {
+  will-change: transform;
+}
+
+/* Prevent layout shifts from resize events and mobile view changes */
+header {
+  contain: layout style;
+}
+
+/* Ensure stable header height */
+header > div {
+  min-height: 64px;
 }
 
 /* Custom scrollbar for dark mode */

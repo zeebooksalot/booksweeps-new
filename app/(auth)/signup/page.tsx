@@ -2,35 +2,44 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/use-toast'
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const { signIn } = useAuth()
+  const { signUp } = useAuth()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { toast } = useToast()
-  const redirectTo = searchParams.get('redirectTo') || '/dashboard'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setErrorMessage(null)
     
+    if (password.length < 8) {
+      setErrorMessage('Password must be at least 8 characters long')
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMessage('Passwords do not match')
+      return
+    }
+    
+    setLoading(true)
+    
     try {
-      await signIn(email, password)
-      toast({ title: 'Signed in', description: 'Welcome back!' })
-      router.push(redirectTo)
+      await signUp(email, password)
+      toast({ title: 'Account created', description: 'Welcome to BookSweeps!' })
+      router.push('/dashboard')
     } catch (error) {
-      console.error('Login error:', error)
-      const message = (error as Error).message || 'Login failed'
+      const message = (error as Error).message || 'Signup failed'
       setErrorMessage(message)
-      toast({ title: 'Sign in failed', description: message, variant: 'destructive' })
+      toast({ title: 'Signup failed', description: message, variant: 'destructive' })
     } finally {
       setLoading(false)
     }
@@ -41,8 +50,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-6 md:p-8">
           <div className="mb-6 text-center">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Welcome back</h1>
-            <p className="mt-2 text-14 text-gray-600 dark:text-gray-400">Sign in to continue</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Create your account</h1>
+            <p className="mt-2 text-14 text-gray-600 dark:text-gray-400">Join BookSweeps and start exploring</p>
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
@@ -67,7 +76,7 @@ export default function LoginPage() {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
                 className="h-11 w-full rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-0 focus:border-orange-500"
                 placeholder="Password"
@@ -76,29 +85,40 @@ export default function LoginPage() {
               />
             </div>
 
+            <div>
+              <label htmlFor="confirmPassword" className="sr-only">Confirm Password</label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="h-11 w-full rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-0 focus:border-orange-500"
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+
             {errorMessage && (
               <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">{errorMessage}</div>
             )}
 
-            <div className="flex items-center justify-between text-14">
-              <Link href="/forgot-password" className="text-orange-600 hover:text-orange-700">Forgot your password?</Link>
-            </div>
-
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center justify-center h-11 w-full rounded-full bg-orange-500 text-white text-14 font-semibold hover:bg-orange-600 transition-colors disabled:opacity-50"
+              className="h-11 w-full rounded-full bg-orange-500 text-white text-14 font-semibold hover:bg-orange-600 transition-colors disabled:opacity-50"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Creating account...' : 'Create account'}
             </button>
 
             <div className="text-center text-14 text-gray-600 dark:text-gray-400">
-              <span>Don't have an account? </span>
-              <Link href="/signup" className="text-orange-600 hover:text-orange-700 font-semibold">Sign up</Link>
+              <span>Already have an account? </span>
+              <Link href="/login" className="text-orange-600 hover:text-orange-700 font-semibold">Sign in</Link>
             </div>
           </form>
         </div>
       </div>
     </div>
   )
-}
+} 
