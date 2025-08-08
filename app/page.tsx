@@ -77,10 +77,11 @@ export default function BookSweepsHomepage() {
   const [isMobileView, setIsMobileView] = useState(false)
   const [showMobileSearch, setShowMobileSearch] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [booksDropdownOpen, setBooksDropdownOpen] = useState(false)
-  const [authorsDropdownOpen, setAuthorsDropdownOpen] = useState(false)
-  const [booksDropdownTimeout, setBooksDropdownTimeout] = useState<NodeJS.Timeout | null>(null)
-  const [authorsDropdownTimeout, setAuthorsDropdownTimeout] = useState<NodeJS.Timeout | null>(null)
+  // Remove manual dropdown state management - let Radix UI handle it
+  // const [booksDropdownOpen, setBooksDropdownOpen] = useState(false)
+  // const [authorsDropdownOpen, setAuthorsDropdownOpen] = useState(false)
+  // const [booksDropdownTimeout, setBooksDropdownTimeout] = useState<NodeJS.Timeout | null>(null)
+  // const [authorsDropdownTimeout, setAuthorsDropdownTimeout] = useState<NodeJS.Timeout | null>(null)
   const { user, signOut } = useAuth()
   
   // Advanced filtering state
@@ -115,13 +116,13 @@ export default function BookSweepsHomepage() {
     return () => window.removeEventListener("resize", debouncedCheckMobile)
   }, [isMobileView])
 
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (booksDropdownTimeout) clearTimeout(booksDropdownTimeout)
-      if (authorsDropdownTimeout) clearTimeout(authorsDropdownTimeout)
-    }
-  }, [booksDropdownTimeout, authorsDropdownTimeout])
+  // Remove timeout cleanup since we're not using manual timeouts anymore
+  // useEffect(() => {
+  //   return () => {
+  //     if (booksDropdownTimeout) clearTimeout(booksDropdownTimeout)
+  //     if (authorsDropdownTimeout) clearTimeout(authorsDropdownTimeout)
+  //   }
+  // }, [booksDropdownTimeout, authorsDropdownTimeout])
 
   // Debounce helper function
   const debounce = (func: Function, wait: number) => {
@@ -136,31 +137,32 @@ export default function BookSweepsHomepage() {
     }
   }
 
-  const handleBooksDropdownEnter = () => {
-    if (booksDropdownTimeout) {
-      clearTimeout(booksDropdownTimeout)
-      setBooksDropdownTimeout(null)
-    }
-    setBooksDropdownOpen(true)
-  }
+  // Remove the manual dropdown handlers that cause twitchy behavior
+  // const handleBooksDropdownEnter = () => {
+  //   if (booksDropdownTimeout) {
+  //     clearTimeout(booksDropdownTimeout)
+  //     setBooksDropdownTimeout(null)
+  //   }
+  //   setBooksDropdownOpen(true)
+  // }
 
-  const handleBooksDropdownLeave = () => {
-    const timeout = setTimeout(() => setBooksDropdownOpen(false), 150)
-    setBooksDropdownTimeout(timeout)
-  }
+  // const handleBooksDropdownLeave = () => {
+  //   const timeout = setTimeout(() => setBooksDropdownOpen(false), 150)
+  //   setBooksDropdownTimeout(timeout)
+  // }
 
-  const handleAuthorsDropdownEnter = () => {
-    if (authorsDropdownTimeout) {
-      clearTimeout(authorsDropdownTimeout)
-      setAuthorsDropdownTimeout(null)
-    }
-    setAuthorsDropdownOpen(true)
-  }
+  // const handleAuthorsDropdownEnter = () => {
+  //   if (authorsDropdownTimeout) {
+  //     clearTimeout(authorsDropdownTimeout)
+  //     setAuthorsDropdownTimeout(null)
+  //   }
+  //   setAuthorsDropdownOpen(true)
+  // }
 
-  const handleAuthorsDropdownLeave = () => {
-    const timeout = setTimeout(() => setAuthorsDropdownOpen(false), 150)
-    setAuthorsDropdownTimeout(timeout)
-  }
+  // const handleAuthorsDropdownLeave = () => {
+  //   const timeout = setTimeout(() => setAuthorsDropdownOpen(false), 150)
+  //   setAuthorsDropdownTimeout(timeout)
+  // }
 
   // Data mapping functions
   const mapBookFromApi = (book: any, rank: number): BookItem => ({
@@ -564,16 +566,14 @@ export default function BookSweepsHomepage() {
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-6 lg:gap-8">
-              <DropdownMenu open={booksDropdownOpen} onOpenChange={setBooksDropdownOpen}>
+              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button 
-                    className="flex items-center gap-1 text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:text-orange-500 focus:outline-none"
-                    onMouseEnter={handleBooksDropdownEnter}
-                    onMouseLeave={handleBooksDropdownLeave}
+                    className="flex items-center gap-1 text-16 font-semibold text-gray-600 dark:text-gray-400 transition-colors duration-300 hover:text-orange-500 focus:outline-none whitespace-nowrap"
                   >
                     <span>Books</span>
                     <div className="w-4 h-4 flex items-center justify-center">
-                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${booksDropdownOpen ? 'rotate-180' : ''}`} style={{ transformOrigin: 'center' }} />
+                      <ChevronDown className={`h-4 w-4 transition-transform duration-200`} style={{ transformOrigin: 'center' }} />
                     </div>
                   </button>
                 </DropdownMenuTrigger>
@@ -581,8 +581,6 @@ export default function BookSweepsHomepage() {
                   className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-lg"
                   align="start"
                   sideOffset={8}
-                  onMouseEnter={handleBooksDropdownEnter}
-                  onMouseLeave={handleBooksDropdownLeave}
                 >
                   <DropdownMenuItem className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">New Releases</DropdownMenuItem>
                   <DropdownMenuItem className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Bestsellers</DropdownMenuItem>
@@ -590,16 +588,14 @@ export default function BookSweepsHomepage() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <DropdownMenu open={authorsDropdownOpen} onOpenChange={setAuthorsDropdownOpen}>
+              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button 
-                    className="flex items-center gap-1 text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:text-orange-500 focus:outline-none"
-                    onMouseEnter={handleAuthorsDropdownEnter}
-                    onMouseLeave={handleAuthorsDropdownLeave}
+                    className="flex items-center gap-1 text-16 font-semibold text-gray-600 dark:text-gray-400 transition-colors duration-300 hover:text-orange-500 focus:outline-none whitespace-nowrap"
                   >
                     <span>Authors</span>
                     <div className="w-4 h-4 flex items-center justify-center">
-                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${authorsDropdownOpen ? 'rotate-180' : ''}`} style={{ transformOrigin: 'center' }} />
+                      <ChevronDown className={`h-4 w-4 transition-transform duration-200`} style={{ transformOrigin: 'center' }} />
                     </div>
                   </button>
                 </DropdownMenuTrigger>
@@ -607,8 +603,6 @@ export default function BookSweepsHomepage() {
                   className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-lg"
                   align="start"
                   sideOffset={8}
-                  onMouseEnter={handleAuthorsDropdownEnter}
-                  onMouseLeave={handleAuthorsDropdownLeave}
                 >
                   <DropdownMenuItem className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Featured Authors</DropdownMenuItem>
                   <DropdownMenuItem className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">New Authors</DropdownMenuItem>
@@ -618,7 +612,7 @@ export default function BookSweepsHomepage() {
 
               <Link
                 href="/giveaways"
-                className="text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:text-orange-500"
+                className="text-16 font-semibold text-gray-600 dark:text-gray-400 transition-colors duration-300 hover:text-orange-500 whitespace-nowrap"
               >
                 Giveaways
               </Link>
