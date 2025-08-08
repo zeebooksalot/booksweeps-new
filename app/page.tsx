@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import {
@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 // import { ThemeToggle, SimpleThemeToggle } from "@/components/theme-toggle"
 import { FeedItemDisplay } from "@/components/feed-item-display"
+import { FeedSkeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
 import { useAuth } from "@/components/auth/AuthProvider"
 import { Header } from "@/components/Header"
@@ -228,15 +229,15 @@ export default function BookSweepsHomepage() {
   })
 
   // Fetch data from APIs
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     
     try {
       // Fetch books and authors in parallel
       const [booksResponse, authorsResponse] = await Promise.all([
-        booksApi.fetchData(`/api/books?sortBy=${sortBy}&limit=10`),
-        authorsApi.fetchData(`/api/authors?sortBy=${sortBy}&limit=10`)
+        booksApi.fetchData(`/api/books?sort=${sortBy}&limit=20`),
+        authorsApi.fetchData(`/api/authors?sort=${sortBy}&limit=20`)
       ])
       
       // Map the data
@@ -248,7 +249,7 @@ export default function BookSweepsHomepage() {
         const fallbackBooks: BookItem[] = [
           {
             id: "1",
-            type: "book" as const,
+            type: "book",
             title: "Ocean's Echo",
             author: "Elena Rodriguez",
             description: "A magical tale of love and adventure beneath the waves that explores the depths of human connection and the mysteries of the ocean.",
@@ -263,7 +264,7 @@ export default function BookSweepsHomepage() {
           },
           {
             id: "2",
-            type: "book" as const,
+            type: "book",
             title: "The Last Garden",
             author: "Maria Santos",
             description: "Hope blooms in the most unexpected places in this post-apocalyptic tale that reminds us of the resilience of the human spirit.",
@@ -281,7 +282,7 @@ export default function BookSweepsHomepage() {
         const fallbackAuthors: AuthorItem[] = [
           {
             id: "3",
-            type: "author" as const,
+            type: "author",
             name: "Elena Rodriguez",
             bio: "Fantasy romance author who transports readers to magical worlds filled with adventure and love. Known for her vivid world-building and compelling characters that stay with readers long after the final page.",
             avatar: "/placeholder.svg?height=64&width=64",
@@ -293,7 +294,7 @@ export default function BookSweepsHomepage() {
           },
           {
             id: "4",
-            type: "author" as const,
+            type: "author",
             name: "Sarah Johnson",
             bio: "Bestselling author of contemporary fiction with over 3 million books sold worldwide. Her work has been translated into 15 languages and adapted for screen.",
             avatar: "/placeholder.svg?height=64&width=64",
@@ -317,159 +318,163 @@ export default function BookSweepsHomepage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [sortBy, booksApi, authorsApi, mapBookFromApi, mapAuthorFromApi])
 
   // Fetch data on component mount and when sortBy changes
   useEffect(() => {
     fetchData()
-  }, [sortBy])
+  }, [fetchData])
 
   // Combine and filter data based on activeTab and advanced filters
   const allData = [...booksData, ...authorsData]
   
-  const filteredData = allData.filter((item) => {
-    // Basic tab filtering
-    if (activeTab === "books" && item.type !== "book") return false
-    if (activeTab === "authors" && item.type !== "author") return false
-    if (activeTab === "giveaways" && !item.hasGiveaway) return false
-    
-    // Search query filtering
+  const filteredData = useMemo(() => {
+    let data = allData
+
+    // Filter by active tab
+    if (activeTab !== "all") {
+      data = data.filter(item => item.type === activeTab.slice(0, -1)) // Remove 's' from "books" or "authors"
+    }
+
+    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      if (item.type === "book") {
-        const book = item as BookItem
-        const searchText = `${book.title} ${book.author} ${book.description} ${book.genres.join(" ")}`.toLowerCase()
-        if (!searchText.includes(query)) return false
-      } else {
-        const author = item as AuthorItem
-        const searchText = `${author.name} ${author.bio}`.toLowerCase()
-        if (!searchText.includes(query)) return false
-      }
+      data = data.filter(item => {
+        if (item.type === "book") {
+          return (
+            item.title.toLowerCase().includes(query) ||
+            item.author.toLowerCase().includes(query) ||
+            item.description.toLowerCase().includes(query) ||
+            item.genres.some(genre => genre.toLowerCase().includes(query))
+          )
+        } else {
+          return (
+            item.name.toLowerCase().includes(query) ||
+            item.bio.toLowerCase().includes(query)
+          )
+        }
+      })
     }
-    
-    // Genre filtering
+
+    // Apply advanced filters
     if (selectedGenres.length > 0) {
-      if (item.type === "book") {
-        const book = item as BookItem
-        const hasMatchingGenre = book.genres.some(genre => selectedGenres.includes(genre))
-        if (!hasMatchingGenre) return false
-      }
-    }
-    
-    // Rating filtering
-    if (ratingFilter > 0) {
-      if (item.type === "book") {
-        const book = item as BookItem
-        if (book.rating < ratingFilter) return false
-      }
-    }
-    
-    // Giveaway filtering
-    if (hasGiveaway !== null) {
-      if (item.hasGiveaway !== hasGiveaway) return false
-    }
-    
-    // Date range filtering
-    if (dateRange !== "all") {
-      const itemDate = item.type === "book" 
-        ? new Date((item as BookItem).publishDate)
-        : new Date((item as AuthorItem).joinedDate)
-      const now = new Date()
-      
-      switch (dateRange) {
-        case "week":
-          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-          if (itemDate < weekAgo) return false
-          break
-        case "month":
-          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-          if (itemDate < monthAgo) return false
-          break
-        case "year":
-          const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-          if (itemDate < yearAgo) return false
-          break
-      }
-    }
-    
-    return true
-  })
-
-  const handleVote = async (id: string) => {
-  // Add haptic feedback for mobile
-  if (navigator.vibrate) {
-    navigator.vibrate(50)
-  }
-  
-  try {
-    // Find the item to determine its type
-    const item = allData.find(item => item.id === id)
-    if (!item) return
-    
-    // Mock user ID for now - this should come from authentication
-    const userId = "mock-user-id"
-    
-    // Prepare vote data with proper typing
-    const voteData: {
-      user_id: string
-      vote_type: string
-      book_id?: string
-      pen_name_id?: string
-    } = {
-      user_id: userId,
-      vote_type: "upvote"
-    }
-    
-    // Add item-specific data
-    if (item.type === "book") {
-      voteData.book_id = id
-    } else {
-      voteData.pen_name_id = id
-    }
-    
-    // Send vote to API
-    const response = await fetch('/api/votes', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(voteData),
-    })
-    
-    if (response.ok) {
-      // Optimistically update the UI
-      const updatedData = allData.map(item => 
-        item.id === id 
-          ? { ...item, votes: item.votes + 1 }
-          : item
+      data = data.filter(item => 
+        item.type === "book" && 
+        item.genres.some(genre => selectedGenres.includes(genre))
       )
-      
-      // Update the appropriate state
-      const updatedBooks = updatedData.filter(item => item.type === "book") as BookItem[]
-      const updatedAuthors = updatedData.filter(item => item.type === "author") as AuthorItem[]
-      
-      setBooksData(updatedBooks)
-      setAuthorsData(updatedAuthors)
-    } else {
-      console.error('Failed to submit vote')
     }
-  } catch (error) {
-    console.error('Error submitting vote:', error)
-  }
-}
 
-  const handleSwipeLeft = (id: string) => {
-  }
+    if (ratingFilter > 0) {
+      data = data.filter(item => 
+        item.type === "book" && item.rating >= ratingFilter
+      )
+    }
 
-  const handleSwipeRight = (id: string) => {
+    if (hasGiveaway !== null) {
+      data = data.filter(item => item.hasGiveaway === hasGiveaway)
+    }
+
+    if (dateRange !== "all") {
+      const now = new Date()
+      data = data.filter(item => {
+        const itemDate = new Date(item.type === "book" ? item.publishDate : item.joinedDate)
+        switch (dateRange) {
+          case "week":
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            if (itemDate < weekAgo) return false
+            break
+          case "month":
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            if (itemDate < monthAgo) return false
+            break
+          case "year":
+            const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+            if (itemDate < yearAgo) return false
+            break
+        }
+        return true
+      })
+    }
+    
+    return data
+  }, [allData, activeTab, searchQuery, selectedGenres, ratingFilter, hasGiveaway, dateRange])
+
+  const handleVote = useCallback(async (id: string) => {
+    // Add haptic feedback for mobile
+    if (navigator.vibrate) {
+      navigator.vibrate(50)
+    }
+    
+    try {
+      // Find the item to determine its type
+      const item = allData.find(item => item.id === id)
+      if (!item) return
+      
+      // Mock user ID for now - this should come from authentication
+      const userId = "mock-user-id"
+      
+      // Prepare vote data with proper typing
+      const voteData: {
+        user_id: string
+        vote_type: string
+        book_id?: string
+        pen_name_id?: string
+      } = {
+        user_id: userId,
+        vote_type: "upvote"
+      }
+      
+      // Add item-specific data
+      if (item.type === "book") {
+        voteData.book_id = id
+      } else {
+        voteData.pen_name_id = id
+      }
+      
+      // Send vote to API
+      const response = await fetch('/api/votes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(voteData),
+      })
+      
+      if (response.ok) {
+        // Optimistically update the UI
+        const updatedData = allData.map(item => 
+          item.id === id 
+            ? { ...item, votes: item.votes + 1 }
+            : item
+        )
+        
+        // Update the appropriate state
+        const updatedBooks = updatedData.filter(item => item.type === "book") as BookItem[]
+        const updatedAuthors = updatedData.filter(item => item.type === "author") as AuthorItem[]
+        
+        setBooksData(updatedBooks)
+        setAuthorsData(updatedAuthors)
+      } else {
+        console.error('Failed to submit vote')
+      }
+    } catch (error) {
+      console.error('Error submitting vote:', error)
+    }
+  }, [allData])
+
+  const handleSwipeLeft = useCallback((id: string) => {
+    // Skip functionality - no logging needed
+  }, [])
+
+  const handleSwipeRight = useCallback((id: string) => {
     handleVote(id)
-  }
+  }, [handleVote])
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
     await fetchData()
     setIsRefreshing(false)
-  }
+  }, [fetchData])
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 md:bg-white md:dark:bg-gray-900 transition-colors">
@@ -963,11 +968,8 @@ export default function BookSweepsHomepage() {
 
                 {/* Loading State */}
                 {isLoading && (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="flex items-center gap-3">
-                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent"></div>
-                      <span className="text-gray-600 dark:text-gray-400">Loading books and authors...</span>
-                    </div>
+                  <div className="py-12">
+                    <FeedSkeleton count={5} />
                   </div>
                 )}
 
@@ -983,37 +985,27 @@ export default function BookSweepsHomepage() {
                   </div>
                 )}
 
-                {/* Content */}
+                {/* Feed Content */}
                 {!isLoading && !error && (
-                  <>
-                    {/* Mobile Card View */}
-                    <div className="md:hidden">
-                      {filteredData.map((item) => (
-                        <FeedItemDisplay
-                          key={item.id}
-                          item={item}
-                          isMobileView={true}
-                          onVote={handleVote}
-                          onSwipeLeft={handleSwipeLeft}
-                          onSwipeRight={handleSwipeRight}
-                        />
-                      ))}
-                    </div>
-
-                    {/* Desktop List View */}
-                    <div className="hidden md:block">
-                      {filteredData.map((item) => (
-                        <FeedItemDisplay
-                          key={item.id}
-                          item={item}
-                          isMobileView={false}
-                          onVote={handleVote}
-                          onSwipeLeft={handleSwipeLeft}
-                          onSwipeRight={handleSwipeRight}
-                        />
-                      ))}
-                    </div>
-                  </>
+                  <div className="space-y-6">
+                    {isMobileView ? (
+                      <FeedItemDisplay
+                        items={filteredData}
+                        onVote={handleVote}
+                        onSwipeLeft={handleSwipeLeft}
+                        onSwipeRight={handleSwipeRight}
+                        isMobileView={true}
+                      />
+                    ) : (
+                      <FeedItemDisplay
+                        items={filteredData}
+                        onVote={handleVote}
+                        onSwipeLeft={handleSwipeLeft}
+                        onSwipeRight={handleSwipeRight}
+                        isMobileView={false}
+                      />
+                    )}
+                  </div>
                 )}
 
                 <button className="relative my-4 mx-4 grow inline-block max-h-11 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-center text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm">

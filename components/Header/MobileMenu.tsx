@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { useCallback, useMemo } from "react"
 import Link from "next/link"
 import { Mail, Menu } from "lucide-react"
@@ -11,7 +12,7 @@ interface MobileMenuProps {
   className?: string
 }
 
-export function MobileMenu({ className = "" }: MobileMenuProps) {
+export const MobileMenu = React.memo(function MobileMenu({ className = "" }: MobileMenuProps) {
   const { user, signOut } = useAuth()
 
   // Memoized navigation items to prevent unnecessary re-renders
@@ -121,4 +122,4 @@ export function MobileMenu({ className = "" }: MobileMenuProps) {
       </SheetContent>
     </Sheet>
   )
-}
+})
