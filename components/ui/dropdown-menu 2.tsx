@@ -78,10 +78,8 @@ const DropdownMenuItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean
-    icon?: React.ReactNode
-    shortcut?: string
   }
->(({ className, inset, icon, shortcut, children, ...props }, ref) => (
+>(({ className, inset, ...props }, ref) => (
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
@@ -90,15 +88,7 @@ const DropdownMenuItem = React.forwardRef<
       className
     )}
     {...props}
-  >
-    {icon && <span className="flex-shrink-0">{icon}</span>}
-    <span className="flex-1">{children}</span>
-    {shortcut && (
-      <span className="ml-auto text-xs text-muted-foreground">
-        {shortcut}
-      </span>
-    )}
-  </DropdownMenuPrimitive.Item>
+  />
 ))
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName
 
