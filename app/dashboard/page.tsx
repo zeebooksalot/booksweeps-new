@@ -4,46 +4,25 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { 
-  User,
   BookOpen,
   Download,
   Heart,
   Settings,
   Bell,
-  Mail,
-  Calendar,
-  Star,
-  ArrowRight,
   Edit,
   Trash2,
   Plus,
-  Search,
   Filter,
-  Clock,
-  Eye,
-  Bookmark,
-  Share2,
-  MessageCircle
+  Eye
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-
-interface UserProfile {
-  id: string
-  name: string
-  email: string
-  avatar_url: string
-  bio?: string
-  join_date: string
-  preferences: {
-    genres: string[]
-    email_notifications: boolean
-    newsletter: boolean
-  }
-}
+import { useAuth } from "@/components/auth/AuthProvider"
+import { LoadingSpinner } from "@/components/ui/loading"
+import { ErrorState } from "@/components/ui/error-state"
 
 interface DownloadHistory {
   id: string
@@ -74,32 +53,22 @@ interface ReadingList {
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<UserProfile | null>(null)
+  const { user, userProfile, userSettings, loading } = useAuth()
   const [downloads, setDownloads] = useState<DownloadHistory[]>([])
   const [favorites, setFavorites] = useState<FavoriteAuthor[]>([])
   const [readingList, setReadingList] = useState<ReadingList[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingData, setIsLoadingData] = useState(true)
+  const [dataError, setDataError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("overview")
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      setIsLoading(true)
+      if (!user) return
+      
+      setIsLoadingData(true)
+      setDataError(null)
       try {
-        // Mock data for development
-        const mockUser: UserProfile = {
-          id: "1",
-          name: "Sarah Johnson",
-          email: "sarah@example.com",
-          avatar_url: "/placeholder.svg?height=64&width=64",
-          bio: "Avid reader of fantasy and romance novels. Always looking for the next great story!",
-          join_date: "2024-01-15",
-          preferences: {
-            genres: ["Fantasy", "Romance", "Mystery", "Sci-Fi"],
-            email_notifications: true,
-            newsletter: true
-          }
-        }
-
+        // Mock data for development - in production, this would come from API calls
         const mockDownloads: DownloadHistory[] = [
           {
             id: "1",
@@ -184,19 +153,21 @@ export default function DashboardPage() {
           }
         ]
 
-        setUser(mockUser)
         setDownloads(mockDownloads)
         setFavorites(mockFavorites)
         setReadingList(mockReadingList)
       } catch (err) {
         console.error('Failed to load dashboard data:', err)
+        setDataError('Failed to load dashboard data. Please try again later.')
       } finally {
-        setIsLoading(false)
+        setIsLoadingData(false)
       }
     }
 
-    fetchDashboardData()
-  }, [])
+    if (!loading) {
+      fetchDashboardData()
+    }
+  }, [user, loading])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -211,31 +182,109 @@ export default function DashboardPage() {
     }
   }
 
-  if (isLoading) {
+  // Show loading state while auth is loading
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="flex items-center gap-3">
-          <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"></div>
+          <LoadingSpinner size="lg" />
           <span className="text-gray-600 dark:text-gray-400">Loading your dashboard...</span>
         </div>
       </div>
     )
   }
 
-  if (!user) {
+  // Show error state if not authenticated
+  if (!user || !userProfile) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-6">
-          <User className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            Dashboard Not Available
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Please log in to access your dashboard.
-          </p>
-          <Link href="/">
-            <Button>Go Home</Button>
-          </Link>
+        <ErrorState
+          title="Authentication Required"
+          message="Please sign in to access your dashboard."
+          variant="compact"
+        />
+      </div>
+    )
+  }
+
+  // Show loading state while dashboard data is loading
+  if (isLoadingData) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <Link href="/" className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <BookOpen className="h-6 w-6" />
+                <span className="font-semibold">BookSweeps</span>
+              </Link>
+              <div className="flex items-center gap-4">
+                <Button variant="outline" size="sm">
+                  <Bell className="h-4 w-4 mr-2" />
+                  Notifications
+                </Button>
+                <Link href="/profile">
+                  <Button variant="outline" size="sm">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Loading Content */}
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="flex items-center justify-center py-12">
+            <div className="flex items-center gap-3">
+              <LoadingSpinner size="lg" />
+              <span className="text-gray-600 dark:text-gray-400">Loading your dashboard data...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state if dashboard data failed to load
+  if (dataError) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <Link href="/" className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <BookOpen className="h-6 w-6" />
+                <span className="font-semibold">BookSweeps</span>
+              </Link>
+              <div className="flex items-center gap-4">
+                <Button variant="outline" size="sm">
+                  <Bell className="h-4 w-4 mr-2" />
+                  Notifications
+                </Button>
+                <Link href="/profile">
+                  <Button variant="outline" size="sm">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Error Content */}
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="flex items-center justify-center py-12">
+            <ErrorState
+              title="Failed to Load Dashboard"
+              message={dataError}
+              variant="compact"
+            />
+          </div>
         </div>
       </div>
     )
@@ -256,10 +305,12 @@ export default function DashboardPage() {
                 <Bell className="h-4 w-4 mr-2" />
                 Notifications
               </Button>
-              <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Button>
+              <Link href="/profile">
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -272,31 +323,38 @@ export default function DashboardPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-start gap-6">
               <Image
-                src={user.avatar_url}
-                alt={user.name}
+                src={userProfile.avatar_url || "/placeholder.svg?height=64&width=64"}
+                alt={userProfile.display_name || user.email || "User"}
                 width={80}
                 height={80}
                 className="rounded-full"
               />
               <div className="flex-1">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                  Welcome back, {user.name}!
+                  Welcome back, {userProfile.display_name || user.email}!
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  {user.bio}
+                  {userProfile.favorite_genres.length > 0 
+                    ? `Favorite genres: ${userProfile.favorite_genres.join(", ")}`
+                    : "Start exploring books to discover your favorite genres!"
+                  }
                 </p>
                 <div className="flex items-center gap-4 text-sm text-gray-500">
-                  <span>Member since {new Date(user.join_date).toLocaleDateString()}</span>
+                  <span>Member since {new Date(userProfile.created_at).toLocaleDateString()}</span>
                   <span>•</span>
                   <span>{downloads.length} downloads</span>
                   <span>•</span>
                   <span>{favorites.length} favorite authors</span>
+                  <span>•</span>
+                  <Badge variant="secondary">{userProfile.user_type}</Badge>
                 </div>
               </div>
-              <Button variant="outline" size="sm">
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Profile
-              </Button>
+              <Link href="/profile">
+                <Button variant="outline" size="sm">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Profile
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -362,33 +420,49 @@ export default function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {downloads.slice(0, 3).map((download) => (
-                    <div key={download.id} className="flex items-center gap-4">
-                      <Image
-                        src={download.cover_url}
-                        alt={download.title}
-                        width={50}
-                        height={70}
-                        className="rounded"
-                      />
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                          {download.title}
-                        </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          by {download.author}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Downloaded {new Date(download.downloaded_at).toLocaleDateString()}
-                        </p>
+                {downloads.length > 0 ? (
+                  <div className="space-y-4">
+                    {downloads.slice(0, 3).map((download) => (
+                      <div key={download.id} className="flex items-center gap-4">
+                        <Image
+                          src={download.cover_url}
+                          alt={download.title}
+                          width={50}
+                          height={70}
+                          className="rounded"
+                        />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                            {download.title}
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            by {download.author}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Downloaded {new Date(download.downloaded_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {download.format}
+                        </Badge>
                       </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {download.format}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      No downloads yet
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                      Start exploring books to see your download history here.
+                    </p>
+                    <Button>
+                      <BookOpen className="h-4 w-4 mr-2" />
+                      Browse Books
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -411,44 +485,60 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {downloads.map((download) => (
-                <Card key={download.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <Image
-                        src={download.cover_url}
-                        alt={download.title}
-                        width={60}
-                        height={80}
-                        className="rounded"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {download.title}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          by {download.author}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {download.format}
-                          </Badge>
-                          {download.file_size && (
-                            <span className="text-xs text-gray-500">
-                              {download.file_size}
-                            </span>
-                          )}
+            {downloads.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {downloads.map((download) => (
+                  <Card key={download.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <Image
+                          src={download.cover_url}
+                          alt={download.title}
+                          width={60}
+                          height={80}
+                          className="rounded"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {download.title}
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            by {download.author}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="secondary" className="text-xs">
+                              {download.format}
+                            </Badge>
+                            {download.file_size && (
+                              <span className="text-xs text-gray-500">
+                                {download.file_size}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Downloaded {new Date(download.downloaded_at).toLocaleDateString()}
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          Downloaded {new Date(download.downloaded_at).toLocaleDateString()}
-                        </p>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Download className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                  No downloads yet
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Your downloaded books will appear here once you start downloading.
+                </p>
+                <Button>
+                  <Download className="h-4 w-4 mr-2" />
+                  Browse Books
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           {/* Favorites Tab */}
@@ -463,44 +553,60 @@ export default function DashboardPage() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {favorites.map((author) => (
-                <Card key={author.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-4 mb-4">
-                      <Image
-                        src={author.avatar_url}
-                        alt={author.name}
-                        width={60}
-                        height={60}
-                        className="rounded-full"
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                          {author.name}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {author.books_count} books
-                        </p>
+            {favorites.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {favorites.map((author) => (
+                  <Card key={author.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-4 mb-4">
+                        <Image
+                          src={author.avatar_url}
+                          alt={author.name}
+                          width={60}
+                          height={60}
+                          className="rounded-full"
+                        />
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                            {author.name}
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {author.books_count} books
+                          </p>
+                        </div>
+                        <Button variant="ghost" size="sm">
+                          <Heart className="h-4 w-4 text-red-500" />
+                        </Button>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <Heart className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      {author.bio}
-                    </p>
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                      <span>{author.followers_count.toLocaleString()} followers</span>
-                      <Button variant="outline" size="sm">
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Books
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        {author.bio}
+                      </p>
+                      <div className="flex items-center justify-between text-sm text-gray-500">
+                        <span>{author.followers_count.toLocaleString()} followers</span>
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Books
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Heart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                  No favorite authors yet
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Start following your favorite authors to see them here.
+                </p>
+                <Button>
+                  <Heart className="h-4 w-4 mr-2" />
+                  Discover Authors
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           {/* Reading List Tab */}
@@ -515,45 +621,61 @@ export default function DashboardPage() {
               </Button>
             </div>
 
-            <div className="space-y-4">
-              {readingList.map((book) => (
-                <Card key={book.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <Image
-                        src={book.cover_url}
-                        alt={book.title}
-                        width={60}
-                        height={80}
-                        className="rounded"
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                          {book.title}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          by {book.author}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Added {new Date(book.added_at).toLocaleDateString()}
-                        </p>
+            {readingList.length > 0 ? (
+              <div className="space-y-4">
+                {readingList.map((book) => (
+                  <Card key={book.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <Image
+                          src={book.cover_url}
+                          alt={book.title}
+                          width={60}
+                          height={80}
+                          className="rounded"
+                        />
+                        <div className="flex-1">
+                          <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                            {book.title}
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            by {book.author}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Added {new Date(book.added_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className={getStatusColor(book.status)}>
+                            {book.status.replace('_', ' ')}
+                          </Badge>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge className={getStatusColor(book.status)}>
-                          {book.status.replace('_', ' ')}
-                        </Badge>
-                        <Button variant="ghost" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                  Your reading list is empty
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Start adding books to your reading list to track your reading progress.
+                </p>
+                <Button>
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Add Books
+                </Button>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
