@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 
 interface ApiResponse<T> {
   data: T | null
@@ -13,8 +13,12 @@ export function useApi<T>() {
     error: null
   })
 
+  // Use useRef to store the setState function to avoid dependency issues
+  const setStateRef = useRef(setState)
+  setStateRef.current = setState
+
   const fetchData = useCallback(async (url: string, options?: RequestInit) => {
-    setState(prev => ({ ...prev, loading: true, error: null }))
+    setStateRef.current(prev => ({ ...prev, loading: true, error: null }))
     
     try {
       const response = await fetch(url, options)
@@ -24,11 +28,11 @@ export function useApi<T>() {
         throw new Error(data.error || 'Something went wrong')
       }
       
-      setState({ data, loading: false, error: null })
+      setStateRef.current({ data, loading: false, error: null })
       return data
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Something went wrong'
-      setState({ data: null, loading: false, error: errorMessage })
+      setStateRef.current({ data: null, loading: false, error: errorMessage })
       throw error
     }
   }, [])

@@ -3,9 +3,10 @@
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { MessageCircle, Star, Tag } from "lucide-react"
+import { MessageCircle, Star, Tag, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { LoadingSpinner } from "@/components/ui/loading"
 
 interface BookItem {
   id: string
@@ -62,6 +63,7 @@ function MobileBookCard({
   const [startX, setStartX] = useState(0)
   const [currentX, setCurrentX] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [isVoting, setIsVoting] = useState(false)
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setStartX(e.touches[0].clientX)
@@ -77,7 +79,9 @@ function MobileBookCard({
     if (!isDragging) return
 
     if (currentX > 100) {
+      setIsVoting(true)
       onSwipeRight(item.id) // Like/Vote
+      setTimeout(() => setIsVoting(false), 1000) // Reset after animation
     } else if (currentX < -100) {
       onSwipeLeft(item.id) // Skip
     }

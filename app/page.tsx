@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import {
@@ -28,6 +28,10 @@ import { FeedItemDisplay } from "@/components/feed-item-display"
 import { useApi } from "@/hooks/use-api"
 import { useAuth } from "@/components/auth/AuthProvider"
 import { Header } from "@/components/Header"
+import { LoadingSpinner, LoadingGrid } from "@/components/ui/loading"
+import { ErrorState, NetworkError, ServerError } from "@/components/ui/error-state"
+import { useLoadingState } from "@/hooks/use-loading-state"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 
 interface BookItem {
   id: string
@@ -72,11 +76,6 @@ export default function BookSweepsHomepage() {
   const [isMobileView, setIsMobileView] = useState(false)
 
   const [isRefreshing, setIsRefreshing] = useState(false)
-  // Remove manual dropdown state management - let Radix UI handle it
-  // const [booksDropdownOpen, setBooksDropdownOpen] = useState(false)
-  // const [authorsDropdownOpen, setAuthorsDropdownOpen] = useState(false)
-  // const [booksDropdownTimeout, setBooksDropdownTimeout] = useState<NodeJS.Timeout | null>(null)
-  // const [authorsDropdownTimeout, setAuthorsDropdownTimeout] = useState<NodeJS.Timeout | null>(null)
   const { user } = useAuth()
   
   // Advanced filtering state
@@ -96,106 +95,12 @@ export default function BookSweepsHomepage() {
   const booksApi = useApi<{ books: any[]; pagination: any }>()
   const authorsApi = useApi<{ authors: any[]; pagination: any }>()
 
-  // Check if mobile view
-  useEffect(() => {
-    const checkMobile = () => {
-      const newIsMobile = window.innerWidth < 768
-      if (newIsMobile !== isMobileView) {
-        setIsMobileView(newIsMobile)
-      }
-    }
-
-    checkMobile()
-    const debouncedCheckMobile = debounce(checkMobile, 100)
-    window.addEventListener("resize", debouncedCheckMobile)
-    return () => window.removeEventListener("resize", debouncedCheckMobile)
-  }, [isMobileView])
-
-  // Remove timeout cleanup since we're not using manual timeouts anymore
-  // useEffect(() => {
-  //   return () => {
-  //     if (booksDropdownTimeout) clearTimeout(booksDropdownTimeout)
-  //     if (authorsDropdownTimeout) clearTimeout(authorsDropdownTimeout)
-  //   }
-  // }, [booksDropdownTimeout, authorsDropdownTimeout])
-
-  // Debounce helper function
-  const debounce = (func: Function, wait: number) => {
-    let timeout: NodeJS.Timeout
-    return function executedFunction(...args: any[]) {
-      const later = () => {
-        clearTimeout(timeout)
-        func(...args)
-      }
-      clearTimeout(timeout)
-      timeout = setTimeout(later, wait)
-    }
-  }
-
-  // Remove the manual dropdown handlers that cause twitchy behavior
-  // const handleBooksDropdownEnter = () => {
-  //   if (booksDropdownTimeout) {
-  //     clearTimeout(booksDropdownTimeout)
-  //     setBooksDropdownTimeout(null)
-  //   }
-  //   setBooksDropdownOpen(true)
-  // }
-
-  // const handleBooksDropdownLeave = () => {
-  //   const timeout = setTimeout(() => setBooksDropdownOpen(false), 150)
-  //   setBooksDropdownTimeout(timeout)
-  // }
-
-  // const handleAuthorsDropdownEnter = () => {
-  //   if (authorsDropdownTimeout) {
-  //     clearTimeout(authorsDropdownTimeout)
-  //     setAuthorsDropdownTimeout(null)
-  //   }
-  //   setAuthorsDropdownOpen(true)
-  // }
-
-  // const handleAuthorsDropdownLeave = () => {
-  //   const timeout = setTimeout(() => setAuthorsDropdownOpen(false), 150)
-  //   setAuthorsDropdownTimeout(timeout)
-  // }
-
-  // Data mapping functions
-  const mapBookFromApi = (book: any, rank: number): BookItem => ({
-    id: book.id,
-    type: "book" as const,
-    title: book.title,
-    author: book.author,
-    description: book.description || "",
-    cover: book.cover_image_url || "/placeholder.svg?height=80&width=64",
-    votes: book.upvotes_count || 0,
-    comments: book.comments_count || 0,
-    rating: book.rating || 0,
-    genres: book.genre ? [book.genre] : [],
-    hasGiveaway: book.has_giveaway || false,
-    publishDate: book.published_date ? new Date(book.published_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "Unknown",
-    rank
-  })
-
-  const mapAuthorFromApi = (author: any, rank: number): AuthorItem => ({
-    id: author.id,
-    type: "author" as const,
-    name: author.name,
-    bio: author.bio || "",
-    avatar: author.avatar_url || "/placeholder.svg?height=64&width=64",
-    votes: author.votes_count || 0,
-    books: author.books_count || 0,
-    followers: author.followers_count || 0,
-    joinedDate: author.joined_date ? new Date(author.joined_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "Unknown",
-    hasGiveaway: author.has_giveaway || false,
-    rank
-  })
-
-  // Fetch data from APIs
-  const fetchData = async () => {
-    setIsLoading(true)
-    setError(null)
-    
+  // Memoize the fetchData function to prevent infinite loops
+  const fetchData = useCallback(async () => {
     try {
+      setIsLoading(true)
+      setError(null)
+      
       // Fetch books and authors in parallel
       const [booksResponse, authorsResponse] = await Promise.all([
         booksApi.fetchData(`/api/books?sortBy=${sortBy}&limit=10`),
@@ -280,12 +185,12 @@ export default function BookSweepsHomepage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [sortBy]) // Remove booksApi and authorsApi from dependencies
 
   // Fetch data on component mount and when sortBy changes
   useEffect(() => {
     fetchData()
-  }, [sortBy])
+  }, [fetchData])
 
   // Combine and filter data based on activeTab and advanced filters
   const allData = [...booksData, ...authorsData]
@@ -412,9 +317,11 @@ export default function BookSweepsHomepage() {
         setAuthorsData(updatedAuthors)
       } else {
         console.error('Failed to submit vote')
+        throw new Error('Failed to submit vote')
       }
     } catch (error) {
       console.error('Error submitting vote:', error)
+      // You could show a toast notification here
     }
   }
 
@@ -433,12 +340,13 @@ export default function BookSweepsHomepage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 md:bg-white md:dark:bg-gray-900 transition-colors">
-      <Header 
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        isMobileView={isMobileView}
-      />
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 md:bg-white md:dark:bg-gray-900 transition-colors">
+        <Header 
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          isMobileView={isMobileView}
+        />
 
       {/* Pull to Refresh Indicator */}
       {isRefreshing && (
@@ -906,7 +814,7 @@ export default function BookSweepsHomepage() {
                 {isLoading && (
                   <div className="flex items-center justify-center py-12">
                     <div className="flex items-center gap-3">
-                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent"></div>
+                      <LoadingSpinner size="md" />
                       <span className="text-gray-600 dark:text-gray-400">Loading books and authors...</span>
                     </div>
                   </div>
@@ -914,14 +822,14 @@ export default function BookSweepsHomepage() {
 
                 {/* Error State */}
                 {error && !isLoading && (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-center">
-                      <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-                      <Button onClick={fetchData} variant="outline">
-                        Try Again
-                      </Button>
-                    </div>
-                  </div>
+                  <ErrorState
+                    title="Failed to load content"
+                    message="We couldn't load the books and authors. Please try again."
+                    error={error}
+                    onRetry={() => fetchData()}
+                    showDetails={false}
+                    variant="compact"
+                  />
                 )}
 
                 {/* Content */}
@@ -1147,5 +1055,6 @@ export default function BookSweepsHomepage() {
         </div>
       </nav>
     </div>
+    </ErrorBoundary>
   )
 }
