@@ -6,6 +6,7 @@ import Link from "next/link"
 import { MessageCircle, Star, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 interface BookItem {
   id: string
@@ -118,10 +119,13 @@ function MobileBookCard({
         <div className="flex-shrink-0">
           <Image
             src={item.type === "book" ? item.cover : item.avatar}
-            alt={item.type === "book" ? item.title : item.name}
-            width={item.type === "book" ? 80 : 80}
-            height={item.type === "book" ? 100 : 80}
-            className={`${item.type === "book" ? "rounded-xl" : "rounded-full"} shadow-sm`}
+            alt={item.type === "book" ? `${item.title} cover` : `${item.name} avatar`}
+            width={item.type === "book" ? 80 : 64}
+            height={item.type === "book" ? 120 : 64}
+            className={cn(
+              "shadow-sm",
+              item.type === "book" ? "rounded-xl" : "rounded-full"
+            )}
           />
         </div>
 
@@ -221,10 +225,13 @@ function DesktopListItem({
       <Link href={`/${item.type}s/${item.id}`} className="flex-shrink-0">
         <Image
           src={item.type === "book" ? item.cover : item.avatar}
-          alt={item.type === "book" ? item.title : item.name}
-          width={item.type === "book" ? 64 : 64}
-          height={item.type === "book" ? 80 : 64}
-          className={`${item.type === "book" ? "rounded-xl" : "rounded-full"} shadow-sm`}
+          alt={item.type === "book" ? `${item.title} cover` : `${item.name} avatar`}
+          width={item.type === "book" ? 80 : 64}
+          height={item.type === "book" ? 120 : 64}
+          className={cn(
+            "shadow-sm",
+            item.type === "book" ? "rounded-xl" : "rounded-full"
+          )}
         />
       </Link>
 

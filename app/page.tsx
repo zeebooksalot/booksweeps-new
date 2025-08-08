@@ -28,6 +28,7 @@ import { FeedItemDisplay } from "@/components/feed-item-display"
 import { useApi } from "@/hooks/use-api"
 import { useAuth } from "@/components/auth/AuthProvider"
 import { Header } from "@/components/Header"
+import { cn } from "@/lib/utils"
 
 interface BookItem {
   id: string
@@ -61,8 +62,44 @@ interface AuthorItem {
 
 type FeedItem = BookItem | AuthorItem
 
+interface PaginationInfo {
+  total: number;
+  page: number;
+  limit: number;
+}
 
+interface VoteData {
+  user_id: string;
+  vote_type: "upvote";
+  book_id?: string;
+  pen_name_id?: string;
+}
 
+interface ApiBook {
+  id: string
+  title: string
+  author: string
+  description: string
+  cover_image_url: string
+  votes: number
+  comments: number
+  rating: number
+  genres: string[]
+  has_giveaway: boolean
+  publish_date: string
+}
+
+interface ApiAuthor {
+  id: string
+  name: string
+  bio: string
+  avatar_url: string
+  votes: number
+  books_count: number
+  followers: number
+  joined_date: string
+  has_giveaway?: boolean
+}
 
 
 export default function BookSweepsHomepage() {
@@ -93,8 +130,8 @@ export default function BookSweepsHomepage() {
   const [error, setError] = useState<string | null>(null)
   
   // API hooks
-  const booksApi = useApi<{ books: any[]; pagination: any }>()
-  const authorsApi = useApi<{ authors: any[]; pagination: any }>()
+  const booksApi = useApi<{ books: BookItem[]; pagination: { page: number; total: number; limit: number } }>()
+  const authorsApi = useApi<{ authors: AuthorItem[]; pagination: { page: number; total: number; limit: number } }>()
 
   // Check if mobile view
   useEffect(() => {
@@ -120,9 +157,9 @@ export default function BookSweepsHomepage() {
   // }, [booksDropdownTimeout, authorsDropdownTimeout])
 
   // Debounce helper function
-  const debounce = (func: Function, wait: number) => {
+  const debounce = <T extends (...args: unknown[]) => void>(func: T, wait: number) => {
     let timeout: NodeJS.Timeout
-    return function executedFunction(...args: any[]) {
+    return function executedFunction(...args: Parameters<T>) {
       const later = () => {
         clearTimeout(timeout)
         func(...args)
@@ -160,33 +197,33 @@ export default function BookSweepsHomepage() {
   // }
 
   // Data mapping functions
-  const mapBookFromApi = (book: any, rank: number): BookItem => ({
+  const mapBookFromApi = (book: ApiBook, rank: number): BookItem => ({
     id: book.id,
-    type: "book" as const,
+    type: "book",
     title: book.title,
     author: book.author,
-    description: book.description || "",
-    cover: book.cover_image_url || "/placeholder.svg?height=80&width=64",
-    votes: book.upvotes_count || 0,
-    comments: book.comments_count || 0,
-    rating: book.rating || 0,
-    genres: book.genre ? [book.genre] : [],
-    hasGiveaway: book.has_giveaway || false,
-    publishDate: book.published_date ? new Date(book.published_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "Unknown",
+    description: book.description,
+    cover: book.cover_image_url,
+    votes: book.votes,
+    comments: book.comments,
+    rating: book.rating,
+    genres: book.genres,
+    hasGiveaway: book.has_giveaway,
+    publishDate: book.publish_date,
     rank
   })
 
-  const mapAuthorFromApi = (author: any, rank: number): AuthorItem => ({
+  const mapAuthorFromApi = (author: ApiAuthor, rank: number): AuthorItem => ({
     id: author.id,
-    type: "author" as const,
+    type: "author",
     name: author.name,
-    bio: author.bio || "",
-    avatar: author.avatar_url || "/placeholder.svg?height=64&width=64",
-    votes: author.votes_count || 0,
-    books: author.books_count || 0,
-    followers: author.followers_count || 0,
-    joinedDate: author.joined_date ? new Date(author.joined_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "Unknown",
-    hasGiveaway: author.has_giveaway || false,
+    bio: author.bio,
+    avatar: author.avatar_url,
+    votes: author.votes,
+    books: author.books_count,
+    followers: author.followers,
+    joinedDate: author.joined_date,
+    hasGiveaway: author.has_giveaway,
     rank
   })
 
@@ -203,8 +240,8 @@ export default function BookSweepsHomepage() {
       ])
       
       // Map the data
-      const mappedBooks = booksResponse.books.map((book: any, index: number) => mapBookFromApi(book, index + 1))
-      const mappedAuthors = authorsResponse.authors.map((author: any, index: number) => mapAuthorFromApi(author, index + 1))
+      const mappedBooks = booksResponse.books.map((book: ApiBook, index: number) => mapBookFromApi(book, index + 1))
+      const mappedAuthors = authorsResponse.authors.map((author: ApiAuthor, index: number) => mapAuthorFromApi(author, index + 1))
       
       // If no data from API, use fallback mock data
       if (mappedBooks.length === 0 && mappedAuthors.length === 0) {
@@ -359,67 +396,69 @@ export default function BookSweepsHomepage() {
   })
 
   const handleVote = async (id: string) => {
-    console.log(`Voted for item ${id}`)
-    
-    // Add haptic feedback for mobile
-    if (navigator.vibrate) {
-      navigator.vibrate(50)
-    }
-    
-    try {
-      // Find the item to determine its type
-      const item = allData.find(item => item.id === id)
-      if (!item) return
-      
-      // Mock user ID for now - this should come from authentication
-      const userId = "mock-user-id"
-      
-      // Prepare vote data
-      const voteData: any = {
-        user_id: userId,
-        vote_type: "upvote"
-      }
-      
-      // Add item-specific data
-      if (item.type === "book") {
-        voteData.book_id = id
-      } else {
-        voteData.pen_name_id = id
-      }
-      
-      // Send vote to API
-      const response = await fetch('/api/votes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(voteData),
-      })
-      
-      if (response.ok) {
-        // Optimistically update the UI
-        const updatedData = allData.map(item => 
-          item.id === id 
-            ? { ...item, votes: item.votes + 1 }
-            : item
-        )
-        
-        // Update the appropriate state
-        const updatedBooks = updatedData.filter(item => item.type === "book") as BookItem[]
-        const updatedAuthors = updatedData.filter(item => item.type === "author") as AuthorItem[]
-        
-        setBooksData(updatedBooks)
-        setAuthorsData(updatedAuthors)
-      } else {
-        console.error('Failed to submit vote')
-      }
-    } catch (error) {
-      console.error('Error submitting vote:', error)
-    }
+  // Add haptic feedback for mobile
+  if (navigator.vibrate) {
+    navigator.vibrate(50)
   }
+  
+  try {
+    // Find the item to determine its type
+    const item = allData.find(item => item.id === id)
+    if (!item) return
+    
+    // Mock user ID for now - this should come from authentication
+    const userId = "mock-user-id"
+    
+    // Prepare vote data with proper typing
+    const voteData: {
+      user_id: string
+      vote_type: string
+      book_id?: string
+      pen_name_id?: string
+    } = {
+      user_id: userId,
+      vote_type: "upvote"
+    }
+    
+    // Add item-specific data
+    if (item.type === "book") {
+      voteData.book_id = id
+    } else {
+      voteData.pen_name_id = id
+    }
+    
+    // Send vote to API
+    const response = await fetch('/api/votes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(voteData),
+    })
+    
+    if (response.ok) {
+      // Optimistically update the UI
+      const updatedData = allData.map(item => 
+        item.id === id 
+          ? { ...item, votes: item.votes + 1 }
+          : item
+      )
+      
+      // Update the appropriate state
+      const updatedBooks = updatedData.filter(item => item.type === "book") as BookItem[]
+      const updatedAuthors = updatedData.filter(item => item.type === "author") as AuthorItem[]
+      
+      setBooksData(updatedBooks)
+      setAuthorsData(updatedAuthors)
+    } else {
+      console.error('Failed to submit vote')
+    }
+  } catch (error) {
+    console.error('Error submitting vote:', error)
+  }
+}
 
   const handleSwipeLeft = (id: string) => {
-    console.log(`Skipped item ${id}`)
   }
 
   const handleSwipeRight = (id: string) => {
@@ -475,34 +514,46 @@ export default function BookSweepsHomepage() {
             <div className="md:hidden px-4 mb-4">
               <div className="flex items-center gap-2 overflow-x-auto pb-2">
                 <Button
-                  variant={activeTab === "all" ? "default" : "outline"}
-                  size="sm"
                   onClick={() => setActiveTab("all")}
-                  className={`${activeTab === "all" ? "bg-orange-500 hover:bg-orange-600" : "border-gray-200 dark:border-gray-700 bg-transparent"} whitespace-nowrap`}
+                  className={cn(
+                    "whitespace-nowrap",
+                    activeTab === "all" 
+                      ? "bg-orange-500 hover:bg-orange-600" 
+                      : "border-gray-200 dark:border-gray-700 bg-transparent"
+                  )}
                 >
                   All
                 </Button>
                 <Button
-                  variant={activeTab === "books" ? "default" : "outline"}
-                  size="sm"
                   onClick={() => setActiveTab("books")}
-                  className={`${activeTab === "books" ? "bg-orange-500 hover:bg-orange-600" : "border-gray-200 dark:border-gray-700 bg-transparent"} whitespace-nowrap`}
+                  className={cn(
+                    "whitespace-nowrap",
+                    activeTab === "books" 
+                      ? "bg-orange-500 hover:bg-orange-600" 
+                      : "border-gray-200 dark:border-gray-700 bg-transparent"
+                  )}
                 >
                   Books
                 </Button>
                 <Button
-                  variant={activeTab === "authors" ? "default" : "outline"}
-                  size="sm"
                   onClick={() => setActiveTab("authors")}
-                  className={`${activeTab === "authors" ? "bg-orange-500 hover:bg-orange-600" : "border-gray-200 dark:border-gray-700 bg-transparent"} whitespace-nowrap`}
+                  className={cn(
+                    "whitespace-nowrap",
+                    activeTab === "authors" 
+                      ? "bg-orange-500 hover:bg-orange-600" 
+                      : "border-gray-200 dark:border-gray-700 bg-transparent"
+                  )}
                 >
                   Authors
                 </Button>
                 <Button
-                  variant={activeTab === "giveaways" ? "default" : "outline"}
-                  size="sm"
                   onClick={() => setActiveTab("giveaways")}
-                  className={`${activeTab === "giveaways" ? "bg-orange-500 hover:bg-orange-600" : "border-gray-200 dark:border-gray-700 bg-transparent"} whitespace-nowrap`}
+                  className={cn(
+                    "whitespace-nowrap",
+                    activeTab === "giveaways" 
+                      ? "bg-orange-500 hover:bg-orange-600" 
+                      : "border-gray-200 dark:border-gray-700 bg-transparent"
+                  )}
                 >
                   🎁 Giveaways
                 </Button>
@@ -512,9 +563,11 @@ export default function BookSweepsHomepage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  className={`gap-1 border-gray-200 dark:border-gray-700 bg-transparent ${
-                    showAdvancedFilters ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : ''
-                  }`}
+                  className={cn(
+                    "gap-1",
+                    showAdvancedFilters ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : '',
+                    "border-gray-200 dark:border-gray-700 bg-transparent"
+                  )}
                 >
                   <Filter className="h-3 w-3" />
                   {(selectedGenres.length > 0 || ratingFilter > 0 || hasGiveaway !== null || dateRange !== "all") && (
@@ -530,50 +583,46 @@ export default function BookSweepsHomepage() {
             <div className="hidden md:flex mb-6 flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mx-4">
               <div className="flex items-center gap-2">
                 <Button
-                  variant={activeTab === "all" ? "default" : "outline"}
-                  size="sm"
                   onClick={() => setActiveTab("all")}
-                  className={
+                  className={cn(
+                    "whitespace-nowrap",
                     activeTab === "all"
                       ? "bg-orange-500 hover:bg-orange-600"
                       : "border-gray-200 dark:border-gray-700 bg-transparent"
-                  }
+                  )}
                 >
                   All
                 </Button>
                 <Button
-                  variant={activeTab === "books" ? "default" : "outline"}
-                  size="sm"
                   onClick={() => setActiveTab("books")}
-                  className={
+                  className={cn(
+                    "whitespace-nowrap",
                     activeTab === "books"
                       ? "bg-orange-500 hover:bg-orange-600"
                       : "border-gray-200 dark:border-gray-700 bg-transparent"
-                  }
+                  )}
                 >
                   Books
                 </Button>
                 <Button
-                  variant={activeTab === "authors" ? "default" : "outline"}
-                  size="sm"
                   onClick={() => setActiveTab("authors")}
-                  className={
+                  className={cn(
+                    "whitespace-nowrap",
                     activeTab === "authors"
                       ? "bg-orange-500 hover:bg-orange-600"
                       : "border-gray-200 dark:border-gray-700 bg-transparent"
-                  }
+                  )}
                 >
                   Authors
                 </Button>
                 <Button
-                  variant={activeTab === "giveaways" ? "default" : "outline"}
-                  size="sm"
                   onClick={() => setActiveTab("giveaways")}
-                  className={
+                  className={cn(
+                    "whitespace-nowrap",
                     activeTab === "giveaways"
                       ? "bg-orange-500 hover:bg-orange-600"
                       : "border-gray-200 dark:border-gray-700 bg-transparent"
-                  }
+                  )}
                 >
                   Giveaways
                 </Button>
@@ -623,9 +672,11 @@ export default function BookSweepsHomepage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  className={`gap-2 bg-transparent border-gray-200 dark:border-gray-700 ${
-                    showAdvancedFilters ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : ''
-                  }`}
+                  className={cn(
+                    "gap-2",
+                    showAdvancedFilters ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : '',
+                    "border-gray-200 dark:border-gray-700 bg-transparent"
+                  )}
                 >
                   <Filter className="h-4 w-4" />
                   Filters
@@ -679,11 +730,12 @@ export default function BookSweepsHomepage() {
                                 setSelectedGenres([...selectedGenres, genre])
                               }
                             }}
-                            className={`text-xs ${
+                            className={cn(
+                              "text-xs",
                               selectedGenres.includes(genre) 
                                 ? "bg-orange-500 hover:bg-orange-600" 
                                 : "border-gray-200 dark:border-gray-700"
-                            }`}
+                            )}
                           >
                             {genre}
                           </Button>
@@ -703,11 +755,12 @@ export default function BookSweepsHomepage() {
                             variant={ratingFilter >= rating ? "default" : "outline"}
                             size="sm"
                             onClick={() => setRatingFilter(ratingFilter === rating ? 0 : rating)}
-                            className={`text-xs ${
+                            className={cn(
+                              "text-xs",
                               ratingFilter >= rating 
                                 ? "bg-orange-500 hover:bg-orange-600" 
                                 : "border-gray-200 dark:border-gray-700"
-                            }`}
+                            )}
                           >
                             {rating}+
                           </Button>
@@ -725,11 +778,12 @@ export default function BookSweepsHomepage() {
                           variant={hasGiveaway === true ? "default" : "outline"}
                           size="sm"
                           onClick={() => setHasGiveaway(hasGiveaway === true ? null : true)}
-                          className={`text-xs ${
+                          className={cn(
+                            "text-xs",
                             hasGiveaway === true 
                               ? "bg-orange-500 hover:bg-orange-600" 
                               : "border-gray-200 dark:border-gray-700"
-                          }`}
+                          )}
                         >
                           Has Giveaway
                         </Button>
@@ -737,11 +791,12 @@ export default function BookSweepsHomepage() {
                           variant={hasGiveaway === false ? "default" : "outline"}
                           size="sm"
                           onClick={() => setHasGiveaway(hasGiveaway === false ? null : false)}
-                          className={`text-xs ${
+                          className={cn(
+                            "text-xs",
                             hasGiveaway === false 
                               ? "bg-orange-500 hover:bg-orange-600" 
                               : "border-gray-200 dark:border-gray-700"
-                          }`}
+                          )}
                         >
                           No Giveaway
                         </Button>
@@ -805,11 +860,12 @@ export default function BookSweepsHomepage() {
                               setSelectedGenres([...selectedGenres, genre])
                             }
                           }}
-                          className={`text-xs ${
+                          className={cn(
+                            "text-xs",
                             selectedGenres.includes(genre) 
                               ? "bg-orange-500 hover:bg-orange-600" 
                               : "border-gray-200 dark:border-gray-700"
-                          }`}
+                          )}
                         >
                           {genre}
                         </Button>
@@ -829,11 +885,12 @@ export default function BookSweepsHomepage() {
                           variant={ratingFilter >= rating ? "default" : "outline"}
                           size="sm"
                           onClick={() => setRatingFilter(ratingFilter === rating ? 0 : rating)}
-                          className={`text-xs ${
+                          className={cn(
+                            "text-xs",
                             ratingFilter >= rating 
                               ? "bg-orange-500 hover:bg-orange-600" 
                               : "border-gray-200 dark:border-gray-700"
-                          }`}
+                          )}
                         >
                           {rating}+
                         </Button>
@@ -851,11 +908,12 @@ export default function BookSweepsHomepage() {
                         variant={hasGiveaway === true ? "default" : "outline"}
                         size="sm"
                         onClick={() => setHasGiveaway(hasGiveaway === true ? null : true)}
-                        className={`text-xs ${
+                        className={cn(
+                          "text-xs",
                           hasGiveaway === true 
                             ? "bg-orange-500 hover:bg-orange-600" 
                             : "border-gray-200 dark:border-gray-700"
-                        }`}
+                        )}
                       >
                         Has Giveaway
                       </Button>
@@ -863,11 +921,12 @@ export default function BookSweepsHomepage() {
                         variant={hasGiveaway === false ? "default" : "outline"}
                         size="sm"
                         onClick={() => setHasGiveaway(hasGiveaway === false ? null : false)}
-                        className={`text-xs ${
+                        className={cn(
+                          "text-xs",
                           hasGiveaway === false 
                             ? "bg-orange-500 hover:bg-orange-600" 
                             : "border-gray-200 dark:border-gray-700"
-                        }`}
+                        )}
                       >
                         No Giveaway
                       </Button>
