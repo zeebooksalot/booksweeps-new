@@ -15,24 +15,21 @@ export async function GET(request: NextRequest) {
     const slug = searchParams.get('slug')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
-    const author_id = searchParams.get('author_id')
+    const user_id = searchParams.get('user_id')
 
     let query = supabase
-      .from('reader_magnets')
+      .from('book_delivery_methods')
       .select(`
         *,
-        authors (
-          id,
-          name,
-          bio,
-          avatar_url,
-          website
-        ),
         books (
           id,
           title,
-          cover_url,
-          genre
+          author,
+          description,
+          cover_image_url,
+          genre,
+          page_count,
+          pen_name_id
         )
       `)
 
@@ -41,12 +38,13 @@ export async function GET(request: NextRequest) {
       query = query.eq('slug', slug)
     }
 
-    if (author_id) {
-      query = query.eq('author_id', author_id)
+    if (user_id) {
+      query = query.eq('books.user_id', user_id)
     }
 
-    // Only show active magnets
+    // Only show active delivery methods that are reader magnets
     query = query.eq('is_active', true)
+      .eq('delivery_method', 'ebook')
 
     // Apply sorting - newest first
     query = query.order('created_at', { ascending: false })
@@ -59,8 +57,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Calculate download counts for each delivery method
+    const magnetsWithCounts = await Promise.all(
+      data.map(async (magnet) => {
+        if (!supabase) return magnet
+        
+        const { count: downloadCount } = await supabase
+          .from('reader_deliveries')
+          .select('*', { count: 'exact', head: true })
+          .eq('delivery_method_id', magnet.id)
+
+        return {
+          ...magnet,
+          download_count: downloadCount || 0
+        }
+      })
+    )
+
     return NextResponse.json({
-      reader_magnets: data,
+      reader_magnets: magnetsWithCounts,
       pagination: {
         page,
         limit,
@@ -88,21 +103,19 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { 
-      author_id,
       book_id,
       title,
-      subtitle,
       description,
       slug,
-      format,
-      file_url,
-      file_size,
-      page_count,
-      benefits,
-      is_active = true
+      format = 'pdf',
+      requires_email = true,
+      email_template,
+      download_limit,
+      expiry_days,
+      custom_css
     } = body
 
-    if (!author_id || !title || !slug) {
+    if (!book_id || !title || !slug) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -110,21 +123,20 @@ export async function POST(request: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('reader_magnets')
+      .from('book_delivery_methods')
       .insert({
-        author_id,
         book_id,
         title,
-        subtitle,
         description,
         slug,
         format,
-        file_url,
-        file_size,
-        page_count,
-        benefits,
-        is_active,
-        download_count: 0
+        requires_email,
+        email_template,
+        download_limit,
+        expiry_days,
+        custom_css,
+        is_active: true,
+        delivery_method: 'ebook'
       })
       .select()
       .single()
