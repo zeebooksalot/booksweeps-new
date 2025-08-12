@@ -127,7 +127,39 @@ COMMENT ON COLUMN "public"."user_upgrade_logs"."domain_referrer" IS 'Domain wher
 
 ---
 
-### 3. Email Notifications System
+### 3. Duplicate Download Prevention Database Migration
+
+**Status**: ❌ Missing  
+**Impact**: Better analytics and prevent duplicate records  
+**File**: `supabase/migrations/20250101000001_add_duplicate_download_tracking.sql`
+
+**Implementation**:
+```sql
+-- Add re_download_count column to track re-downloads
+ALTER TABLE "public"."reader_deliveries" 
+ADD COLUMN IF NOT EXISTS "re_download_count" integer DEFAULT 0;
+
+-- Add index for faster duplicate detection
+CREATE INDEX IF NOT EXISTS "idx_reader_deliveries_email_method" 
+ON "public"."reader_deliveries" ("reader_email", "delivery_method_id");
+
+-- Add comment for documentation
+COMMENT ON COLUMN "public"."reader_deliveries"."re_download_count" IS 'Number of times this user has re-downloaded the same book';
+```
+
+**Benefits**:
+- Track re-download patterns for analytics
+- Prevent duplicate database records
+- Better user behavior insights
+- More accurate download statistics
+
+**Dependencies**:
+- Reader magnets download system (✅ COMPLETED)
+- Rate limiting system (✅ COMPLETED)
+
+---
+
+### 4. Email Notifications System
 
 **Status**: ❌ Missing  
 **Impact**: Critical for user experience  

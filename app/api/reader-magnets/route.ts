@@ -1,6 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+interface MagnetWithJoins {
+  id: string
+  book_id: string
+  title: string
+  description?: string
+  slug: string
+  format: string
+  requires_email: boolean
+  email_template?: string
+  download_limit?: number
+  expiry_days?: number
+  custom_css?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  books?: {
+    id: string
+    title: string
+    author: string
+    description?: string
+    cover_image_url?: string
+    genre?: string
+    page_count?: number
+    pen_name_id?: string
+    pen_names?: {
+      id: string
+      name: string
+      bio?: string
+      website?: string
+      avatar_url?: string
+    }
+  }
+  reader_deliveries?: Array<{ id: string }>
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Check if Supabase client is available
@@ -17,73 +52,66 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const user_id = searchParams.get('user_id')
 
-    // Build query with proper filtering
-    let query = supabase
+    // Apply pagination
+    const offset = (page - 1) * limit
+    
+    // Optimized query with joins to avoid N+1 problem
+    let optimizedQuery = supabase
       .from('book_delivery_methods')
-      .select('*')
+      .select(`
+        *,
+        books (
+          id,
+          title,
+          author,
+          description,
+          cover_image_url,
+          genre,
+          page_count,
+          pen_name_id,
+          pen_names (
+            id,
+            name,
+            bio,
+            website,
+            avatar_url
+          )
+        ),
+        reader_deliveries!delivery_method_id (
+          id
+        )
+      `)
+      .eq('is_active', true)
 
     // Apply slug filter if provided
     if (slug) {
-      query = query.eq('slug', slug)
+      optimizedQuery = optimizedQuery.eq('slug', slug)
     }
 
     // Apply user filter if provided
     if (user_id) {
-      query = query.eq('user_id', user_id)
+      optimizedQuery = optimizedQuery.eq('user_id', user_id)
     }
 
-    // Only show active delivery methods
-    query = query.eq('is_active', true)
-
-    // Apply sorting - newest first
-    query = query.order('created_at', { ascending: false })
-
-    // Apply pagination
-    const offset = (page - 1) * limit
-    const { data, error, count } = await query.range(offset, offset + limit - 1)
+    // Apply sorting and pagination
+    const { data, error, count } = await optimizedQuery
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (error) {
       console.error('Database error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // If we get data, then fetch the books separately
-    const magnetsWithBooks = await Promise.all(
-      (data || []).map(async (magnet) => {
-        if (!supabase) return magnet
-        
-        // Fetch the book separately
-        const { data: bookData } = await supabase
-          .from('books')
-          .select('id, title, author, description, cover_image_url, genre, page_count, pen_name_id')
-          .eq('id', magnet.book_id)
-          .single()
-        
-        // Fetch the pen name information if book has a pen_name_id
-        let penNameData = null
-        if (bookData?.pen_name_id) {
-          const { data: penData } = await supabase
-            .from('pen_names')
-            .select('id, name, bio, website, avatar_url')
-            .eq('id', bookData.pen_name_id)
-            .single()
-          penNameData = penData
-        }
-        
-        // Calculate download count
-        const { count: downloadCount } = await supabase
-          .from('reader_deliveries')
-          .select('*', { count: 'exact', head: true })
-          .eq('delivery_method_id', magnet.id)
-
-        return {
-          ...magnet,
-          books: bookData || null,
-          pen_names: penNameData || null,
-          download_count: downloadCount || 0
-        }
-      })
-    )
+    // Transform the data to match the expected format
+    const magnetsWithBooks = (data || []).map((magnet: MagnetWithJoins) => {
+      return {
+        ...magnet,
+        books: magnet.books || null,
+        pen_names: magnet.books?.pen_names || null,
+        download_count: magnet.reader_deliveries?.length || 0
+      }
+    })
 
     return NextResponse.json({
       reader_magnets: magnetsWithBooks,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getClientIP } from '@/lib/utils'
+import { checkRateLimit, createRateLimitIdentifier, RATE_LIMITS } from '@/lib/rate-limiter'
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,6 +36,37 @@ export async function POST(request: NextRequest) {
     // Get real IP address and user agent from request headers
     const clientIP = getClientIP(request)
     const userAgent = request.headers.get('user-agent') || null
+
+    // Apply rate limiting - check both IP and email-based limits
+    const ipIdentifier = createRateLimitIdentifier('ip', clientIP, 'campaign_entry')
+    const emailIdentifier = createRateLimitIdentifier('email', email, 'campaign_entry')
+    
+    // Check IP-based rate limit
+    const ipRateLimit = await checkRateLimit(ipIdentifier, RATE_LIMITS.CAMPAIGN_ENTRY)
+    if (!ipRateLimit.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Too many campaign entry requests. Please try again later.',
+          retryAfter: Math.ceil(ipRateLimit.resetTime / 1000)
+        },
+        { status: 429 }
+      )
+    }
+    
+    // Check email-based rate limit for this specific campaign
+    const campaignRateLimit = await checkRateLimit(
+      `${emailIdentifier}:${campaign_id}`, 
+      RATE_LIMITS.CAMPAIGN_ENTRY
+    )
+    if (!campaignRateLimit.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'You have entered this campaign too many times. Please try again later.',
+          retryAfter: Math.ceil(campaignRateLimit.resetTime / 1000)
+        },
+        { status: 429 }
+      )
+    }
 
     // Check if user already entered this campaign
     const { data: existingEntry } = await supabase

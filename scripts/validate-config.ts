@@ -4,11 +4,11 @@ import { validateConfig } from '../lib/config'
 
 console.log('🔍 Validating configuration...')
 
-const errors = validateConfig()
+const configValidation = validateConfig()
 
-if (errors.length > 0) {
+if (!configValidation.valid) {
   console.error('❌ Configuration errors found:')
-  errors.forEach(error => {
+  configValidation.errors.forEach(error => {
     console.error(`  - ${error}`)
   })
   console.error('\nPlease check your .env file and ensure all required variables are set.')

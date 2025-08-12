@@ -1,4 +1,321 @@
-// Configuration utility for environment variables
+import { z } from 'zod'
+
+// Environment validation schema
+const envSchema = z.object({
+  // Supabase configuration
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  
+  // Security configuration
+  SECURITY_ENABLE_AUDIT_LOGGING: z.string().optional().transform(val => val === 'true'),
+  SECURITY_ENABLE_RATE_LIMITING: z.string().optional().transform(val => val !== 'false'), // Default true
+  SECURITY_ENABLE_TOKEN_VALIDATION: z.string().optional().transform(val => val !== 'false'), // Default true
+  SECURITY_ENABLE_FILE_ACCESS_CONTROL: z.string().optional().transform(val => val !== 'false'), // Default true
+  
+  // Rate limiting configuration
+  RATE_LIMIT_MAX_REQUESTS_PER_MINUTE: z.string().optional().transform(val => parseInt(val || '100')),
+  RATE_LIMIT_MAX_DOWNLOADS_PER_HOUR: z.string().optional().transform(val => parseInt(val || '20')),
+  RATE_LIMIT_MAX_DOWNLOADS_PER_DAY: z.string().optional().transform(val => parseInt(val || '100')),
+  
+  // Download configuration
+  DOWNLOAD_EXPIRY_HOURS: z.string().optional().transform(val => parseInt(val || '24')),
+  DOWNLOAD_MAX_FILE_SIZE_MB: z.string().optional().transform(val => parseInt(val || '100')),
+  DOWNLOAD_ENABLE_DUPLICATE_PREVENTION: z.string().optional().transform(val => val !== 'false'), // Default true
+  
+  // Feature flags
+  FEATURE_ENABLE_ACCESS_TOKENS: z.string().optional().transform(val => val !== 'false'), // Default true
+  FEATURE_ENABLE_FILE_SECURITY: z.string().optional().transform(val => val !== 'false'), // Default true
+  FEATURE_ENABLE_PERFORMANCE_MONITORING: z.string().optional().transform(val => val === 'true'),
+  FEATURE_ENABLE_SECURITY_MONITORING: z.string().optional().transform(val => val === 'true'),
+  
+  // Monitoring configuration
+  MONITORING_ENABLE_CONSOLE_LOGGING: z.string().optional().transform(val => val !== 'false'), // Default true
+  MONITORING_ENABLE_PERFORMANCE_TRACKING: z.string().optional().transform(val => val === 'true'),
+  MONITORING_ENABLE_SECURITY_ALERTS: z.string().optional().transform(val => val === 'true'),
+  
+  // Cross-domain configuration
+  CROSS_DOMAIN_AUTH_ENABLED: z.string().optional().transform(val => val === 'true'),
+  CROSS_DOMAIN_ALLOWED_ORIGINS: z.string().optional().transform(val => 
+    val ? val.split(',').map(origin => origin.trim()) : []
+  ),
+  
+  // Node environment
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+})
+
+// Validate environment variables
+const env = envSchema.parse(process.env)
+
+// Security configuration
+export const SECURITY_CONFIG = {
+  // Audit logging
+  enableAuditLogging: env.SECURITY_ENABLE_AUDIT_LOGGING ?? true,
+  
+  // Rate limiting
+  enableRateLimiting: env.SECURITY_ENABLE_RATE_LIMITING ?? true,
+  maxRequestsPerMinute: env.RATE_LIMIT_MAX_REQUESTS_PER_MINUTE ?? 100,
+  maxDownloadsPerHour: env.RATE_LIMIT_MAX_DOWNLOADS_PER_HOUR ?? 20,
+  maxDownloadsPerDay: env.RATE_LIMIT_MAX_DOWNLOADS_PER_DAY ?? 100,
+  
+  // Token validation
+  enableTokenValidation: env.SECURITY_ENABLE_TOKEN_VALIDATION ?? true,
+  
+  // File access control
+  enableFileAccessControl: env.SECURITY_ENABLE_FILE_ACCESS_CONTROL ?? true,
+  
+  // Download settings
+  downloadExpiryHours: env.DOWNLOAD_EXPIRY_HOURS ?? 24,
+  maxFileSizeMB: env.DOWNLOAD_MAX_FILE_SIZE_MB ?? 100,
+  enableDuplicatePrevention: env.DOWNLOAD_ENABLE_DUPLICATE_PREVENTION ?? true,
+  
+  // Allowed file types
+  allowedFileTypes: [
+    'application/pdf',
+    'application/epub+zip',
+    'application/x-mobipocket-ebook',
+    'text/plain',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ] as const,
+  
+  // Allowed file extensions
+  allowedExtensions: ['.pdf', '.epub', '.mobi', '.txt', '.doc', '.docx'] as const,
+  
+  // Security headers
+  securityHeaders: {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+  } as const
+}
+
+// Feature flags
+export const FEATURE_FLAGS = {
+  enableAccessTokens: env.FEATURE_ENABLE_ACCESS_TOKENS ?? true,
+  enableFileSecurity: env.FEATURE_ENABLE_FILE_SECURITY ?? true,
+  enablePerformanceMonitoring: env.FEATURE_ENABLE_PERFORMANCE_MONITORING ?? false,
+  enableSecurityMonitoring: env.FEATURE_ENABLE_SECURITY_MONITORING ?? false,
+} as const
+
+// Monitoring configuration
+export const MONITORING_CONFIG = {
+  enableConsoleLogging: env.MONITORING_ENABLE_CONSOLE_LOGGING ?? true,
+  enablePerformanceTracking: env.MONITORING_ENABLE_PERFORMANCE_TRACKING ?? false,
+  enableSecurityAlerts: env.MONITORING_ENABLE_SECURITY_ALERTS ?? false,
+} as const
+
+// Cross-domain configuration
+export const CROSS_DOMAIN_CONFIG = {
+  enabled: env.CROSS_DOMAIN_AUTH_ENABLED ?? false,
+  allowedOrigins: env.CROSS_DOMAIN_ALLOWED_ORIGINS ?? [
+    'http://localhost:3000',
+    'https://booksweeps.com',
+    'https://www.booksweeps.com'
+  ],
+} as const
+
+// Environment configuration
+export const ENV_CONFIG = {
+  isDevelopment: env.NODE_ENV === 'development',
+  isProduction: env.NODE_ENV === 'production',
+  isTest: env.NODE_ENV === 'test',
+  nodeEnv: env.NODE_ENV,
+} as const
+
+// Rate limiting configuration
+export const RATE_LIMIT_CONFIG = {
+  // General API endpoints
+  API_GENERAL: {
+    limit: SECURITY_CONFIG.maxRequestsPerMinute,
+    window: 60 // 1 minute
+  },
+  
+  // Authentication endpoints
+  AUTH_LOGIN: {
+    limit: 5,
+    window: 300 // 5 minutes
+  },
+  
+  AUTH_SIGNUP: {
+    limit: 3,
+    window: 3600 // 1 hour
+  },
+  
+  // Download endpoints
+  DOWNLOAD_BOOK: {
+    limit: SECURITY_CONFIG.maxDownloadsPerHour,
+    window: 3600 // 1 hour
+  },
+  
+  DOWNLOAD_GENERAL: {
+    limit: SECURITY_CONFIG.maxDownloadsPerDay,
+    window: 86400 // 24 hours
+  },
+  
+  // Vote endpoints
+  VOTE: {
+    limit: 10,
+    window: 60 // 1 minute
+  },
+  
+  // Comment endpoints
+  COMMENT: {
+    limit: 5,
+    window: 300 // 5 minutes
+  },
+  
+  // Campaign/Entry endpoints
+  CAMPAIGN_ENTRY: {
+    limit: 3,
+    window: 3600 // 1 hour
+  }
+} as const
+
+// Validation configuration
+export const VALIDATION_CONFIG = {
+  // Email validation
+  emailMaxLength: 255,
+  emailRegex: /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/,
+  
+  // Name validation
+  nameMaxLength: 100,
+  nameRegex: /^[a-zA-Z\s\-'\.]+$/,
+  
+  // UUID validation
+  uuidRegex: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+  
+  // Token validation
+  tokenMinLength: 10,
+  tokenMaxLength: 255,
+} as const
+
+// Error configuration
+export const ERROR_CONFIG = {
+  // Error message sanitization
+  sanitizeErrors: ENV_CONFIG.isProduction,
+  
+  // Error logging
+  logErrors: true,
+  logErrorStack: ENV_CONFIG.isDevelopment,
+  
+  // Error response format
+  includeErrorType: ENV_CONFIG.isDevelopment,
+  includeErrorDetails: ENV_CONFIG.isDevelopment,
+} as const
+
+// Database configuration
+export const DATABASE_CONFIG = {
+  // Connection settings
+  maxRetries: 3,
+  retryDelay: 1000, // 1 second
+  
+  // Query settings
+  queryTimeout: 30000, // 30 seconds
+  maxQueryResults: 1000,
+  
+  // RLS (Row Level Security)
+  enableRLS: true,
+} as const
+
+// Export the main config object
+export const CONFIG = {
+  security: SECURITY_CONFIG,
+  features: FEATURE_FLAGS,
+  monitoring: MONITORING_CONFIG,
+  crossDomain: CROSS_DOMAIN_CONFIG,
+  env: ENV_CONFIG,
+  rateLimit: RATE_LIMIT_CONFIG,
+  validation: VALIDATION_CONFIG,
+  error: ERROR_CONFIG,
+  database: DATABASE_CONFIG,
+} as const
+
+// Type exports
+export type SecurityConfig = typeof SECURITY_CONFIG
+export type FeatureFlags = typeof FEATURE_FLAGS
+export type MonitoringConfig = typeof MONITORING_CONFIG
+export type CrossDomainConfig = typeof CROSS_DOMAIN_CONFIG
+export type EnvConfig = typeof ENV_CONFIG
+export type RateLimitConfig = typeof RATE_LIMIT_CONFIG
+export type ValidationConfig = typeof VALIDATION_CONFIG
+export type ErrorConfig = typeof ERROR_CONFIG
+export type DatabaseConfig = typeof DATABASE_CONFIG
+export type Config = typeof CONFIG
+
+// Helper functions
+export function isFeatureEnabled(feature: keyof FeatureFlags): boolean {
+  return FEATURE_FLAGS[feature]
+}
+
+export function isSecurityEnabled(security: keyof SecurityConfig): boolean {
+  const value = SECURITY_CONFIG[security]
+  return typeof value === 'boolean' ? value : false
+}
+
+export function getRateLimit(key: keyof RateLimitConfig) {
+  return RATE_LIMIT_CONFIG[key]
+}
+
+export function shouldLogError(): boolean {
+  return ERROR_CONFIG.logErrors
+}
+
+export function shouldSanitizeErrors(): boolean {
+  return ERROR_CONFIG.sanitizeErrors
+}
+
+// Configuration validation
+export function validateConfig(): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+  
+  // Validate required environment variables
+  if (!env.NEXT_PUBLIC_SUPABASE_URL) {
+    errors.push('NEXT_PUBLIC_SUPABASE_URL is required')
+  }
+  
+  if (!env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    errors.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is required')
+  }
+  
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+    errors.push('SUPABASE_SERVICE_ROLE_KEY is required')
+  }
+  
+  // Validate rate limiting configuration
+  if (SECURITY_CONFIG.maxRequestsPerMinute <= 0) {
+    errors.push('RATE_LIMIT_MAX_REQUESTS_PER_MINUTE must be positive')
+  }
+  
+  if (SECURITY_CONFIG.maxDownloadsPerHour <= 0) {
+    errors.push('RATE_LIMIT_MAX_DOWNLOADS_PER_HOUR must be positive')
+  }
+  
+  if (SECURITY_CONFIG.maxDownloadsPerDay <= 0) {
+    errors.push('RATE_LIMIT_MAX_DOWNLOADS_PER_DAY must be positive')
+  }
+  
+  // Validate download configuration
+  if (SECURITY_CONFIG.downloadExpiryHours <= 0) {
+    errors.push('DOWNLOAD_EXPIRY_HOURS must be positive')
+  }
+  
+  if (SECURITY_CONFIG.maxFileSizeMB <= 0) {
+    errors.push('DOWNLOAD_MAX_FILE_SIZE_MB must be positive')
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors
+  }
+}
+
+// Export environment for backward compatibility
+export { env }
+
+// Backward compatibility exports for existing code
 export const config = {
   // Platform URLs
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://staging.booksweeps.com',
@@ -6,24 +323,17 @@ export const config = {
   authorUrl: process.env.NEXT_PUBLIC_AUTHOR_URL || 'https://app.booksweeps.com',
   
   // Supabase configuration
-  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-  supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-  
-  // Database configuration
-  databaseUrl: process.env.DATABASE_URL || '',
-  
-  // NextAuth configuration
-  nextAuthUrl: process.env.NEXTAUTH_URL || 'http://localhost:3000',
-  nextAuthSecret: process.env.NEXTAUTH_SECRET || '',
+  supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+  supabaseAnonKey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  supabaseServiceKey: env.SUPABASE_SERVICE_ROLE_KEY,
   
   // Environment
-  isDevelopment: process.env.NODE_ENV === 'development',
-  isProduction: process.env.NODE_ENV === 'production',
-  isTest: process.env.NODE_ENV === 'test',
+  isDevelopment: ENV_CONFIG.isDevelopment,
+  isProduction: ENV_CONFIG.isProduction,
+  isTest: ENV_CONFIG.isTest,
 } as const
 
-// Helper functions
+// Helper functions for backward compatibility
 export const getPlatformUrls = () => ({
   mainSite: config.siteUrl,
   reader: config.readerUrl,
@@ -105,26 +415,4 @@ export const validateCrossDomainConfig = () => {
 
 // Type definitions
 export type Platform = 'main' | 'reader' | 'author' | 'unknown'
-export type UserType = 'reader' | 'author' | 'both'
-
-// Validation
-export const validateConfig = () => {
-  const errors: string[] = []
-  
-  if (!config.supabaseUrl) {
-    errors.push('NEXT_PUBLIC_SUPABASE_URL is required')
-  }
-  
-  if (!config.supabaseAnonKey) {
-    errors.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is required')
-  }
-  
-  if (config.isProduction && !config.nextAuthSecret) {
-    errors.push('NEXTAUTH_SECRET is required in production')
-  }
-  
-  // Add cross-domain validation
-  errors.push(...validateCrossDomainConfig())
-  
-  return errors
-} 
+export type UserType = 'reader' | 'author' | 'both' 

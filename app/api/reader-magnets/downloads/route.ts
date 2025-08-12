@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getClientIP } from '@/lib/utils'
+import { checkRateLimit, createRateLimitIdentifier, RATE_LIMITS } from '@/lib/rate-limiter'
+import { 
+  validateDownloadRequest, 
+  validateRequestOrigin, 
+  validateUserAgent,
+  ValidationError,
+  SecurityError 
+} from '@/lib/validation'
+import { 
+  sanitizeError, 
+  createErrorResponse, 
+  extractErrorContext
+} from '@/lib/error-handler'
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
@@ -22,13 +35,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
-    const { 
-      delivery_method_id,
-      email,
-      name
-      // Remove ip_address from body - we'll get it from request headers
-    } = body
+    // Security validation
+    const userAgent = request.headers.get('user-agent')
+    if (!validateUserAgent(userAgent)) {
+      console.warn(`[${requestId}] 🚫 Invalid user agent: ${userAgent}`)
+      const context = extractErrorContext(request)
+      const sanitizedError = sanitizeError(new SecurityError('Invalid request'), context)
+      return createErrorResponse(sanitizedError, 403)
+    }
+
+    if (!validateRequestOrigin(request)) {
+      console.warn(`[${requestId}] 🚫 Invalid request origin`)
+      const context = extractErrorContext(request)
+      const sanitizedError = sanitizeError(new SecurityError('Invalid request origin'), context)
+      return createErrorResponse(sanitizedError, 403)
+    }
+
+    // Parse and validate request body
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      console.error(`[${requestId}] ❌ Invalid JSON in request body`)
+      const context = extractErrorContext(request)
+      const sanitizedError = sanitizeError(new ValidationError('Invalid request format'), context)
+      return createErrorResponse(sanitizedError, 400)
+    }
+
+    // Validate request data
+    let validatedData
+    try {
+      validatedData = validateDownloadRequest(body)
+    } catch (error) {
+      console.error(`[${requestId}] ❌ Validation failed:`, error)
+      const context = extractErrorContext(request)
+      const sanitizedError = sanitizeError(error, context)
+      return createErrorResponse(sanitizedError, 400)
+    }
+
+    const { delivery_method_id, email, name } = validatedData
 
     // Log only in development
     if (process.env.NODE_ENV === 'development') {
@@ -40,17 +85,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    if (!delivery_method_id || !email) {
-      console.error(`[${requestId}] ❌ Missing required fields:`, { delivery_method_id: !!delivery_method_id, email: !!email })
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
-
     // Get real IP address from request headers
     const clientIP = getClientIP(request)
-    const userAgent = request.headers.get('user-agent') || null
     
     // Log only in development
     if (process.env.NODE_ENV === 'development') {
@@ -59,6 +95,39 @@ export async function POST(request: NextRequest) {
         userAgent: userAgent ? userAgent.substring(0, 50) + '...' : null,
         userAgentLength: userAgent?.length || 0
       })
+    }
+
+    // Apply rate limiting - check both IP and email-based limits
+    const ipIdentifier = createRateLimitIdentifier('ip', clientIP, 'download')
+    const emailIdentifier = createRateLimitIdentifier('email', email, 'download')
+    
+    // Check general download rate limit (IP-based)
+    const ipRateLimit = await checkRateLimit(ipIdentifier, RATE_LIMITS.DOWNLOAD_GENERAL)
+    if (!ipRateLimit.allowed) {
+      console.warn(`[${requestId}] ⚠️ Rate limit exceeded for IP: ${clientIP}`)
+      return NextResponse.json(
+        { 
+          error: 'Too many download requests. Please try again later.',
+          retryAfter: Math.ceil(ipRateLimit.resetTime / 1000)
+        },
+        { status: 429 }
+      )
+    }
+    
+    // Check per-book download rate limit (email-based)
+    const bookRateLimit = await checkRateLimit(
+      `${emailIdentifier}:${delivery_method_id}`, 
+      RATE_LIMITS.DOWNLOAD_BOOK
+    )
+    if (!bookRateLimit.allowed) {
+      console.warn(`[${requestId}] ⚠️ Book download rate limit exceeded for email: ${email}`)
+      return NextResponse.json(
+        { 
+          error: 'You have downloaded this book too many times. Please try again later.',
+          retryAfter: Math.ceil(bookRateLimit.resetTime / 1000)
+        },
+        { status: 429 }
+      )
     }
 
     // First, get the delivery method to check if it exists and is active
@@ -144,37 +213,99 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Insert the delivery record with real IP and user agent
+    // Check for existing delivery record to prevent duplicates
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[${requestId}] 💾 Inserting delivery record...`)
+      console.log(`[${requestId}] 🔍 Checking for existing delivery record...`)
     }
     
-    const { error: deliveryError } = await supabase
+    const { data: existingDelivery, error: existingError } = await supabase
       .from('reader_deliveries')
-      .insert({
-        delivery_method_id,
-        reader_email: email,
-        reader_name: name,
-        ip_address: clientIP, // Use real IP from request headers
-        user_agent: userAgent, // Add user agent tracking
-        delivered_at: new Date().toISOString(),
-        status: 'delivered'
-      })
-      .select()
+      .select('id, download_count, last_download_at, re_download_count')
+      .eq('delivery_method_id', delivery_method_id)
+      .eq('reader_email', email)
       .single()
 
-    if (deliveryError) {
-      console.error(`[${requestId}] ❌ Delivery record insert failed:`, {
-        error: deliveryError.message,
-        code: deliveryError.code,
-        details: deliveryError.details,
-        hint: deliveryError.hint
+    if (existingError && existingError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error(`[${requestId}] ❌ Error checking existing delivery:`, {
+        error: existingError.message,
+        code: existingError.code
       })
-      return NextResponse.json({ error: deliveryError.message }, { status: 500 })
+      return NextResponse.json({ error: existingError.message }, { status: 500 })
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[${requestId}] ✅ Delivery record inserted successfully`)
+    if (existingDelivery) {
+      // Update existing delivery record (re-download)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[${requestId}] 🔄 Updating existing delivery record (re-download)`)
+      }
+      
+      const updateData: {
+        last_download_at: string;
+        download_count: number;
+        re_download_count?: number;
+      } = {
+        last_download_at: new Date().toISOString(),
+        download_count: (existingDelivery.download_count || 1) + 1
+      }
+      
+      // Update re_download_count if the column exists (for future migration)
+      if (existingDelivery.re_download_count !== undefined) {
+        updateData.re_download_count = (existingDelivery.re_download_count || 0) + 1
+      }
+      
+      const { error: updateError } = await supabase
+        .from('reader_deliveries')
+        .update(updateData)
+        .eq('id', existingDelivery.id)
+
+      if (updateError) {
+        console.error(`[${requestId}] ❌ Delivery record update failed:`, {
+          error: updateError.message,
+          code: updateError.code,
+          details: updateError.details,
+          hint: updateError.hint
+        })
+        return NextResponse.json({ error: updateError.message }, { status: 500 })
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[${requestId}] ✅ Existing delivery record updated successfully (re-download #${updateData.re_download_count || 'N/A'})`)
+      }
+    } else {
+      // Insert new delivery record (first-time download)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[${requestId}] 💾 Inserting new delivery record (first-time download)`)
+      }
+      
+      const { error: deliveryError } = await supabase
+        .from('reader_deliveries')
+        .insert({
+          delivery_method_id,
+          reader_email: email,
+          reader_name: name,
+          ip_address: clientIP, // Use real IP from request headers
+          user_agent: userAgent, // Add user agent tracking
+          delivered_at: new Date().toISOString(),
+          status: 'delivered',
+          download_count: 1,
+          last_download_at: new Date().toISOString()
+        })
+        .select('id')
+        .single()
+
+      if (deliveryError) {
+        console.error(`[${requestId}] ❌ Delivery record insert failed:`, {
+          error: deliveryError.message,
+          code: deliveryError.code,
+          details: deliveryError.details,
+          hint: deliveryError.hint
+        })
+        return NextResponse.json({ error: deliveryError.message }, { status: 500 })
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[${requestId}] ✅ New delivery record inserted successfully`)
+      }
     }
 
     // Generate download URL
@@ -235,7 +366,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       download_url: downloadUrl,
-      message: 'Download link generated successfully'
+      message: 'Download link generated successfully',
+      is_redownload: !!existingDelivery,
+      download_count: existingDelivery ? (existingDelivery.download_count || 1) + 1 : 1
     })
   } catch (error) {
     const responseTime = Date.now() - startTime
@@ -245,9 +378,9 @@ export async function POST(request: NextRequest) {
       responseTime: `${responseTime}ms`
     })
     
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    // Use error sanitization for consistent error responses
+    const context = extractErrorContext(request)
+    const sanitizedError = sanitizeError(error, context)
+    return createErrorResponse(sanitizedError, 500)
   }
 }

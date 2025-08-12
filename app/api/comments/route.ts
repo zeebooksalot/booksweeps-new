@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { checkRateLimit, createRateLimitIdentifier, RATE_LIMITS, getClientIP } from '@/lib/rate-limiter'
 
 export async function GET(request: NextRequest) {
   try {
@@ -75,6 +76,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
+      )
+    }
+
+    // Apply rate limiting - check both IP and user-based limits
+    const clientIP = getClientIP(request)
+    const ipIdentifier = createRateLimitIdentifier('ip', clientIP, 'comment')
+    const userIdentifier = createRateLimitIdentifier('user', user_id, 'comment')
+    
+    // Check IP-based rate limit
+    const ipRateLimit = await checkRateLimit(ipIdentifier, RATE_LIMITS.COMMENT)
+    if (!ipRateLimit.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Too many comment requests. Please try again later.',
+          retryAfter: Math.ceil(ipRateLimit.resetTime / 1000)
+        },
+        { status: 429 }
+      )
+    }
+    
+    // Check user-based rate limit
+    const userRateLimit = await checkRateLimit(userIdentifier, RATE_LIMITS.COMMENT)
+    if (!userRateLimit.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Too many comments from this user. Please try again later.',
+          retryAfter: Math.ceil(userRateLimit.resetTime / 1000)
+        },
+        { status: 429 }
       )
     }
 

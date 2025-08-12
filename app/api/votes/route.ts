@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { checkRateLimit, createRateLimitIdentifier, RATE_LIMITS, getClientIP } from '@/lib/rate-limiter'
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,6 +26,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid vote type' },
         { status: 400 }
+      )
+    }
+
+    // Apply rate limiting - check both IP and user-based limits
+    const clientIP = getClientIP(request)
+    const ipIdentifier = createRateLimitIdentifier('ip', clientIP, 'vote')
+    const userIdentifier = createRateLimitIdentifier('user', user_id, 'vote')
+    
+    // Check IP-based rate limit
+    const ipRateLimit = await checkRateLimit(ipIdentifier, RATE_LIMITS.VOTE)
+    if (!ipRateLimit.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Too many vote requests. Please try again later.',
+          retryAfter: Math.ceil(ipRateLimit.resetTime / 1000)
+        },
+        { status: 429 }
+      )
+    }
+    
+    // Check user-based rate limit
+    const userRateLimit = await checkRateLimit(userIdentifier, RATE_LIMITS.VOTE)
+    if (!userRateLimit.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Too many vote requests from this user. Please try again later.',
+          retryAfter: Math.ceil(userRateLimit.resetTime / 1000)
+        },
+        { status: 429 }
       )
     }
 
