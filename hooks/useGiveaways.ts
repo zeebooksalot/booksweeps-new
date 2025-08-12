@@ -40,7 +40,7 @@ export function useGiveaways({ onFiltersChange }: UseGiveawaysProps = {}) {
       
       if (response.campaigns.length === 0) {
         // Fallback to mock data
-        setGiveaways(MOCK_GIVEAWAYS as Giveaway[])
+        setGiveaways(MOCK_GIVEAWAYS as unknown as Giveaway[])
       } else {
         // Map API data to Giveaway interface
         const mappedGiveaways = response.campaigns.map((campaign: ApiCampaign) => ({

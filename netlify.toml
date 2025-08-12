@@ -1,5 +1,5 @@
 [build]
-  command = "npm ci --legacy-peer-deps && npm run build"
+  command = "npm ci && npm run build"
   publish = ".next"
 
 [[plugins]]
@@ -8,7 +8,6 @@
 [build.environment]
   NODE_VERSION = "20.11.0"
   NPM_VERSION = "10.8.2"
-  NPM_FLAGS = "--legacy-peer-deps"
   NODE_OPTIONS = "--max-old-space-size=4096"
   NEXT_PUBLIC_SUPABASE_URL = "https://yomnitxefrkuvnbnbhut.supabase.co"
   NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbW5pdHhlZnJrdXZuYm5iaHV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMzE3NDgsImV4cCI6MjA2NzYwNzc0OH0.Imw2JQVeQdAr-FjvBP_4Xbl2QxmREB8S_pfuFgr2GTQ"

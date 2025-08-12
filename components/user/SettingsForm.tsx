@@ -15,7 +15,6 @@ export function SettingsForm() {
     isUpdating,
     error,
     handleFieldChange,
-    handleToggle,
     handleSubmit,
   } = useSettingsForm()
 
@@ -91,7 +90,7 @@ export function SettingsForm() {
             </div>
             <Switch
               checked={formData.email_notifications}
-              onCheckedChange={() => handleToggle('email_notifications')}
+              onCheckedChange={(checked) => handleFieldChange('email_notifications', checked)}
             />
           </div>
 
@@ -102,7 +101,7 @@ export function SettingsForm() {
             </div>
             <Switch
               checked={formData.marketing_emails}
-              onCheckedChange={() => handleToggle('marketing_emails')}
+              onCheckedChange={(checked) => handleFieldChange('marketing_emails', checked)}
             />
           </div>
 
@@ -113,7 +112,7 @@ export function SettingsForm() {
             </div>
             <Switch
               checked={formData.weekly_reports}
-              onCheckedChange={() => handleToggle('weekly_reports')}
+              onCheckedChange={(checked) => handleFieldChange('weekly_reports', checked)}
             />
           </div>
         </div>
