@@ -1,92 +1,63 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { NextRequest } from 'next/server'
+import { 
+  checkSupabaseConnection, 
+  createApiResponse, 
+  createErrorResponse,
+  createSuccessResponse,
+  parseQueryParams,
+  applyCommonFilters,
+  applySorting,
+  applyPagination
+} from '@/lib/api-utils'
 
 export async function GET(request: NextRequest) {
   try {
     // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    const connection = checkSupabaseConnection()
+    if (connection.error) return connection.error
+    const { supabase } = connection
 
-    const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const sortBy = searchParams.get('sortBy') || 'votes_count'
-    const search = searchParams.get('search')
+    // Parse query parameters
+    const { page, limit, search, sortBy } = parseQueryParams(request)
 
+    // Build query
     let query = supabase
       .from('pen_names')
       .select('*')
 
+    // Apply search filter
     if (search) {
       query = query.or(`name.ilike.%${search}%,bio.ilike.%${search}%`)
     }
 
     // Apply sorting
-    switch (sortBy) {
-      case 'newest':
-        query = query.order('created_at', { ascending: false })
-        break
-      case 'followers':
-        query = query.order('upvotes_count', { ascending: false })
-        break
-      case 'books':
-        query = query.order('upvotes_count', { ascending: false })
-        break
-      case 'trending':
-      default:
-        query = query.order('upvotes_count', { ascending: false })
-        break
-    }
+    query = applySorting(query, sortBy)
 
-    // Apply pagination
-    const offset = (page - 1) * limit
-    query = query.range(offset, offset + limit - 1)
-
-    const { data, error, count } = await query
+    // Apply pagination and execute
+    const { data, error, count } = await applyPagination(query, page, limit)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return createErrorResponse(error, 500, 'Database operation failed')
     }
 
-    return NextResponse.json({
-      authors: data,
-      pagination: {
-        page,
-        limit,
-        total: count,
-        totalPages: Math.ceil((count || 0) / limit)
-      }
-    })
+    return createApiResponse(data, page, limit, count || 0)
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return createErrorResponse(error)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    const connection = checkSupabaseConnection()
+    if (connection.error) return connection.error
+    const { supabase } = connection
 
     const body = await request.json()
     const { name, bio, avatar_url, website_url, twitter_url, goodreads_url } = body
 
     if (!name || !bio || !avatar_url) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
+      return createErrorResponse(new Error('Missing required fields'), 400)
     }
 
     const { data, error } = await supabase
@@ -106,14 +77,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return createErrorResponse(error, 500, 'Database operation failed')
     }
 
-    return NextResponse.json({ author: data }, { status: 201 })
+    return createSuccessResponse({ author: data }, 201)
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return createErrorResponse(error)
   }
 } 

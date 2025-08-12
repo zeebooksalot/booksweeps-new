@@ -1,24 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { NextRequest } from 'next/server'
+import { 
+  checkSupabaseConnection, 
+  createApiResponse, 
+  createErrorResponse,
+  createSuccessResponse,
+  parseQueryParams,
+  applyCommonFilters,
+  applySorting,
+  applyPagination
+} from '@/lib/api-utils'
 
 export async function GET(request: NextRequest) {
   try {
     // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    const connection = checkSupabaseConnection()
+    if (connection.error) return connection.error
+    const { supabase } = connection
 
-    const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const genre = searchParams.get('genre')
-    const search = searchParams.get('search')
-    const user_id = searchParams.get('user_id')
-    const sortBy = searchParams.get('sortBy') || 'created_at'
+    // Parse query parameters
+    const { page, limit, genre, search, user_id, sortBy } = parseQueryParams(request)
 
+    // Build query
     let query = supabase
       .from('books')
       .select(`
@@ -31,71 +33,34 @@ export async function GET(request: NextRequest) {
         )
       `)
 
-    // Apply filters
-    if (genre) {
-      query = query.eq('genre', genre)
-    }
-
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,author.ilike.%${search}%,description.ilike.%${search}%`)
-    }
-
-    if (user_id) {
-      query = query.eq('user_id', user_id)
-    }
-
+    // Apply common filters
+    query = applyCommonFilters(query, { genre, search, user_id })
+    
     // Only show active books
     query = query.eq('status', 'active')
 
     // Apply sorting
-    switch (sortBy) {
-      case 'upvotes':
-        query = query.order('upvotes_count', { ascending: false })
-        break
-      case 'trending':
-        query = query.order('upvotes_count', { ascending: false })
-          .order('created_at', { ascending: false })
-        break
-      case 'newest':
-      default:
-        query = query.order('created_at', { ascending: false })
-        break
-    }
+    query = applySorting(query, sortBy)
 
-    // Apply pagination
-    const offset = (page - 1) * limit
-    const { data, error, count } = await query.range(offset, offset + limit - 1)
+    // Apply pagination and execute
+    const { data, error, count } = await applyPagination(query, page, limit)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return createErrorResponse(error, 500, 'Database operation failed')
     }
 
-    return NextResponse.json({
-      books: data,
-      pagination: {
-        page,
-        limit,
-        total: count,
-        totalPages: Math.ceil((count || 0) / limit)
-      }
-    })
+    return createApiResponse(data, page, limit, count || 0)
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return createErrorResponse(error)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    const connection = checkSupabaseConnection()
+    if (connection.error) return connection.error
+    const { supabase } = connection
 
     const body = await request.json()
     const { 
@@ -117,10 +82,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     if (!user_id || !title || !author) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
+      return createErrorResponse(new Error('Missing required fields'), 400)
     }
 
     const { data, error } = await supabase
@@ -148,14 +110,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return createErrorResponse(error, 500, 'Database operation failed')
     }
 
-    return NextResponse.json({ book: data }, { status: 201 })
+    return createSuccessResponse({ book: data }, 201)
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return createErrorResponse(error)
   }
 } 

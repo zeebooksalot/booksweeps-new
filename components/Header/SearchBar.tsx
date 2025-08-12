@@ -15,22 +15,7 @@ interface SearchBarProps {
   isMobileSearchOpen?: boolean
 }
 
-// Custom hook for debounced search
-const useDebouncedSearch = (callback: (query: string) => void, delay: number = 300) => {
-  const [debouncedValue, setDebouncedValue] = useState("")
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      callback(debouncedValue)
-    }, delay)
-
-    return () => {
-      clearTimeout(handler)
-    }
-  }, [debouncedValue, callback, delay])
-
-  return setDebouncedValue
-}
+import { useSimpleDebouncedSearch } from "@/hooks/use-debounced-search"
 
 export function SearchBar({ 
   searchQuery, 
@@ -44,7 +29,7 @@ export function SearchBar({
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
 
   // Debounced search implementation
-  const debouncedSearchChange = useDebouncedSearch(onSearchChange, 300)
+  const debouncedSearchChange = useSimpleDebouncedSearch(onSearchChange, 300)
 
   // Update local search query when prop changes
   useEffect(() => {

@@ -1,0 +1,311 @@
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useApi } from "./use-api"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { 
+  BookItem, 
+  AuthorItem, 
+  ApiBook, 
+  ApiAuthor, 
+  FilterState,
+  FeedItem 
+} from "@/types"
+import { 
+  DEFAULT_FILTER_STATE, 
+  FALLBACK_DATA, 
+  API_CONFIG,
+  UI_CONFIG 
+} from "@/constants"
+
+export function useHomePage() {
+  // Filter state
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE)
+  
+  // Data state
+  const [booksData, setBooksData] = useState<BookItem[]>([])
+  const [authorsData, setAuthorsData] = useState<AuthorItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  
+  // Auth
+  const { user } = useAuth()
+  
+  // API hooks
+  const booksApi = useApi<{ data: ApiBook[]; pagination: unknown }>()
+  const authorsApi = useApi<{ data: ApiAuthor[]; pagination: unknown }>()
+  
+  // Store fetch functions in refs to avoid dependency issues
+  const fetchBooksRef = useRef(booksApi.fetchData)
+  const fetchAuthorsRef = useRef(authorsApi.fetchData)
+  
+  // Update refs when fetch functions change
+  fetchBooksRef.current = booksApi.fetchData
+  fetchAuthorsRef.current = authorsApi.fetchData
+
+  // Data mapping functions
+  const mapBookFromApi = useCallback((book: ApiBook, rank: number): BookItem => ({
+    id: book.id,
+    type: "book" as const,
+    title: book.title,
+    author: book.author,
+    description: book.description || "",
+    cover: book.cover_image_url || "/placeholder.svg?height=80&width=64",
+    votes: book.upvotes_count || 0,
+    comments: book.comments_count || 0,
+    rating: book.rating || 0,
+    genres: book.genre ? [book.genre] : [],
+    hasGiveaway: book.has_giveaway || false,
+    publishDate: book.published_date 
+      ? new Date(book.published_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) 
+      : "Unknown",
+    rank
+  }), [])
+
+  const mapAuthorFromApi = useCallback((author: ApiAuthor, rank: number): AuthorItem => ({
+    id: author.id,
+    type: "author" as const,
+    name: author.name,
+    bio: author.bio || "",
+    avatar: author.avatar_url || "/placeholder.svg?height=64&width=64",
+    votes: author.votes_count || 0,
+    books: author.books_count || 0,
+    followers: author.followers_count || 0,
+    joinedDate: author.joined_date 
+      ? new Date(author.joined_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) 
+      : "Unknown",
+    hasGiveaway: author.has_giveaway || false,
+    rank
+  }), [])
+
+  // Fetch data function
+  const fetchData = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      
+      // Fetch books and authors in parallel
+      const [booksResponse, authorsResponse] = await Promise.all([
+        fetchBooksRef.current(`/api/books?sortBy=${filters.sortBy}&limit=${API_CONFIG.defaultLimit}`),
+        fetchAuthorsRef.current(`/api/authors?sortBy=${filters.sortBy}&limit=${API_CONFIG.defaultLimit}`)
+      ])
+      
+      // Map the data with proper null checks and error handling
+      const mappedBooks = Array.isArray(booksResponse.data) 
+        ? booksResponse.data.map((book: ApiBook, index: number) => 
+            mapBookFromApi(book, index + 1)
+          )
+        : []
+      const mappedAuthors = Array.isArray(authorsResponse.data)
+        ? authorsResponse.data.map((author: ApiAuthor, index: number) => 
+            mapAuthorFromApi(author, index + 1)
+          )
+        : []
+      
+      // If no data from API, use fallback mock data
+      if (mappedBooks.length === 0 && mappedAuthors.length === 0) {
+        setBooksData(FALLBACK_DATA.books)
+        setAuthorsData(FALLBACK_DATA.authors)
+      } else {
+        setBooksData(mappedBooks)
+        setAuthorsData(mappedAuthors)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch data')
+      console.error('Error fetching data:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [filters.sortBy, mapBookFromApi, mapAuthorFromApi])
+
+  // Fetch data on component mount and when sortBy changes
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  // Combine all data
+  const allData = useMemo(() => [...booksData, ...authorsData], [booksData, authorsData])
+
+  // Filter data based on current filters
+  const filteredData = useMemo(() => {
+    return allData.filter((item) => {
+      // Basic tab filtering
+      if (filters.activeTab === "books" && item.type !== "book") return false
+      if (filters.activeTab === "authors" && item.type !== "author") return false
+      if (filters.activeTab === "giveaways" && !item.hasGiveaway) return false
+      
+      // Search query filtering
+      if (filters.searchQuery.trim()) {
+        const query = filters.searchQuery.toLowerCase()
+        if (item.type === "book") {
+          const book = item as BookItem
+          const searchText = `${book.title} ${book.author} ${book.description} ${book.genres.join(" ")}`.toLowerCase()
+          if (!searchText.includes(query)) return false
+        } else {
+          const author = item as AuthorItem
+          const searchText = `${author.name} ${author.bio}`.toLowerCase()
+          if (!searchText.includes(query)) return false
+        }
+      }
+      
+      // Genre filtering
+      if (filters.selectedGenres.length > 0) {
+        if (item.type === "book") {
+          const book = item as BookItem
+          const hasMatchingGenre = book.genres.some(genre => filters.selectedGenres.includes(genre))
+          if (!hasMatchingGenre) return false
+        }
+      }
+      
+      // Rating filtering
+      if (filters.ratingFilter > 0) {
+        if (item.type === "book") {
+          const book = item as BookItem
+          if (book.rating < filters.ratingFilter) return false
+        }
+      }
+      
+      // Giveaway filtering
+      if (filters.hasGiveaway !== null) {
+        if (item.hasGiveaway !== filters.hasGiveaway) return false
+      }
+      
+      // Date range filtering
+      if (filters.dateRange !== "all") {
+        const itemDate = item.type === "book" 
+          ? new Date((item as BookItem).publishDate)
+          : new Date((item as AuthorItem).joinedDate)
+        const now = new Date()
+        
+        switch (filters.dateRange) {
+          case "week":
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            if (itemDate < weekAgo) return false
+            break
+          case "month":
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            if (itemDate < monthAgo) return false
+            break
+          case "year":
+            const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+            if (itemDate < yearAgo) return false
+            break
+        }
+      }
+      
+      return true
+    })
+  }, [allData, filters])
+
+  // Handle voting
+  const handleVote = useCallback(async (id: string) => {
+    // Add haptic feedback for mobile
+    if (navigator.vibrate) {
+      navigator.vibrate(50)
+    }
+    
+    try {
+      // Find the item to determine its type
+      const item = allData.find(item => item.id === id)
+      if (!item) return
+      
+      // Mock user ID for now - this should come from authentication
+      const userId = user?.id || "mock-user-id"
+      
+      // Prepare vote data
+      const voteData: {
+        user_id: string;
+        vote_type: string;
+        book_id?: string;
+        pen_name_id?: string;
+      } = {
+        user_id: userId,
+        vote_type: "upvote"
+      }
+      
+      // Add item-specific data
+      if (item.type === "book") {
+        voteData.book_id = id
+      } else {
+        voteData.pen_name_id = id
+      }
+      
+      // Send vote to API
+      const response = await fetch('/api/votes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(voteData),
+      })
+      
+      if (response.ok) {
+        // Optimistically update the UI
+        const updatedData = allData.map(item => 
+          item.id === id 
+            ? { ...item, votes: item.votes + 1 }
+            : item
+        )
+        
+        // Update the appropriate state
+        const updatedBooks = updatedData.filter(item => item.type === "book") as BookItem[]
+        const updatedAuthors = updatedData.filter(item => item.type === "author") as AuthorItem[]
+        
+        setBooksData(updatedBooks)
+        setAuthorsData(updatedAuthors)
+      } else {
+        console.error('Failed to submit vote')
+        throw new Error('Failed to submit vote')
+      }
+    } catch (error) {
+      console.error('Error submitting vote:', error)
+      // You could show a toast notification here
+    }
+  }, [allData, user])
+
+  // Handle refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true)
+    await fetchData()
+    setIsRefreshing(false)
+  }, [fetchData])
+
+  // Handle swipe actions
+  const handleSwipeLeft = useCallback((id: string) => {
+    // TODO: Implement skip functionality
+  }, [])
+
+  const handleSwipeRight = useCallback((id: string) => {
+    handleVote(id)
+  }, [handleVote])
+
+  // Update filters
+  const updateFilters = useCallback((updates: Partial<FilterState>) => {
+    setFilters(prev => ({ ...prev, ...updates }))
+  }, [])
+
+  // Reset filters
+  const resetFilters = useCallback(() => {
+    setFilters(DEFAULT_FILTER_STATE)
+  }, [])
+
+  return {
+    // State
+    filters,
+    booksData,
+    authorsData,
+    isLoading,
+    error,
+    isRefreshing,
+    filteredData,
+    allData,
+    
+    // Actions
+    updateFilters,
+    resetFilters,
+    handleVote,
+    handleRefresh,
+    handleSwipeLeft,
+    handleSwipeRight,
+    fetchData
+  }
+}
