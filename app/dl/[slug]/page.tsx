@@ -257,12 +257,12 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
       />
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 py-8 pt-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+      <div className="max-w-6xl mx-auto px-0 py-10 pt-32">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
           {/* Left Column - Book Info */}
-          <div className="space-y-8">
+          <div className="lg:col-span-2 space-y-8">
             {/* Book Cover and Title */}
-            <div className="text-center lg:text-left">
+            <div className="text-center">
               <div className="inline-block mb-6">
                 <Image
                   src={magnet.book.cover_url}
@@ -272,15 +272,17 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                   className="rounded-lg shadow-2xl"
                 />
               </div>
+              <div className="mb-4">
+                <Badge variant="secondary" className="text-sm">
+                  {magnet.book.genre}
+                </Badge>
+              </div>
               <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                 {magnet.title}
               </h1>
               <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">
                 {magnet.subtitle}
               </p>
-              <Badge variant="secondary" className="text-sm">
-                {magnet.book.genre}
-              </Badge>
             </div>
 
             {/* Description */}
@@ -325,10 +327,32 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                 </div>
               </div>
             </div>
+
+            {/* Testimonials */}
+            <div className="mt-8 space-y-4">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                What readers are saying:
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {magnet.testimonials.map((testimonial, index) => (
+                  <div key={index} className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2 mb-2">
+                      {renderStars(testimonial.rating)}
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                      "{testimonial.text}"
+                    </p>
+                    <p className="text-xs text-gray-500 font-medium">
+                      — {testimonial.name}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Right Column - Download Form */}
-          <div className="lg:sticky lg:top-8">
+          <div className="lg:col-span-1 lg:sticky lg:top-8">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
               {isSubmitted ? (
                 <div className="text-center">
@@ -442,65 +466,28 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
 
                     <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
                       <Lock className="h-3 w-3" />
-                      <span>We respect your privacy. Unsubscribe anytime.</span>
+                      <span>We respect your privacy. Your email is never shared without your permission.</span>
                     </div>
                   </form>
 
-                  {/* File Info */}
-                  <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-                      <span>Format:</span>
-                      <span className="font-medium">{magnet.book.format.toUpperCase()}</span>
-                    </div>
-                    {magnet.book.page_count && (
-                      <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-                        <span>Pages:</span>
-                        <span className="font-medium">{magnet.book.page_count}</span>
-                      </div>
-                    )}
-                  </div>
+
                 </>
               )}
             </div>
 
-            {/* Testimonials */}
-            <div className="mt-8 space-y-4">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                What readers are saying:
-              </h4>
-              <div className="space-y-4">
-                {magnet.testimonials.map((testimonial, index) => (
-                  <div key={index} className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center gap-2 mb-2">
-                      {renderStars(testimonial.rating)}
-                    </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-                      "{testimonial.text}"
-                    </p>
-                    <p className="text-xs text-gray-500 font-medium">
-                      — {testimonial.name}
-                    </p>
-                  </div>
-                ))}
+            {/* Social Sharing */}
+            <div className="mt-8 text-center">
+              <div className="flex items-center justify-center gap-4">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Share2 className="h-4 w-4" />
+                  Share
+                </Button>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Heart className="h-4 w-4" />
+                  Follow Author
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Social Sharing */}
-        <div className="mt-12 text-center">
-          <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Love this free content? Share it!
-          </h4>
-          <div className="flex items-center justify-center gap-4">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Share2 className="h-4 w-4" />
-              Share
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Heart className="h-4 w-4" />
-              Follow Author
-            </Button>
           </div>
         </div>
       </div>
