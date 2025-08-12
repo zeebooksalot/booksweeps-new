@@ -1,370 +1,63 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { 
-  ArrowLeft,
-  Clock,
-  Users,
-  Gift,
-  Mail,
-  CheckCircle,
-  AlertCircle
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { useApi } from "@/hooks/use-api"
-import { LoadingSpinner } from "@/components/ui/loading"
-import { ErrorState } from "@/components/ui/error-state"
-import { Header } from "@/components/Header/index"
+import { Header } from '@/components/Header/index'
+import { useGiveaway } from '@/hooks/useGiveaway'
+import { GiveawayHeader } from '@/components/giveaways/GiveawayHeader'
+import { GiveawayBookInfo } from '@/components/giveaways/GiveawayBookInfo'
+import { GiveawayEntryForm } from '@/components/giveaways/GiveawayEntryForm'
+import { GiveawayErrorState } from '@/components/giveaways/GiveawayErrorState'
+import { GiveawayDetailLoadingState } from '@/components/giveaways/GiveawayDetailLoadingState'
+import { GIVEAWAY_STYLES } from '@/constants/giveaways'
 
-interface GiveawayBook {
-  title: string
-  author: string
-  cover_image_url: string
-  genre: string
-  description: string
+interface GiveawayEntryPageProps {
+  params: Promise<{ id: string }>
 }
 
-interface GiveawayAuthor {
-  name: string
-  avatar_url: string
-  bio: string
-}
-
-interface Giveaway {
-  id: string
-  title: string
-  description: string
-  book: GiveawayBook
-  author: GiveawayAuthor
-  end_date: string
-  entry_count: number
-  max_entries: number
-  number_of_winners: number
-  prize_description: string
-  rules: string
-}
-
-interface ApiCampaign {
-  id: string
-  title: string
-  description?: string
-  book_id: string
-  book?: {
-    id: string
-    title: string
-    author: string
-    cover_image_url: string
-    genre: string
-  }
-  pen_names?: {
-    id: string
-    name: string
-    bio: string
-    avatar_url: string
-  }
-  users?: {
-    id: string
-    display_name: string
-    first_name: string
-    last_name: string
-  }
-  start_date: string
-  end_date: string
-  max_entries?: number
-  entry_count?: number
-  number_of_winners?: number
-  prize_description?: string
-  rules?: string
-  status: string
-  is_featured?: boolean
-  created_at: string
-  updated_at: string
-  book_cover_url?: string
-  campaign_genre?: string
-  book_description?: string
-  author_name?: string
-}
-
-export default function GiveawayEntryPage({ params }: { params: Promise<{ id: string }> }) {
-  const [giveaway, setGiveaway] = useState<Giveaway | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [email, setEmail] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSubmitted, setIsSubmitted] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isMobileView, setIsMobileView] = useState(false)
-  const [id, setId] = useState<string>("")
-
-  const campaignsApi = useApi<{ campaigns: ApiCampaign[]; pagination: unknown }>()
-
-  // Check for mobile view
-  useEffect(() => {
-    const checkMobileView = () => {
-      setIsMobileView(window.innerWidth < 768)
-    }
-    
-    checkMobileView()
-    window.addEventListener('resize', checkMobileView)
-    return () => window.removeEventListener('resize', checkMobileView)
-  }, [])
-
-  // Extract params
-  useEffect(() => {
-    const extractParams = async () => {
-      const { id: paramId } = await params
-      setId(paramId)
-    }
-    extractParams()
-  }, [params])
-
-  useEffect(() => {
-    if (!id) return
-    
-    const fetchGiveaway = async () => {
-      setIsLoading(true)
-      try {
-        // For now, use mock data
-        const mockGiveaway = {
-          id: id,
-          title: "Win 'Ocean's Echo' - Fantasy Romance",
-          description: "Enter to win a signed copy of this magical tale of love and adventure beneath the waves.",
-          book: {
-            title: "Ocean's Echo",
-            author: "Elena Rodriguez",
-            cover_image_url: "/placeholder.svg?height=200&width=160",
-            genre: "Fantasy",
-            description: "A magical tale of love and adventure beneath the waves that explores the depths of human connection and the mysteries of the ocean."
-          },
-          author: {
-            name: "Elena Rodriguez",
-            avatar_url: "/placeholder.svg?height=64&width=64",
-            bio: "Fantasy romance author who transports readers to magical worlds filled with adventure and love."
-          },
-          end_date: "2024-12-31",
-          entry_count: 156,
-          max_entries: 1000,
-          number_of_winners: 5,
-          prize_description: "Signed copy of Ocean's Echo",
-          rules: "Open to US residents 18+. One entry per person. Winners will be selected randomly and notified via email."
-        }
-        setGiveaway(mockGiveaway)
-      } catch (err) {
-        setError('Failed to load giveaway')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchGiveaway()
-  }, [id])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setIsSubmitted(true)
-    } catch (err) {
-      setError('Failed to submit entry')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+export default function GiveawayEntryPage({ params }: GiveawayEntryPageProps) {
+  const {
+    giveaway,
+    isLoading,
+    error,
+    isMobileView,
+    isSubmitting,
+    isSubmitted,
+    handleSubmit
+  } = useGiveaway({ params })
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="flex items-center gap-3">
-          <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent"></div>
-          <span className="text-gray-600 dark:text-gray-400">Loading giveaway...</span>
-        </div>
-      </div>
-    )
+    return <GiveawayDetailLoadingState />
   }
 
   if (error || !giveaway) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            Giveaway Not Found
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            {error || "This giveaway doesn't exist or has been removed."}
-          </p>
-          <Link href="/giveaways">
-            <Button>Back to Giveaways</Button>
-          </Link>
-        </div>
-      </div>
-    )
+    return <GiveawayErrorState error={error} />
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className={GIVEAWAY_STYLES.container}>
       {/* Header */}
       <Header 
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        searchQuery=""
+        onSearchChange={() => {}}
         isMobileView={isMobileView}
       />
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-8 pt-20">
-        <div className="mb-6">
-          <Link href="/giveaways" className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-4">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Giveaways
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            {giveaway.title}
-          </h1>
-        </div>
+        <GiveawayHeader title={giveaway.title} />
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Book Info */}
-          <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
-              <div className="flex gap-6 mb-6">
-                <Image
-                  src={giveaway.book.cover_image_url}
-                  alt={giveaway.book.title}
-                  width={160}
-                  height={200}
-                  className="rounded-lg shadow-lg"
-                />
-                <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                    {giveaway.book.title}
-                  </h2>
-                  <p className="text-lg text-gray-600 dark:text-gray-400 mb-3">
-                    by {giveaway.author.name}
-                  </p>
-                  <Badge variant="secondary" className="mb-4">
-                    {giveaway.book.genre}
-                  </Badge>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    {giveaway.book.description}
-                  </p>
-                </div>
-              </div>
-
-              {/* Author Info */}
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                <div className="flex items-center gap-4">
-                  <Image
-                    src={giveaway.author.avatar_url}
-                    alt={giveaway.author.name}
-                    width={48}
-                    height={48}
-                    className="rounded-full"
-                  />
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                      {giveaway.author.name}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {giveaway.author.bio}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <GiveawayBookInfo giveaway={giveaway} />
 
           {/* Entry Form */}
           <div className="lg:col-span-1">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 sticky top-6">
-              {isSubmitted ? (
-                <div className="text-center">
-                  <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                    Entry Submitted!
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    You&apos;ve successfully entered this giveaway. We&apos;ll notify you if you win!
-                  </p>
-                  <Link href="/giveaways">
-                    <Button className="w-full">Browse More Giveaways</Button>
-                  </Link>
-                </div>
-              ) : (
-                <>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                    Enter Giveaway
-                  </h3>
-
-                  {/* Stats */}
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Entries</span>
-                      <span className="font-semibold">{giveaway.entry_count}/{giveaway.max_entries}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Winners</span>
-                      <span className="font-semibold">{giveaway.number_of_winners}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Ends</span>
-                      <span className="font-semibold">
-                        {new Date(giveaway.end_date).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Prize */}
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-4 mb-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Gift className="h-5 w-5 text-purple-600" />
-                      <h4 className="font-semibold text-gray-900 dark:text-gray-100">Prize</h4>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {giveaway.prize_description}
-                    </p>
-                  </div>
-
-                  {/* Entry Form */}
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Email Address
-                      </label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="your@email.com"
-                        required
-                        className="w-full"
-                      />
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting || !email}
-                      className="w-full bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
-                    >
-                      {isSubmitting ? "Submitting..." : "Enter Giveaway"}
-                    </Button>
-                  </form>
-
-                  {/* Rules */}
-                  <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Rules</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {giveaway.rules}
-                    </p>
-                  </div>
-                </>
-              )}
+              <GiveawayEntryForm
+                giveaway={giveaway}
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+                isSubmitted={isSubmitted}
+              />
             </div>
           </div>
         </div>
