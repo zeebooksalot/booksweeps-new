@@ -14,7 +14,7 @@ import {
   User,
 } from "lucide-react"
 import { FeedItemDisplay } from "@/components/feed-item-display"
-import { Header } from "@/components/Header"
+import { Header } from "@/components/Header/index"
 import { LoadingSpinner } from "@/components/ui/loading"
 import { ErrorState } from "@/components/ui/error-state"
 import { ErrorBoundary } from "@/components/ErrorBoundary"

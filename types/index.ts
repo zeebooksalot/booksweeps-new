@@ -198,3 +198,20 @@ export interface PaginatedResponse<T> {
 
 // Feed item union type
 export type FeedItem = BookItem | AuthorItem
+
+// Feed item display specific types
+export interface FeedItemDisplayProps {
+  item: FeedItem
+  isMobileView: boolean
+  onVote: (id: string) => void
+  onSwipeLeft: (id: string) => void
+  onSwipeRight: (id: string) => void
+  downloadSlug?: string
+}
+
+export interface MobileSwipeState {
+  startX: number
+  currentX: number
+  isDragging: boolean
+  isVoting: boolean
+}

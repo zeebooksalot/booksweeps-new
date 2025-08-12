@@ -6,7 +6,6 @@ import { SearchBar } from "./SearchBar"
 import { Navigation } from "./Navigation"
 import { UserActions } from "./UserActions"
 import { MobileMenu } from "./MobileMenu"
-import { LoadingSpinner } from "@/components/ui/loading"
 
 interface HeaderProps {
   searchQuery: string
