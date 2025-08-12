@@ -63,6 +63,32 @@ interface AuthorItem {
   rank: number
 }
 
+interface ApiBook {
+  id: string
+  title: string
+  author: string
+  description?: string
+  cover_image_url?: string
+  upvotes_count?: number
+  comments_count?: number
+  rating?: number
+  genre?: string
+  has_giveaway?: boolean
+  published_date?: string
+}
+
+interface ApiAuthor {
+  id: string
+  name: string
+  bio?: string
+  avatar_url?: string
+  votes_count?: number
+  books_count?: number
+  followers_count?: number
+  joined_date?: string
+  has_giveaway?: boolean
+}
+
 type FeedItem = BookItem | AuthorItem
 
 
@@ -92,11 +118,11 @@ export default function BookSweepsHomepage() {
   const [error, setError] = useState<string | null>(null)
   
   // API hooks
-  const booksApi = useApi<{ books: any[]; pagination: any }>()
-  const authorsApi = useApi<{ authors: any[]; pagination: any }>()
+  const booksApi = useApi<{ books: ApiBook[]; pagination: unknown }>()
+  const authorsApi = useApi<{ authors: ApiAuthor[]; pagination: unknown }>()
 
   // Data mapping functions
-  const mapBookFromApi = (book: any, rank: number): BookItem => ({
+  const mapBookFromApi = (book: ApiBook, rank: number): BookItem => ({
     id: book.id,
     type: "book" as const,
     title: book.title,
@@ -112,7 +138,7 @@ export default function BookSweepsHomepage() {
     rank
   })
 
-  const mapAuthorFromApi = (author: any, rank: number): AuthorItem => ({
+  const mapAuthorFromApi = (author: ApiAuthor, rank: number): AuthorItem => ({
     id: author.id,
     type: "author" as const,
     name: author.name,
@@ -139,8 +165,8 @@ export default function BookSweepsHomepage() {
       ])
       
       // Map the data
-      const mappedBooks = booksResponse.books.map((book: any, index: number) => mapBookFromApi(book, index + 1))
-      const mappedAuthors = authorsResponse.authors.map((author: any, index: number) => mapAuthorFromApi(author, index + 1))
+      const mappedBooks = booksResponse.books.map((book: ApiBook, index: number) => mapBookFromApi(book, index + 1))
+      const mappedAuthors = authorsResponse.authors.map((author: ApiAuthor, index: number) => mapAuthorFromApi(author, index + 1))
       
       // If no data from API, use fallback mock data
       if (mappedBooks.length === 0 && mappedAuthors.length === 0) {
@@ -311,7 +337,12 @@ export default function BookSweepsHomepage() {
       const userId = "mock-user-id"
       
       // Prepare vote data
-      const voteData: any = {
+      const voteData: {
+        user_id: string;
+        vote_type: string;
+        book_id?: string;
+        pen_name_id?: string;
+      } = {
         user_id: userId,
         vote_type: "upvote"
       }

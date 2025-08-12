@@ -127,7 +127,7 @@ export function UserDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Welcome back, {userProfile?.display_name || user.email}!</h1>
-          <p className="text-gray-600">Here's what's happening with your account.</p>
+          <p className="text-gray-600">Here&apos;s what&apos;s happening with your account.</p>
         </div>
         <Avatar className="h-12 w-12">
           <AvatarFallback>

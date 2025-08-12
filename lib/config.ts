@@ -52,14 +52,14 @@ export const getCurrentPlatform = (hostname: string) => {
 export const shouldRedirectUser = (userType: string, currentHost: string) => {
   const hosts = getPlatformHosts()
   
-  // Readers shouldn't be on author platform
+  // Readers shouldn't be on author platform - redirect them to reader site
   if (userType === 'reader' && currentHost === hosts.author) {
     return { shouldRedirect: true, targetUrl: `${config.readerUrl}/dashboard` }
   }
   
-  // Authors can access all platforms but prefer author platform
+  // Author users on main site - let login page handle choice modal, don't auto-redirect
   if (userType === 'author' && currentHost === hosts.mainSite) {
-    return { shouldRedirect: false, suggestion: true, targetUrl: `${config.authorUrl}/dashboard` }
+    return { shouldRedirect: false } // Login page will show choice modal
   }
   
   // Users with both types can access all platforms
@@ -68,6 +68,39 @@ export const shouldRedirectUser = (userType: string, currentHost: string) => {
   }
   
   return { shouldRedirect: false }
+}
+
+// Validate environment variables for cross-domain auth
+export const validateCrossDomainConfig = () => {
+  const errors: string[] = []
+  
+  // Check required environment variables
+  if (!process.env.NEXT_PUBLIC_AUTHOR_URL) {
+    errors.push('NEXT_PUBLIC_AUTHOR_URL is not set - author site redirects may not work')
+  }
+  
+  if (!process.env.NEXT_PUBLIC_READER_URL) {
+    errors.push('NEXT_PUBLIC_READER_URL is not set - reader site redirects may not work')
+  }
+  
+  // Validate URL formats
+  try {
+    if (process.env.NEXT_PUBLIC_AUTHOR_URL) {
+      new URL(process.env.NEXT_PUBLIC_AUTHOR_URL)
+    }
+  } catch (error) {
+    errors.push('NEXT_PUBLIC_AUTHOR_URL is not a valid URL')
+  }
+  
+  try {
+    if (process.env.NEXT_PUBLIC_READER_URL) {
+      new URL(process.env.NEXT_PUBLIC_READER_URL)
+    }
+  } catch (error) {
+    errors.push('NEXT_PUBLIC_READER_URL is not a valid URL')
+  }
+  
+  return errors
 }
 
 // Type definitions
@@ -89,6 +122,9 @@ export const validateConfig = () => {
   if (config.isProduction && !config.nextAuthSecret) {
     errors.push('NEXTAUTH_SECRET is required in production')
   }
+  
+  // Add cross-domain validation
+  errors.push(...validateCrossDomainConfig())
   
   return errors
 } 

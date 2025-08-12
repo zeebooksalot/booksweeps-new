@@ -5,6 +5,11 @@ import { useState } from 'react'
 import { getPlatformUrls } from '@/lib/config'
 
 export default function TestAuthPage() {
+  const { user, loading, signIn, signOut } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [signInLoading, setSignInLoading] = useState(false)
+
   if (process.env.NODE_ENV === 'production') {
     return (
       <div className="min-h-screen flex items-center justify-center p-8 text-center">
@@ -14,11 +19,6 @@ export default function TestAuthPage() {
       </div>
     )
   }
-
-  const { user, loading, signIn, signOut } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [signInLoading, setSignInLoading] = useState(false)
 
   // Get platform URLs from config
   const { mainSite, reader, author } = getPlatformUrls()

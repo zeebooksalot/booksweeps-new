@@ -169,8 +169,11 @@ export function useAsyncOperation<T>(
   }, [operation])
 
   const executeWithLoading = useCallback(async () => {
-    return loadingState.executeWithRetry(execute)
-  }, [loadingState, execute])
+    await loadingState.executeWithRetry(async () => {
+      await execute()
+    })
+    return data
+  }, [loadingState, execute, data])
 
   return {
     ...loadingState,

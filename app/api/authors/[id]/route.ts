@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check if Supabase client is available
@@ -13,6 +13,8 @@ export async function GET(
         { status: 503 }
       )
     }
+
+    const { id } = await params
 
     const { data, error } = await supabase
       .from('authors')
@@ -28,7 +30,7 @@ export async function GET(
           publish_date
         )
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error) {
@@ -50,7 +52,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check if Supabase client is available
@@ -61,6 +63,7 @@ export async function PUT(
       )
     }
 
+    const { id } = await params
     const body = await request.json()
     const { name, bio, avatar_url, website_url, twitter_url, goodreads_url } = body
 
@@ -75,7 +78,7 @@ export async function PUT(
         goodreads_url,
         updated_at: new Date().toISOString()
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 

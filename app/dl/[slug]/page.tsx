@@ -295,7 +295,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
             {/* Benefits */}
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                What you'll get:
+                What you&apos;ll get:
               </h3>
               <div className="space-y-3">
                 {magnet.benefits.map((benefit, index) => (
@@ -340,7 +340,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                       {renderStars(testimonial.rating)}
                     </div>
                     <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-                      "{testimonial.text}"
+                      &ldquo;{testimonial.text}&rdquo;
                     </p>
                     <p className="text-xs text-gray-500 font-medium">
                       — {testimonial.name}
@@ -375,7 +375,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                           Download Now
                         </Button>
                         <p className="text-xs text-gray-500">
-                          You'll also receive updates about new releases and exclusive content.
+                          You&apos;ll also receive updates about new releases and exclusive content.
                         </p>
                       </>
                     ) : (
@@ -386,7 +386,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                           </p>
                         </div>
                         <p className="text-xs text-gray-500">
-                          If you don't receive the email within a few minutes, please check your spam folder.
+                          If you don&apos;t receive the email within a few minutes, please check your spam folder.
                         </p>
                       </>
                     )}

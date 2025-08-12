@@ -6,8 +6,11 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestId = Math.random().toString(36).substring(2, 15)
   
-  console.log(`[${requestId}] 🚀 Download request started`)
-  console.log(`[${requestId}] 📍 Request timestamp: ${new Date().toISOString()}`)
+  // Log only in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[${requestId}] 🚀 Download request started`)
+    console.log(`[${requestId}] 📍 Request timestamp: ${new Date().toISOString()}`)
+  }
   
   try {
     // Check if Supabase client is available
@@ -27,12 +30,15 @@ export async function POST(request: NextRequest) {
       // Remove ip_address from body - we'll get it from request headers
     } = body
 
-    console.log(`[${requestId}] 📝 Request data:`, {
-      delivery_method_id,
-      email: email ? `${email.substring(0, 3)}***@${email.split('@')[1]}` : null, // Mask email for privacy
-      name: name ? `${name.substring(0, 1)}***` : null, // Mask name for privacy
-      hasName: !!name
-    })
+    // Log only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${requestId}] 📝 Request data:`, {
+        delivery_method_id,
+        email: email ? `${email.substring(0, 3)}***@${email.split('@')[1]}` : null, // Mask email for privacy
+        name: name ? `${name.substring(0, 1)}***` : null, // Mask name for privacy
+        hasName: !!name
+      })
+    }
 
     if (!delivery_method_id || !email) {
       console.error(`[${requestId}] ❌ Missing required fields:`, { delivery_method_id: !!delivery_method_id, email: !!email })
@@ -46,14 +52,19 @@ export async function POST(request: NextRequest) {
     const clientIP = getClientIP(request)
     const userAgent = request.headers.get('user-agent') || null
     
-    console.log(`[${requestId}] 🌐 Client info:`, {
-      ip: clientIP,
-      userAgent: userAgent ? userAgent.substring(0, 50) + '...' : null,
-      userAgentLength: userAgent?.length || 0
-    })
+    // Log only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${requestId}] 🌐 Client info:`, {
+        ip: clientIP,
+        userAgent: userAgent ? userAgent.substring(0, 50) + '...' : null,
+        userAgentLength: userAgent?.length || 0
+      })
+    }
 
     // First, get the delivery method to check if it exists and is active
-    console.log(`[${requestId}] 🔍 Fetching delivery method: ${delivery_method_id}`)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${requestId}] 🔍 Fetching delivery method: ${delivery_method_id}`)
+    }
     
     const { data: deliveryMethod, error: methodError } = await supabase
       .from('book_delivery_methods')
@@ -89,30 +100,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[${requestId}] ✅ Delivery method found:`, {
-      id: deliveryMethod.id,
-      title: deliveryMethod.title,
-      bookTitle: deliveryMethod.books?.title,
-      author: deliveryMethod.books?.author,
-      hasFiles: deliveryMethod.books?.book_files?.length > 0,
-      fileCount: deliveryMethod.books?.book_files?.length || 0,
-      downloadLimit: deliveryMethod.download_limit
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${requestId}] ✅ Delivery method found:`, {
+        id: deliveryMethod.id,
+        title: deliveryMethod.title,
+        bookTitle: deliveryMethod.books?.title,
+        author: deliveryMethod.books?.author,
+        hasFiles: deliveryMethod.books?.book_files?.length > 0,
+        fileCount: deliveryMethod.books?.book_files?.length || 0,
+        downloadLimit: deliveryMethod.download_limit
+      })
+    }
 
     // Check download limit
     if (deliveryMethod.download_limit) {
-      console.log(`[${requestId}] 📊 Checking download limit: ${deliveryMethod.download_limit}`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[${requestId}] 📊 Checking download limit: ${deliveryMethod.download_limit}`)
+      }
       
       const { count: totalDownloads } = await supabase
         .from('reader_deliveries')
         .select('*', { count: 'exact', head: true })
         .eq('delivery_method_id', delivery_method_id)
 
-      console.log(`[${requestId}] 📈 Download stats:`, {
-        current: totalDownloads || 0,
-        limit: deliveryMethod.download_limit,
-        remaining: deliveryMethod.download_limit - (totalDownloads || 0)
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[${requestId}] 📈 Download stats:`, {
+          current: totalDownloads || 0,
+          limit: deliveryMethod.download_limit,
+          remaining: deliveryMethod.download_limit - (totalDownloads || 0)
+        })
+      }
 
       if (totalDownloads && totalDownloads >= deliveryMethod.download_limit) {
         console.warn(`[${requestId}] ⚠️ Download limit reached: ${totalDownloads}/${deliveryMethod.download_limit}`)
@@ -122,11 +139,15 @@ export async function POST(request: NextRequest) {
         )
       }
     } else {
-      console.log(`[${requestId}] 📊 No download limit set`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[${requestId}] 📊 No download limit set`)
+      }
     }
 
     // Insert the delivery record with real IP and user agent
-    console.log(`[${requestId}] 💾 Inserting delivery record...`)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${requestId}] 💾 Inserting delivery record...`)
+    }
     
     const { error: deliveryError } = await supabase
       .from('reader_deliveries')
@@ -152,10 +173,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: deliveryError.message }, { status: 500 })
     }
 
-    console.log(`[${requestId}] ✅ Delivery record inserted successfully`)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${requestId}] ✅ Delivery record inserted successfully`)
+    }
 
     // Generate download URL
-    console.log(`[${requestId}] 🔗 Generating download URL...`)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${requestId}] 🔗 Generating download URL...`)
+    }
     
     let downloadUrl = null
     if (deliveryMethod.books?.book_files && deliveryMethod.books.book_files.length > 0) {
@@ -168,8 +193,10 @@ export async function POST(request: NextRequest) {
         mimeType: file.mime_type
       })
       
-      // Generate signed URL for secure download (skip validation since file exists in DB)
-      console.log(`[${requestId}] 🔐 Generating signed URL (1 hour expiry)...`)
+              // Generate signed URL for secure download (skip validation since file exists in DB)
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[${requestId}] 🔐 Generating signed URL (1 hour expiry)...`)
+        }
       const { data: signedUrl, error: signedUrlError } = await supabase.storage
         .from('book-files')
         .createSignedUrl(file.file_path, 3600) // 1 hour expiry
@@ -186,18 +213,24 @@ export async function POST(request: NextRequest) {
       }
 
       downloadUrl = signedUrl?.signedUrl
-      console.log(`[${requestId}] ✅ Signed URL generated successfully`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[${requestId}] ✅ Signed URL generated successfully`)
+      }
     } else {
-      console.log(`[${requestId}] ⚠️ No book files found for delivery method`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[${requestId}] ⚠️ No book files found for delivery method`)
+      }
     }
 
     const responseTime = Date.now() - startTime
     
-    console.log(`[${requestId}] 🎉 Download process completed successfully`, {
-      responseTime: `${responseTime}ms`,
-      hasDownloadUrl: !!downloadUrl,
-      downloadUrlLength: downloadUrl?.length || 0
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${requestId}] 🎉 Download process completed successfully`, {
+        responseTime: `${responseTime}ms`,
+        hasDownloadUrl: !!downloadUrl,
+        downloadUrlLength: downloadUrl?.length || 0
+      })
+    }
 
     return NextResponse.json({
       success: true,

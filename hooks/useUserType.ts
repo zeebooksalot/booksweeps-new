@@ -21,7 +21,7 @@ export function useUserType() {
         const { data, error } = await supabase
           .from('users')
           .select('user_type')
-          .eq('id', user.id)
+          .eq('id', user?.id || '')
           .single()
 
         if (error) throw error

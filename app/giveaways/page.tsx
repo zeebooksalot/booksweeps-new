@@ -1,18 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { 
-  Search, 
-  Filter, 
-  Clock, 
-  Users, 
+  Search,
+  Filter,
   Gift,
   TrendingUp,
   Star,
-  Calendar,
-  ArrowLeft
+  ArrowLeft,
+  Users,
+  Clock,
+  Heart,
+  BookOpen,
+  Bell,
+  Calendar
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -51,6 +54,47 @@ interface Giveaway {
   updated_at: string
 }
 
+interface ApiCampaign {
+  id: string
+  title: string
+  description?: string
+  book_id: string
+  book?: {
+    id: string
+    title: string
+    author: string
+    cover_image_url: string
+    genre: string
+  }
+  pen_names?: {
+    id: string
+    name: string
+    bio: string
+    avatar_url: string
+  }
+  users?: {
+    id: string
+    display_name: string
+    first_name: string
+    last_name: string
+  }
+  start_date: string // ISO date string
+  end_date: string // ISO date string
+  max_entries?: number
+  entry_count?: number
+  number_of_winners?: number
+  prize_description?: string
+  rules?: string
+  status: 'active' | 'ended' | 'draft' | string
+  is_featured?: boolean
+  created_at: string // ISO date string
+  updated_at: string // ISO date string
+  book_cover_url?: string
+  campaign_genre?: string
+  book_description?: string
+  author_name?: string
+}
+
 export default function GiveawaysPage() {
   const [giveaways, setGiveaways] = useState<Giveaway[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -67,7 +111,7 @@ export default function GiveawaysPage() {
   const [sortBy, setSortBy] = useState('featured')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   
-  const campaignsApi = useApi<{ campaigns: any[]; pagination: any }>()
+  const campaignsApi = useApi<{ campaigns: ApiCampaign[]; pagination: unknown }>()
 
   // Check for mobile view
   useEffect(() => {
@@ -80,7 +124,7 @@ export default function GiveawaysPage() {
     return () => window.removeEventListener('resize', checkMobileView)
   }, [])
 
-  const fetchGiveaways = async () => {
+  const fetchGiveaways = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     
@@ -154,7 +198,7 @@ export default function GiveawaysPage() {
         setGiveaways(mockGiveaways)
       } else {
         // Map API data to Giveaway interface
-        const mappedGiveaways = response.campaigns.map((campaign: any) => ({
+        const mappedGiveaways = response.campaigns.map((campaign: ApiCampaign) => ({
           id: campaign.id,
           title: campaign.title,
           description: campaign.description || "",
@@ -167,7 +211,7 @@ export default function GiveawaysPage() {
             description: campaign.book_description || ""
           },
           author: {
-            id: campaign.pen_name_id,
+            id: campaign.pen_names?.id || "unknown",
             name: campaign.author_name || "Unknown Author",
             avatar_url: campaign.pen_names?.avatar_url || "/placeholder.svg?height=64&width=64",
             bio: campaign.pen_names?.bio || ""
@@ -179,7 +223,9 @@ export default function GiveawaysPage() {
           number_of_winners: campaign.number_of_winners || 1,
           prize_description: campaign.prize_description || "",
           rules: campaign.rules || "",
-          status: campaign.status,
+          status: (campaign.status === 'active' || campaign.status === 'ended' || campaign.status === 'draft') 
+            ? campaign.status as 'active' | 'ended' | 'draft' 
+            : 'active',
           is_featured: campaign.is_featured || false,
           created_at: campaign.created_at,
           updated_at: campaign.updated_at
@@ -192,11 +238,11 @@ export default function GiveawaysPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [filters.featured, campaignsApi, filters.genre])
 
   useEffect(() => {
     fetchGiveaways()
-  }, [filters, sortBy])
+  }, [filters, sortBy, fetchGiveaways])
 
   const getTimeRemaining = (endDate: string) => {
     const end = new Date(endDate)
@@ -332,7 +378,7 @@ export default function GiveawaysPage() {
                 </label>
                 <select
                   value={filters.status}
-                  onChange={(e) => setFilters({...filters, status: e.target.value as any})}
+                  onChange={(e) => setFilters({...filters, status: e.target.value as 'all' | 'active' | 'ending_soon'})}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                 >
                   <option value="all">All Status</option>
@@ -348,7 +394,7 @@ export default function GiveawaysPage() {
                 </label>
                 <select
                   value={filters.prizeType}
-                  onChange={(e) => setFilters({...filters, prizeType: e.target.value as any})}
+                  onChange={(e) => setFilters({...filters, prizeType: e.target.value as 'all' | 'signed' | 'digital' | 'physical'})}
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                 >
                   <option value="all">All Prizes</option>

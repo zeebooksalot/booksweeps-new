@@ -55,12 +55,14 @@ export function testIPDetection() {
   } as NextRequest
 
   const detectedIP = getClientIP(mockRequest)
-  console.log('Test IP Detection:', {
-    'x-forwarded-for': mockHeaders.get('x-forwarded-for'),
-    'x-real-ip': mockHeaders.get('x-real-ip'),
-    'cf-connecting-ip': mockHeaders.get('cf-connecting-ip'),
-    'detected-ip': detectedIP
-  })
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Test IP Detection:', {
+      'x-forwarded-for': mockHeaders.get('x-forwarded-for'),
+      'x-real-ip': mockHeaders.get('x-real-ip'),
+      'cf-connecting-ip': mockHeaders.get('cf-connecting-ip'),
+      'detected-ip': detectedIP
+    })
+  }
 
   return detectedIP
 }

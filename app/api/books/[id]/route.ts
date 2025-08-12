@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check if Supabase client is available
@@ -14,6 +14,7 @@ export async function GET(
       )
     }
 
+    const { id } = await params
     const { data, error } = await supabase
       .from('books')
       .select(`
@@ -42,7 +43,7 @@ export async function GET(
           )
         )
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error) {
@@ -64,7 +65,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check if Supabase client is available
@@ -75,6 +76,7 @@ export async function PUT(
       )
     }
 
+    const { id } = await params
     const body = await request.json()
     const { title, description, cover_url, genres, has_giveaway } = body
 
@@ -88,7 +90,7 @@ export async function PUT(
         has_giveaway,
         updated_at: new Date().toISOString()
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -107,7 +109,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check if Supabase client is available
@@ -118,10 +120,11 @@ export async function DELETE(
       )
     }
 
+    const { id } = await params
     const { error } = await supabase
       .from('books')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

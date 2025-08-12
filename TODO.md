@@ -16,7 +16,118 @@ This document tracks all missing features, improvements, and enhancements needed
 
 ## 🔥 High Priority Items
 
-### 1. Email Notifications System
+### 1. ✅ Cross-Domain Authentication System
+
+**Status**: ✅ COMPLETED  
+**Impact**: Critical for user experience  
+**Files Implemented**: 
+- `components/auth/AuthorChoiceModal.tsx`
+- `app/api/auth/upgrade-user-type/route.ts`
+- `app/(auth)/login/page.tsx` (updated)
+- `app/(auth)/signup/page.tsx` (updated)
+- `middleware.ts` (updated)
+- `lib/config.ts` (updated)
+- `app/test-cross-domain-auth/page.tsx`
+
+**Features Implemented**:
+- Author choice modal when author users log in
+- User type upgrade API with analytics tracking
+- Reader default registration
+- Cross-domain redirects
+- Test page for verification
+- **✅ FIXES APPLIED**:
+  - Optional upgrade logging (works without migration)
+  - Environment variable validation
+  - Improved user type checking with loading states
+  - Better error handling and null checks
+  - Configuration validation in test page
+- **✅ PERFORMANCE OPTIMIZATIONS**:
+  - User type caching (5-minute TTL)
+  - Cache invalidation on user upgrades
+  - Event-driven cache clearing
+  - Optimized database queries
+- **✅ ACCESSIBILITY ENHANCEMENTS**:
+  - ARIA labels and descriptions
+  - Keyboard navigation support
+  - Focus management
+  - Screen reader announcements
+  - High contrast mode support
+  - Reduced motion support
+  - Form validation with error associations
+
+**Next Steps**:
+- Test the complete flow
+- Implement database migration for upgrade logs
+- Set up environment variables
+
+---
+
+### 2. User Upgrade Logs Database Migration
+
+**Status**: ❌ Missing  
+**Impact**: Analytics and tracking for cross-domain auth  
+**File**: `supabase/migrations/20250101000000_add_user_upgrade_logs.sql`
+
+**Implementation**:
+```sql
+-- Create table to track user type upgrades
+CREATE TABLE IF NOT EXISTS "public"."user_upgrade_logs" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "from_user_type" "text" NOT NULL,
+    "to_user_type" "text" NOT NULL,
+    "upgrade_reason" "text",
+    "domain_referrer" "text",
+    "ip_address" "inet",
+    "user_agent" "text",
+    "upgraded_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "user_upgrade_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- Add indexes for performance
+CREATE INDEX "idx_user_upgrade_logs_user_id" ON "public"."user_upgrade_logs" ("user_id");
+CREATE INDEX "idx_user_upgrade_logs_upgraded_at" ON "public"."user_upgrade_logs" ("upgraded_at");
+CREATE INDEX "idx_user_upgrade_logs_domain_referrer" ON "public"."user_upgrade_logs" ("domain_referrer");
+
+-- Add foreign key constraint
+ALTER TABLE "public"."user_upgrade_logs" 
+ADD CONSTRAINT "user_upgrade_logs_user_id_fkey" 
+FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE CASCADE;
+
+-- Add RLS policies
+ALTER TABLE "public"."user_upgrade_logs" ENABLE ROW LEVEL SECURITY;
+
+-- Allow service role to insert logs
+CREATE POLICY "Service role can insert upgrade logs" ON "public"."user_upgrade_logs"
+FOR INSERT TO service_role WITH CHECK (true);
+
+-- Allow users to view their own upgrade logs
+CREATE POLICY "Users can view their own upgrade logs" ON "public"."user_upgrade_logs"
+FOR SELECT TO authenticated USING ("user_id" = "auth"."uid"());
+
+-- Grant permissions
+GRANT ALL ON TABLE "public"."user_upgrade_logs" TO "service_role";
+GRANT SELECT ON TABLE "public"."user_upgrade_logs" TO "authenticated";
+
+-- Add comments
+COMMENT ON TABLE "public"."user_upgrade_logs" IS 'Tracks user type upgrades for analytics';
+COMMENT ON COLUMN "public"."user_upgrade_logs"."upgrade_reason" IS 'Reason for upgrade (e.g., author_to_reader_upgrade)';
+COMMENT ON COLUMN "public"."user_upgrade_logs"."domain_referrer" IS 'Domain where upgrade was initiated';
+```
+
+**Benefits**:
+- Track user type upgrades for analytics
+- Monitor cross-domain auth usage
+- Understand user behavior patterns
+- Support for business intelligence
+
+**Dependencies**:
+- Cross-domain auth system (✅ COMPLETED)
+- User upgrade API endpoint (✅ COMPLETED)
+
+---
+
+### 3. Email Notifications System
 
 **Status**: ❌ Missing  
 **Impact**: Critical for user experience  
@@ -47,7 +158,7 @@ export async function POST(request: NextRequest) {
 
 ---
 
-### 2. Rate Limiting Implementation
+### 4. Rate Limiting Implementation
 
 **Status**: ❌ Missing  
 **Impact**: Security essential  
@@ -75,7 +186,7 @@ const canDownload = await rateLimiter.checkLimit(`${clientIP}:${email}`, 5, 3600
 
 ---
 
-### 3. N+1 Query Performance Fix
+### 5. N+1 Query Performance Fix
 
 **Status**: ⚠️ Performance Issue  
 **Impact**: Poor performance with multiple delivery methods  
@@ -115,7 +226,7 @@ const { data } = await supabase
 
 ---
 
-### 4. Duplicate Download Prevention
+### 6. Duplicate Download Prevention
 
 **Status**: ❌ Missing  
 **Impact**: Data integrity and abuse prevention  
@@ -148,7 +259,7 @@ if (existingDelivery) {
 
 ## 🔶 Medium Priority Items
 
-### 5. File Format Detection from Actual Files
+### 7. File Format Detection from Actual Files
 
 **Status**: ⚠️ Incomplete  
 **Impact**: Accuracy improvement  
@@ -164,144 +275,142 @@ format: apiMagnet.format || 'pdf'
 
 **Solution**:
 ```typescript
-// Fetch actual file format from book_files table
-const { data: bookFiles } = await supabase
-  .from('book_files')
-  .select('format, file_name')
-  .eq('book_id', magnet.book_id)
-  .eq('status', 'active')
-  .single()
-
-format: bookFiles?.format || apiMagnet.format || 'pdf'
+// Detect actual file format from file extension
+const getFileFormat = (fileName: string) => {
+  const extension = fileName.split('.').pop()?.toLowerCase()
+  switch (extension) {
+    case 'pdf': return 'pdf'
+    case 'epub': return 'epub'
+    case 'mobi': return 'mobi'
+    default: return 'pdf'
+  }
+}
 ```
 
 **Benefits**:
-- Accurate format display
+- Accurate file format display
 - Better user experience
-- Correct file type information
+- Proper file handling
 
 ---
 
-### 6. Download Expiry Configuration
+### 8. Download Expiry Configuration
 
 **Status**: ❌ Missing  
-**Impact**: Flexibility for authors  
+**Impact**: Security and flexibility  
 **File**: `app/api/reader-magnets/downloads/route.ts`
 
-**Current Problem**:
+**Implementation**:
 ```typescript
-// Hardcoded 1-hour expiry
-.createSignedUrl(file.file_path, 3600)
-```
-
-**Solution**:
-```typescript
-// Use configurable expiry from delivery method
-const expirySeconds = deliveryMethod.expiry_days 
-  ? deliveryMethod.expiry_days * 24 * 60 * 60 
-  : 3600 // Default 1 hour
-
+// Use delivery method expiry setting
+const expiryHours = deliveryMethod.expiry_hours || 24
 const { data: signedUrl } = await supabase.storage
   .from('book-files')
-  .createSignedUrl(file.file_path, expirySeconds)
+  .createSignedUrl(file.file_path, expiryHours * 3600)
 ```
 
 **Benefits**:
-- Flexible download link duration
-- Author control over access
-- Better security options
+- Configurable download expiry
+- Better security
+- Flexible delivery options
 
 ---
 
-### 7. Access Token Validation
+### 9. Access Token Validation
 
 **Status**: ❌ Missing  
 **Impact**: Enhanced security  
-**Files Needed**:
-- `lib/access-token.ts`
-- Update download API
+**File**: `app/api/reader-magnets/downloads/route.ts`
 
 **Implementation**:
 ```typescript
-// lib/access-token.ts
-export class AccessTokenManager {
-  generateToken(deliveryId: string, email: string): string
-  validateToken(token: string, deliveryId: string, email: string): boolean
-}
+// Validate access token before download
+const { data: delivery } = await supabase
+  .from('reader_deliveries')
+  .select('access_token, expires_at')
+  .eq('id', delivery_id)
+  .single()
 
-// In download API
-const token = generateToken(delivery_method_id, email)
-// Include token in response
-// Validate token before allowing download
+if (!delivery || delivery.access_token !== token || delivery.expires_at < new Date()) {
+  return NextResponse.json({ error: 'Invalid or expired download link' }, { status: 401 })
+}
 ```
 
 **Benefits**:
-- Additional security layer
+- Enhanced download security
 - Token-based access control
-- Better audit trail
+- Expiry enforcement
 
 ---
 
-### 8. Download Analytics Tracking
+### 10. Download Analytics Tracking
 
 **Status**: ⚠️ Basic  
 **Impact**: Business insights  
-**Files Needed**:
-- `lib/analytics.ts`
-- `app/api/analytics/downloads/route.ts`
+**File**: `app/api/reader-magnets/downloads/route.ts`
 
-**Implementation**:
+**Current Implementation**:
 ```typescript
-// lib/analytics.ts
-export interface DownloadAnalytics {
-  trackDownload(deliveryId: string, email: string, success: boolean): Promise<void>
-  getDownloadStats(deliveryId: string): Promise<DownloadStats>
-}
+// Basic download tracking
+const { error: deliveryError } = await supabase
+  .from('reader_deliveries')
+  .insert({...})
+```
 
-// Track download success/failure
-await analytics.trackDownload(delivery_method_id, email, !!downloadUrl)
+**Enhanced Implementation**:
+```typescript
+// Comprehensive analytics
+const { error: analyticsError } = await supabase
+  .from('download_analytics')
+  .insert({
+    delivery_id: delivery.id,
+    download_source: 'direct',
+    referrer: request.headers.get('referer'),
+    utm_source: searchParams.get('utm_source'),
+    utm_medium: searchParams.get('utm_medium'),
+    utm_campaign: searchParams.get('utm_campaign'),
+    download_duration: Date.now() - startTime
+  })
 ```
 
 **Benefits**:
-- Download success rate tracking
-- User behavior insights
-- Performance optimization data
+- Detailed download analytics
+- Marketing attribution
+- Performance insights
 
 ---
 
-## 🔵 Low Priority Items
+## 🔶 Low Priority Items
 
-### 9. Social Sharing Integration
+### 11. Social Sharing Integration
 
-**Status**: ❌ Placeholder buttons  
+**Status**: ❌ Placeholder  
 **Impact**: Growth feature  
-**Files**: `app/dl/[slug]/page.tsx`
+**File**: `app/dl/[slug]/page.tsx`
 
-**Current Problem**:
+**Current Implementation**:
 ```typescript
-// Placeholder buttons with no functionality
-<Button variant="outline" size="sm" className="gap-2">
+// Placeholder social sharing
+<button className="share-button">
   <Share2 className="h-4 w-4" />
   Share
-</Button>
+</button>
 ```
 
-**Implementation**:
+**Enhanced Implementation**:
 ```typescript
-// Add actual social sharing
+// Real social sharing
 const shareData = {
   title: magnet.title,
   text: magnet.description,
   url: window.location.href
 }
 
-const handleShare = async () => {
-  if (navigator.share) {
-    await navigator.share(shareData)
-  } else {
-    // Fallback to copy link
-    await navigator.clipboard.writeText(window.location.href)
-  }
+if (navigator.share) {
+  await navigator.share(shareData)
+} else {
+  // Fallback to copy link
+  await navigator.clipboard.writeText(window.location.href)
 }
 ```
 
@@ -312,124 +421,71 @@ const handleShare = async () => {
 
 ---
 
-### 10. Mobile Download Handling
+### 12. Mobile Download Handling
 
 **Status**: ❌ Missing  
-**Impact**: Mobile UX  
-**Files**: `app/dl/[slug]/page.tsx`
+**Impact**: Mobile user experience  
+**File**: `app/dl/[slug]/page.tsx`
 
 **Implementation**:
 ```typescript
 // Detect mobile and handle downloads appropriately
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 
-const handleDownload = () => {
-  if (isMobile) {
-    // Handle mobile-specific download logic
-    // Different file types, app store redirects, etc.
-  } else {
-    // Standard desktop download
-    window.open(downloadUrl, '_blank')
-  }
+if (isMobile) {
+  // Show mobile-specific download instructions
+  // Handle file opening in mobile apps
+} else {
+  // Normal desktop download flow
 }
 ```
 
 **Benefits**:
-- Better mobile user experience
-- Platform-specific optimizations
-- Higher mobile conversion rates
+- Better mobile experience
+- Proper file handling on mobile
+- Increased mobile conversions
 
 ---
 
-### 11. Admin Dashboard
+### 13. Admin Dashboard for Downloads
 
 **Status**: ❌ Missing  
 **Impact**: Management tool  
 **Files Needed**:
-- `app/admin/dashboard/page.tsx`
-- `app/api/admin/analytics/route.ts`
+- `app/admin/downloads/page.tsx`
+- `app/api/admin/downloads/route.ts`
 
 **Features**:
-- Download statistics overview
-- Success rate monitoring
-- User behavior analytics
-- System performance metrics
+- Download statistics
+- User analytics
+- Abuse monitoring
+- System health
 
 **Benefits**:
-- Better system monitoring
-- Data-driven decisions
-- Performance optimization
+- Better system management
+- Data insights
+- Operational control
 
 ---
 
-### 12. Configuration Management
+### 14. Configuration Management
 
 **Status**: ❌ Missing  
 **Impact**: Operational flexibility  
 **Files Needed**:
-- `app/admin/settings/page.tsx`
+- `app/api/admin/config/route.ts`
 - `lib/config-manager.ts`
 
 **Features**:
-- Update download limits
-- Configure expiry times
-- Manage email templates
-- System settings
+- Dynamic configuration updates
+- Feature flags
+- A/B testing support
+- Environment-specific settings
 
 **Benefits**:
-- No code changes for configuration
-- Easy operational management
-- Flexible system settings
-
----
-
-## 🧹 Technical Debt
-
-### 13. Error Logging Improvements
-
-**Status**: ⚠️ Basic  
-**File**: Multiple API routes
-
-**Current Problem**:
-```typescript
-// Basic console.error logging
-console.error('Download error:', error)
-```
-
-**Solution**:
-```typescript
-// Structured error logging
-import { logger } from '@/lib/logger'
-
-logger.error('Download failed', {
-  deliveryId: delivery_method_id,
-  email,
-  error: error.message,
-  stack: error.stack
-})
-```
-
-**Benefits**:
-- Better error tracking
-- Easier debugging
-- Production monitoring
-
----
-
-### 14. Type Safety Improvements
-
-**Status**: ⚠️ Partial  
-**Files**: Multiple TypeScript files
-
-**Improvements Needed**:
-- Stricter type definitions
-- Better error handling types
-- API response type safety
-
-**Benefits**:
-- Fewer runtime errors
-- Better developer experience
-- Improved code quality
+- Operational flexibility
+- Easy feature toggles
+- Better testing capabilities
 
 ---
 
@@ -468,6 +524,8 @@ logger.error('Download failed', {
 
 | Feature | Priority | Effort | Impact | Status |
 |---------|----------|--------|--------|--------|
+| Cross-Domain Auth | High | High | High | ✅ COMPLETED |
+| User Upgrade Logs | High | Low | Medium | ❌ Missing |
 | Email Notifications | High | Medium | High | ❌ Missing |
 | Rate Limiting | High | Low | High | ❌ Missing |
 | N+1 Query Fix | High | Medium | High | ⚠️ Performance Issue |
@@ -486,22 +544,22 @@ logger.error('Download failed', {
 ## 🎯 Next Steps
 
 ### Immediate (This Week)
-1. **Implement Email Notifications** - Critical for user experience
-2. **Add Rate Limiting** - Security essential
-3. **Fix N+1 Query Performance** - Performance critical
-4. **Add Duplicate Download Prevention** - Data integrity
+1. **Test Cross-Domain Auth** - Verify the complete flow works
+2. **Implement User Upgrade Logs** - Add database migration
+3. **Add Rate Limiting** - Security essential
+4. **Fix N+1 Query Performance** - Performance critical
 
 ### Short Term (Next 2 Weeks)
-5. **File Format Detection** - Accuracy improvement
-6. **Download Expiry Configuration** - Flexibility
-7. **Access Token Validation** - Enhanced security
-8. **Download Analytics** - Business insights
+5. **Email Notifications** - Critical for user experience
+6. **Duplicate Download Prevention** - Data integrity
+7. **File Format Detection** - Accuracy improvement
+8. **Download Expiry Configuration** - Flexibility
 
 ### Medium Term (Next Month)
-9. **Social Sharing** - Growth feature
-10. **Mobile Optimizations** - UX improvement
-11. **Admin Dashboard** - Management tool
-12. **Configuration Management** - Operational flexibility
+9. **Access Token Validation** - Enhanced security
+10. **Download Analytics** - Business insights
+11. **Social Sharing** - Growth feature
+12. **Mobile Optimizations** - UX improvement
 
 ---
 
@@ -509,6 +567,7 @@ logger.error('Download failed', {
 
 - **Current Production Readiness**: 95%
 - **Core Functionality**: ✅ Complete
+- **Cross-Domain Auth**: ✅ Complete
 - **Security**: ✅ Good (with improvements needed)
 - **Performance**: ⚠️ Needs optimization
 - **User Experience**: ✅ Good (with enhancements possible)

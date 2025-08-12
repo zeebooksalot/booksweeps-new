@@ -55,7 +55,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(redirectUrl)
     }
 
-    // Handle subdomain-specific redirects based on user type
+    // Handle cross-domain redirects based on user type
     if (session) {
       try {
         // Get user type from database
@@ -67,7 +67,7 @@ export async function middleware(req: NextRequest) {
 
         if (userError) {
           console.error('Error fetching user type:', userError)
-          // Continue without user type validation
+          // Continue without user type validation - don't block the request
         } else if (userData?.user_type) {
           const userType = userData.user_type
 
@@ -75,17 +75,23 @@ export async function middleware(req: NextRequest) {
           const redirectCheck = shouldRedirectUser(userType, currentHost)
           
           if (redirectCheck.shouldRedirect && redirectCheck.targetUrl) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`Redirecting user ${session.user.id} (${userType}) from ${currentHost} to ${redirectCheck.targetUrl}`)
+            }
             return NextResponse.redirect(redirectCheck.targetUrl)
           }
         }
       } catch (error) {
         console.error('Error in user type validation:', error)
-        // Continue without user type validation
+        // Continue without user type validation - don't block the request
       }
     }
 
     // Handle API routes with authentication
-    if (req.nextUrl.pathname.startsWith('/api/') && !req.nextUrl.pathname.startsWith('/api/auth/')) {
+    // Only protect non-auth API routes
+    if (req.nextUrl.pathname.startsWith('/api/') && 
+        !req.nextUrl.pathname.startsWith('/api/auth/') &&
+        !req.nextUrl.pathname.startsWith('/api/reader-magnets/')) {
       if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }

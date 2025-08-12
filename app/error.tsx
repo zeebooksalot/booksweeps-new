@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import Link from 'next/link'
 
 export default function Error({ error, reset }: { error: Error; reset: () => void }) {
   useEffect(() => {
@@ -19,9 +20,9 @@ export default function Error({ error, reset }: { error: Error; reset: () => voi
           >
             Try again
           </button>
-          <a href="/" className="h-10 px-4 rounded-full border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-orange-500 flex items-center">
+          <Link href="/" className="h-10 px-4 rounded-full border-2 border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-orange-500 flex items-center">
             Go home
-          </a>
+          </Link>
         </div>
       </div>
     </div>

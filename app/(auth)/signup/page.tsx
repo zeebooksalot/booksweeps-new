@@ -33,7 +33,8 @@ export default function SignupPage() {
     setLoading(true)
     
     try {
-      await signUp(email, password)
+      // Sign up with reader as default user type
+      await signUp(email, password, { user_type: 'reader' })
       toast({ title: 'Account created', description: 'Welcome to BookSweeps!' })
       router.push('/dashboard')
     } catch (error) {
@@ -54,67 +55,92 @@ export default function SignupPage() {
             <p className="mt-2 text-14 text-gray-600 dark:text-gray-400">Join BookSweeps and start exploring</p>
           </div>
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-4" onSubmit={handleSubmit} aria-labelledby="signup-title">
             <div>
-              <label htmlFor="email" className="sr-only">Email address</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Email address
+              </label>
               <input
                 id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
                 required
-                className="h-11 w-full rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-0 focus:border-orange-500"
-                placeholder="Email address"
+                className="h-11 w-full rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:border-orange-500"
+                placeholder="Enter your email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                aria-describedby={errorMessage ? "error-message" : undefined}
+                aria-invalid={!!errorMessage}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="sr-only">Password</label>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Password
+              </label>
               <input
                 id="password"
                 name="password"
                 type="password"
                 autoComplete="new-password"
                 required
-                className="h-11 w-full rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-0 focus:border-orange-500"
-                placeholder="Password"
+                className="h-11 w-full rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:border-orange-500"
+                placeholder="Create a password (minimum 8 characters)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                aria-describedby={errorMessage ? "error-message" : "password-requirements"}
+                aria-invalid={!!errorMessage}
               />
+              <div id="password-requirements" className="text-xs text-gray-500 mt-1">
+                Password must be at least 8 characters long
+              </div>
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="sr-only">Confirm Password</label>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Confirm Password
+              </label>
               <input
                 id="confirmPassword"
                 name="confirmPassword"
                 type="password"
                 autoComplete="new-password"
                 required
-                className="h-11 w-full rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-0 focus:border-orange-500"
-                placeholder="Confirm Password"
+                className="h-11 w-full rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:border-orange-500"
+                placeholder="Confirm your password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                aria-describedby={errorMessage ? "error-message" : undefined}
+                aria-invalid={!!errorMessage}
               />
             </div>
 
             {errorMessage && (
-              <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">{errorMessage}</div>
+              <div 
+                id="error-message"
+                className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200" 
+                role="alert" 
+                aria-live="polite"
+              >
+                {errorMessage}
+              </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="h-11 w-full rounded-full bg-orange-500 text-white text-14 font-semibold hover:bg-orange-600 transition-colors disabled:opacity-50"
+              className="h-11 w-full rounded-full bg-orange-500 text-white text-14 font-semibold hover:bg-orange-600 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+              aria-describedby={errorMessage ? "error-message" : undefined}
             >
               {loading ? 'Creating account...' : 'Create account'}
             </button>
 
             <div className="text-center text-14 text-gray-600 dark:text-gray-400">
               <span>Already have an account? </span>
-              <Link href="/login" className="text-orange-600 hover:text-orange-700 font-semibold">Sign in</Link>
+              <Link href="/login" className="text-orange-600 hover:text-orange-700 font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded">
+                Sign in
+              </Link>
             </div>
           </form>
         </div>

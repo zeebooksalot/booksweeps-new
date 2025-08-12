@@ -9,17 +9,20 @@ export function PlatformRedirect() {
   const [showSuggestion, setShowSuggestion] = useState(false)
 
   useEffect(() => {
-    if (loading) return
+    if (loading || !userType) return
 
     const hostname = window.location.hostname
     const hosts = getPlatformHosts()
     
-    // Check if user should be redirected or shown suggestion
+    // Check if user should be redirected
     const redirectCheck = shouldRedirectUser(userType, hostname)
     
     if (redirectCheck.shouldRedirect && redirectCheck.targetUrl) {
       window.location.href = redirectCheck.targetUrl
-    } else if (redirectCheck.suggestion && redirectCheck.targetUrl) {
+    }
+    
+    // Show suggestion for author users on main site
+    if (userType === 'author' && hostname === hosts.mainSite) {
       setShowSuggestion(true)
     }
   }, [userType, loading])

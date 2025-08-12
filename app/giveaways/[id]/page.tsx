@@ -18,8 +18,77 @@ import { Badge } from "@/components/ui/badge"
 import { useApi } from "@/hooks/use-api"
 import { Header } from "@/components/Header"
 
-export default function GiveawayEntryPage({ params }: { params: { id: string } }) {
-  const [giveaway, setGiveaway] = useState<any>(null)
+interface GiveawayBook {
+  title: string
+  author: string
+  cover_image_url: string
+  genre: string
+  description: string
+}
+
+interface GiveawayAuthor {
+  name: string
+  avatar_url: string
+  bio: string
+}
+
+interface Giveaway {
+  id: string
+  title: string
+  description: string
+  book: GiveawayBook
+  author: GiveawayAuthor
+  end_date: string
+  entry_count: number
+  max_entries: number
+  number_of_winners: number
+  prize_description: string
+  rules: string
+}
+
+interface ApiCampaign {
+  id: string
+  title: string
+  description?: string
+  book_id: string
+  book?: {
+    id: string
+    title: string
+    author: string
+    cover_image_url: string
+    genre: string
+  }
+  pen_names?: {
+    id: string
+    name: string
+    bio: string
+    avatar_url: string
+  }
+  users?: {
+    id: string
+    display_name: string
+    first_name: string
+    last_name: string
+  }
+  start_date: string
+  end_date: string
+  max_entries?: number
+  entry_count?: number
+  number_of_winners?: number
+  prize_description?: string
+  rules?: string
+  status: string
+  is_featured?: boolean
+  created_at: string
+  updated_at: string
+  book_cover_url?: string
+  campaign_genre?: string
+  book_description?: string
+  author_name?: string
+}
+
+export default function GiveawayEntryPage({ params }: { params: Promise<{ id: string }> }) {
+  const [giveaway, setGiveaway] = useState<Giveaway | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [email, setEmail] = useState("")
@@ -27,8 +96,9 @@ export default function GiveawayEntryPage({ params }: { params: { id: string } }
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [isMobileView, setIsMobileView] = useState(false)
+  const [id, setId] = useState<string>("")
 
-  const campaignsApi = useApi<any>()
+  const campaignsApi = useApi<{ campaigns: ApiCampaign[]; pagination: unknown }>()
 
   // Check for mobile view
   useEffect(() => {
@@ -41,13 +111,24 @@ export default function GiveawayEntryPage({ params }: { params: { id: string } }
     return () => window.removeEventListener('resize', checkMobileView)
   }, [])
 
+  // Extract params
   useEffect(() => {
+    const extractParams = async () => {
+      const { id: paramId } = await params
+      setId(paramId)
+    }
+    extractParams()
+  }, [params])
+
+  useEffect(() => {
+    if (!id) return
+    
     const fetchGiveaway = async () => {
       setIsLoading(true)
       try {
         // For now, use mock data
         const mockGiveaway = {
-          id: params.id,
+          id: id,
           title: "Win 'Ocean's Echo' - Fantasy Romance",
           description: "Enter to win a signed copy of this magical tale of love and adventure beneath the waves.",
           book: {
@@ -78,7 +159,7 @@ export default function GiveawayEntryPage({ params }: { params: { id: string } }
     }
 
     fetchGiveaway()
-  }, [params.id])
+  }, [id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -206,7 +287,7 @@ export default function GiveawayEntryPage({ params }: { params: { id: string } }
                     Entry Submitted!
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    You've successfully entered this giveaway. We'll notify you if you win!
+                    You&apos;ve successfully entered this giveaway. We&apos;ll notify you if you win!
                   </p>
                   <Link href="/giveaways">
                     <Button className="w-full">Browse More Giveaways</Button>

@@ -172,7 +172,7 @@ export function UserProfile() {
                 <Label htmlFor="user_type">User Type</Label>
                 <Select
                   value={profileForm.user_type}
-                  onValueChange={(value) => setProfileForm(prev => ({ ...prev, user_type: value as any }))}
+                  onValueChange={(value) => setProfileForm(prev => ({ ...prev, user_type: value as 'reader' | 'author' | 'both' }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -252,7 +252,7 @@ export function UserProfile() {
                   <Label htmlFor="theme">Theme</Label>
                   <Select
                     value={settingsForm.theme}
-                    onValueChange={(value) => setSettingsForm(prev => ({ ...prev, theme: value as any }))}
+                    onValueChange={(value) => setSettingsForm(prev => ({ ...prev, theme: value as 'light' | 'dark' | 'auto' }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
