@@ -1,6 +1,6 @@
 'use client'
 
-import { useAuth } from '@/components/auth/AuthProvider'
+import { useAuth } from '@/components/auth/AuthProvider-refactored'
 import { useState } from 'react'
 import { getPlatformUrls } from '@/lib/config'
 

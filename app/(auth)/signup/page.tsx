@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useAuth } from '@/components/auth/AuthProvider'
+import { useAuth } from '@/components/auth/AuthProvider-refactored'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/use-toast'
