@@ -307,6 +307,7 @@ export default function FreeBooksPage() {
                       onVote={handleVote}
                       onSwipeLeft={handleSwipeLeft}
                       onSwipeRight={handleSwipeRight}
+                      downloadSlug={item.slug}
                     />
                   ))}
                 </div>
@@ -321,6 +322,7 @@ export default function FreeBooksPage() {
                       onVote={handleVote}
                       onSwipeLeft={handleSwipeLeft}
                       onSwipeRight={handleSwipeRight}
+                      downloadSlug={item.slug}
                     />
                   ))}
                 </div>

@@ -46,6 +46,7 @@ interface FeedItemDisplayProps {
   onVote: (id: string) => void
   onSwipeLeft: (id: string) => void
   onSwipeRight: (id: string) => void
+  downloadSlug?: string // Optional prop for download links
 }
 
 // Mobile Card Component for swipeable interface
@@ -54,11 +55,13 @@ function MobileBookCard({
   onVote,
   onSwipeLeft,
   onSwipeRight,
+  downloadSlug,
 }: {
   item: FeedItem
   onVote: (id: string) => void
   onSwipeLeft: (id: string) => void
   onSwipeRight: (id: string) => void
+  downloadSlug?: string
 }) {
   const [startX, setStartX] = useState(0)
   const [currentX, setCurrentX] = useState(0)
@@ -91,13 +94,14 @@ function MobileBookCard({
   }
 
   return (
-    <div
-      className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 mx-4 mb-4 touch-pan-y transition-colors"
-      style={{ transform: `translateX(${currentX}px)`, transition: isDragging ? "none" : "transform 0.3s ease" }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    <Link href={downloadSlug ? `/dl/${downloadSlug}` : `/${item.type}s/${item.id}`} className="block">
+      <div
+        className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 mx-4 mb-4 touch-pan-y transition-colors cursor-pointer"
+        style={{ transform: `translateX(${currentX}px)`, transition: isDragging ? "none" : "transform 0.3s ease" }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
       {/* Swipe indicators */}
       {currentX > 50 && (
         <div className="absolute inset-0 bg-green-500 bg-opacity-20 rounded-2xl flex items-center justify-start pl-8">
@@ -199,6 +203,7 @@ function MobileBookCard({
         </div>
       )}
     </div>
+    </Link>
   )
 }
 
@@ -206,44 +211,44 @@ function MobileBookCard({
 function DesktopListItem({
   item,
   onVote,
+  downloadSlug,
 }: {
   item: FeedItem
   onVote: (id: string) => void
+  downloadSlug?: string
 }) {
   return (
-    <section className="group relative flex flex-row items-start gap-6 rounded-xl px-0 py-6 transition-all duration-300 sm:-mx-4 sm:p-6 cursor-pointer hover:sm:bg-gray-50 dark:hover:sm:bg-gray-800 hover:shadow-sm">
-      <span className="absolute inset-0"></span>
+    <Link href={downloadSlug ? `/dl/${downloadSlug}` : `/${item.type}s/${item.id}`} className="block">
+      <section className="group relative flex flex-row items-start gap-6 rounded-xl px-0 py-6 transition-all duration-300 sm:-mx-4 sm:p-6 cursor-pointer hover:sm:bg-gray-50 dark:hover:sm:bg-gray-800 hover:shadow-sm">
+        <span className="absolute inset-0"></span>
 
-      {/* Ranking Badge */}
-      <div className="flex-shrink-0">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900 text-14 font-bold text-orange-600 dark:text-orange-400">
-          {item.rank}
+        {/* Ranking Badge */}
+        <div className="flex-shrink-0">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900 text-14 font-bold text-orange-600 dark:text-orange-400">
+            {item.rank}
+          </div>
         </div>
-      </div>
 
-      {/* Product Image */}
-      <Link href={`/${item.type}s/${item.id}`} className="flex-shrink-0">
-        <Image
-          src={item.type === "book" ? item.cover : item.avatar}
-          alt={item.type === "book" ? item.title : item.name}
-          width={item.type === "book" ? 64 : 64}
-          height={item.type === "book" ? 80 : 64}
-          className={`${item.type === "book" ? "rounded-xl" : "rounded-full"} shadow-sm`}
-        />
-      </Link>
+        {/* Product Image */}
+        <div className="flex-shrink-0">
+          <Image
+            src={item.type === "book" ? item.cover : item.avatar}
+            alt={item.type === "book" ? item.title : item.name}
+            width={item.type === "book" ? 64 : 64}
+            height={item.type === "book" ? 80 : 64}
+            className={`${item.type === "book" ? "rounded-xl" : "rounded-full"} shadow-sm`}
+          />
+        </div>
 
-      {/* Content */}
-      <div className="flex flex-1 flex-col min-w-0">
-        <Link
-          href={`/${item.type}s/${item.id}`}
-          className="text-18 font-semibold text-gray-900 dark:text-gray-100 transition-all duration-300 group-hover:sm:text-orange-500 mb-1"
-        >
-          {item.type === "book" ? item.title : item.name}
-        </Link>
+        {/* Content */}
+        <div className="flex flex-1 flex-col min-w-0">
+          <div className="text-18 font-semibold text-gray-900 dark:text-gray-100 transition-all duration-300 group-hover:sm:text-orange-500 mb-1">
+            {item.type === "book" ? item.title : item.name}
+          </div>
 
-        <Link href={`/${item.type}s/${item.id}`} className="text-16 text-gray-600 dark:text-gray-400 mb-2">
-          {item.type === "book" ? `by ${item.author}` : item.bio}
-        </Link>
+          <div className="text-16 text-gray-600 dark:text-gray-400 mb-2">
+            {item.type === "book" ? `by ${item.author}` : item.bio}
+          </div>
 
         <div className="mb-3 flex flex-row flex-wrap items-center gap-2">
           <Tag className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
@@ -314,6 +319,7 @@ function DesktopListItem({
         </button>
       </div>
     </section>
+    </Link>
   )
 }
 
@@ -323,6 +329,7 @@ export function FeedItemDisplay({
   onVote,
   onSwipeLeft,
   onSwipeRight,
+  downloadSlug,
 }: FeedItemDisplayProps) {
   if (isMobileView) {
     return (
@@ -331,9 +338,10 @@ export function FeedItemDisplay({
         onVote={onVote}
         onSwipeLeft={onSwipeLeft}
         onSwipeRight={onSwipeRight}
+        downloadSlug={downloadSlug}
       />
     )
   }
 
-  return <DesktopListItem item={item} onVote={onVote} />
+  return <DesktopListItem item={item} onVote={onVote} downloadSlug={downloadSlug} />
 } 
