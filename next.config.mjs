@@ -28,7 +28,6 @@ const nextConfig = {
   },
   // Netlify compatibility
   trailingSlash: false,
-  output: 'standalone',
 }
 
 export default nextConfig

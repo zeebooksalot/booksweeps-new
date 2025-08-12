@@ -2,6 +2,9 @@
   command = "npm ci --legacy-peer-deps && npm run build"
   publish = ".next"
 
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
 [build.environment]
   NODE_VERSION = "20.11.0"
   NPM_VERSION = "10.8.2"
@@ -12,11 +15,6 @@
   NEXT_PUBLIC_SITE_URL = "https://staging.booksweeps.com"
   NEXT_PUBLIC_READER_URL = "https://read.booksweeps.com"
   NEXT_PUBLIC_AUTHOR_URL = "https://app.booksweeps.com"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
 
 [[headers]]
   for = "/*"
