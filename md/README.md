@@ -6,10 +6,14 @@ A modern book discovery and voting platform built with Next.js 14, TypeScript, a
 
 - **Book Discovery**: Browse and discover new books and authors
 - **Voting System**: Vote on books and pen names
+- **Reader Magnets**: Secure download system with rate limiting
+- **Giveaway Campaigns**: Complete campaign management system
+- **Cross-Domain Authentication**: Seamless auth across subdomains
 - **Responsive Design**: Mobile-first approach with beautiful UI
 - **Real-time Updates**: Powered by Supabase
 - **Type Safety**: Full TypeScript implementation
 - **Modern UI**: Built with shadcn/ui components
+- **Enterprise Security**: Rate limiting, validation, duplicate prevention
 
 ## 🛠️ Tech Stack
 
@@ -108,11 +112,26 @@ booksweeps-new/
 │   └── book-card.tsx     # Book card component
 ├── hooks/                # Custom React hooks
 ├── lib/                  # Utility libraries
-│   └── supabase.ts       # Supabase client
+│   ├── supabase.ts       # Supabase client
+│   ├── rate-limiter.ts   # Rate limiting system
+│   ├── validation.ts     # Input validation
+│   └── error-handler.ts  # Error handling
+├── md/                   # Documentation
+│   ├── README.md         # Main documentation
+│   ├── SECURITY_AND_PERFORMANCE.md # Security & performance details
+│   ├── DATABASE_SCHEMA.md # Database documentation
+│   └── PROJECT_VISION.md # Project vision
 ├── public/               # Static assets
 ├── scripts/              # Build and migration scripts
 └── styles/               # Additional styles
 ```
+
+## 📚 Documentation
+
+- **[README.md](md/README.md)** - Main project documentation
+- **[Security & Performance](md/SECURITY_AND_PERFORMANCE.md)** - Security features and performance optimizations
+- **[Database Schema](md/DATABASE_SCHEMA.md)** - Complete database documentation
+- **[Project Vision](md/PROJECT_VISION.md)** - Long-term project goals and architecture
 
 ## 🔧 Development
 
@@ -124,6 +143,8 @@ booksweeps-new/
 - `npm run lint` - Run ESLint
 - `npm run migrate` - Run database migrations
 - `npm run db:seed` - Seed database with sample data
+- `npm run migrate:voting` - Run voting system migration
+- `npm run validate:config` - Validate environment configuration
 
 ### API Endpoints
 
@@ -134,6 +155,9 @@ booksweeps-new/
 - `POST /api/votes` - Vote on books/authors
 - `GET /api/campaigns` - Get campaigns
 - `POST /api/entries` - Submit campaign entry
+- `GET /api/reader-magnets` - Get reader magnets
+- `POST /api/reader-magnets/downloads` - Download books (rate-limited)
+- `POST /api/auth/upgrade-user-type` - Upgrade user type
 
 ## 🤝 Contributing
 
@@ -157,12 +181,16 @@ If you encounter any issues:
 
 ## 🎯 Roadmap
 
-- [ ] User authentication
+- [x] User authentication (✅ Complete)
+- [x] Cross-domain authentication (✅ Complete)
+- [x] Rate limiting and security (✅ Complete)
+- [x] Performance optimization (✅ Complete)
+- [x] Duplicate download prevention (✅ Complete)
+- [ ] Email notifications
 - [ ] Book recommendations
 - [ ] Social sharing
-- [ ] Email notifications
 - [ ] Admin dashboard
-- [ ] Analytics
+- [ ] Advanced analytics
 - [ ] Mobile app
 
 ---
