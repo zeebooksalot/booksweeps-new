@@ -16,7 +16,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useApi } from "@/hooks/use-api"
-import { Header } from "@/components/Header"
+import { LoadingSpinner } from "@/components/ui/loading"
+import { ErrorState } from "@/components/ui/error-state"
+import { Header } from "@/components/Header/index"
 
 interface GiveawayBook {
   title: string

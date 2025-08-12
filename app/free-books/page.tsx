@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { BookOpen, Filter } from 'lucide-react'
-import { Header } from '@/components/Header'
+import { Header } from '@/components/Header/index'
 import { FeedItemDisplay } from '@/components/feed-item-display'
 
 interface ReaderMagnet {
