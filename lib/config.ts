@@ -44,8 +44,49 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 })
 
-// Validate environment variables
-const env = envSchema.parse(process.env)
+// Check if we're in an Edge Function environment (missing Supabase URL)
+const isEdgeFunction = !process.env.NEXT_PUBLIC_SUPABASE_URL
+
+// Validate environment variables with fallbacks for Edge Functions
+let env: any
+
+if (isEdgeFunction) {
+  // Use fallback values for Edge Functions
+  console.warn('Running in Edge Function environment, using fallback values')
+  env = {
+    NEXT_PUBLIC_SUPABASE_URL: '',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: '',
+    SUPABASE_SERVICE_ROLE_KEY: '',
+    SECURITY_ENABLE_AUDIT_LOGGING: true,
+    SECURITY_ENABLE_RATE_LIMITING: true,
+    SECURITY_ENABLE_TOKEN_VALIDATION: true,
+    SECURITY_ENABLE_FILE_ACCESS_CONTROL: true,
+    RATE_LIMIT_MAX_REQUESTS_PER_MINUTE: 100,
+    RATE_LIMIT_MAX_DOWNLOADS_PER_HOUR: 20,
+    RATE_LIMIT_MAX_DOWNLOADS_PER_DAY: 100,
+    DOWNLOAD_EXPIRY_HOURS: 24,
+    DOWNLOAD_MAX_FILE_SIZE_MB: 100,
+    DOWNLOAD_ENABLE_DUPLICATE_PREVENTION: true,
+    FEATURE_ENABLE_ACCESS_TOKENS: true,
+    FEATURE_ENABLE_FILE_SECURITY: true,
+    FEATURE_ENABLE_PERFORMANCE_MONITORING: false,
+    FEATURE_ENABLE_SECURITY_MONITORING: false,
+    MONITORING_ENABLE_CONSOLE_LOGGING: true,
+    MONITORING_ENABLE_PERFORMANCE_TRACKING: false,
+    MONITORING_ENABLE_SECURITY_ALERTS: false,
+    CROSS_DOMAIN_AUTH_ENABLED: false,
+    CROSS_DOMAIN_ALLOWED_ORIGINS: [],
+    NODE_ENV: 'production' as const,
+  }
+} else {
+  // Normal validation for non-Edge Function environments
+  const validationResult = envSchema.safeParse(process.env)
+  if (!validationResult.success) {
+    console.warn('Environment validation failed:', validationResult.error.issues)
+    throw new Error('Environment validation failed')
+  }
+  env = validationResult.data
+}
 
 // Security configuration
 export const SECURITY_CONFIG = {
