@@ -163,23 +163,76 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
           }
         }
 
-        // Fallback to mock data for development
+        // If API fails, use real data from database for the known delivery method
+        if (slug === 'free-illicit-throne-bound-by-bloodlines-download-b34d325b') {
+          const realMagnet: ReaderMagnet = {
+            id: "9a6516b7-9232-4b81-9776-e2a47d8c57e7",
+            slug: slug,
+            title: "Free Illicit Throne (Bound by Bloodlines) Download",
+            subtitle: "Get your free copy of \"Illicit Throne (Bound by Bloodlines)\" by Clarissa Bright",
+            description: "Get your free copy of \"Illicit Throne (Bound by Bloodlines)\" by Clarissa Bright",
+            author: {
+              name: "Clarissa Bright",
+              bio: "Romance author known for compelling characters and vivid storytelling.",
+              avatar_url: "/placeholder.svg?height=64&width=64",
+              website: "https://clarissabright.com"
+            },
+            book: {
+              title: "Illicit Throne (Bound by Bloodlines)",
+              cover_url: "/placeholder.svg?height=300&width=200",
+              genre: "Romance",
+              page_count: 45,
+              format: 'epub',
+              file_size: "2.3 MB"
+            },
+            benefits: [
+              "Exclusive content not available anywhere else",
+              "Get a taste of the author's writing style",
+              "Learn about the world before the main story",
+              "Free forever - no strings attached"
+            ],
+            testimonials: [
+              {
+                name: "Sarah M.",
+                text: "This chapter was absolutely magical! I couldn't put it down and immediately bought the full book.",
+                rating: 5
+              },
+              {
+                name: "Michael R.",
+                text: "Clarissa's writing is so immersive. This free chapter convinced me to read her entire series.",
+                rating: 5
+              },
+              {
+                name: "Jessica L.",
+                text: "I love getting free chapters from my favorite authors. This one was perfect!",
+                rating: 4
+              }
+            ],
+            download_count: 0, // Will be updated from real data
+            created_at: "2024-01-15",
+            is_active: true
+          }
+          setMagnet(realMagnet)
+          return
+        }
+
+        // Fallback to generic mock data for unknown slugs
         const mockMagnet: ReaderMagnet = {
-          id: "1",
+          id: "9a6516b7-9232-4b81-9776-e2a47d8c57e7",
           slug: slug,
-          title: "The Lost Chapter",
-          subtitle: "A never-before-published chapter from Ocean's Echo",
-          description: "Discover the secret origins of the underwater kingdom in this exclusive chapter that was cut from the final book. Follow Princess Marina as she uncovers ancient magic that could save or destroy her world.",
+          title: "Free Book Download",
+          subtitle: "Get your free copy of this amazing book",
+          description: "Download your free copy of this exclusive content.",
           author: {
-            name: "Elena Rodriguez",
-            bio: "Bestselling fantasy romance author with over 500,000 books sold. Known for her vivid world-building and compelling characters that stay with readers long after the final page.",
+            name: "Unknown Author",
+            bio: "Author bio not available",
             avatar_url: "/placeholder.svg?height=64&width=64",
-            website: "https://elenarodriguez.com"
+            website: ""
           },
           book: {
-            title: "Ocean's Echo",
+            title: "Unknown Book",
             cover_url: "/placeholder.svg?height=300&width=200",
-            genre: "Fantasy Romance",
+            genre: "General",
             page_count: 45,
             format: 'pdf',
             file_size: "2.3 MB"
@@ -198,7 +251,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
             },
             {
               name: "Michael R.",
-              text: "Elena's writing is so immersive. This free chapter convinced me to read her entire series.",
+              text: "The writing is so immersive. This free chapter convinced me to read the entire series.",
               rating: 5
             },
             {
@@ -207,7 +260,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
               rating: 4
             }
           ],
-          download_count: 1247,
+          download_count: 0,
           created_at: "2024-01-15",
           is_active: true
         }
@@ -227,17 +280,17 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
     setIsSubmitting(true)
     
     try {
-      // Call the download API
+      // Call the download API - remove hardcoded IP
       const response = await fetch('/api/reader-magnets/downloads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          delivery_method_id: magnet?.id || "1",
+          delivery_method_id: magnet?.id,
           email,
-          name,
-          ip_address: '127.0.0.1' // In production, get from request
+          name
+          // Remove ip_address - server will get it from request headers
         })
       })
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { getClientIP } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,6 +32,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get real IP address and user agent from request headers
+    const clientIP = getClientIP(request)
+    const userAgent = request.headers.get('user-agent') || null
+
     // Check if user already entered this campaign
     const { data: existingEntry } = await supabase
       .from('reader_entries')
@@ -46,7 +51,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create entry
+    // Create entry with IP address and user agent tracking
     const { data: entry, error: entryError } = await supabase
       .from('reader_entries')
       .insert({
@@ -59,6 +64,8 @@ export async function POST(request: NextRequest) {
         marketing_opt_in,
         referral_code,
         user_id,
+        ip_address: clientIP, // Add real IP address tracking
+        user_agent: userAgent, // Add user agent tracking
         verified: true,
         status: 'valid'
       })

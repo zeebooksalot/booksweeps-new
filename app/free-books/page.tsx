@@ -1,13 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Download, BookOpen, User, Calendar, Heart, MessageCircle, Star, Filter } from 'lucide-react'
+import { BookOpen, Filter } from 'lucide-react'
 import { Header } from '@/components/Header'
 import { FeedItemDisplay } from '@/components/feed-item-display'
 
@@ -44,13 +41,40 @@ export default function FreeBooksPage() {
   const [selectedFormat, setSelectedFormat] = useState('all')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
+  const filterMagnets = useCallback(() => {
+    let filtered = readerMagnets.filter(magnet => magnet.is_active)
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(magnet =>
+        magnet.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        magnet.books.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        magnet.books.genre.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    // Filter by genre
+    if (selectedGenre !== 'all') {
+      filtered = filtered.filter(magnet => 
+        magnet.books.genre.toLowerCase() === selectedGenre.toLowerCase()
+      )
+    }
+
+    // Filter by format
+    if (selectedFormat !== 'all') {
+      filtered = filtered.filter(magnet => magnet.format === selectedFormat)
+    }
+
+    setFilteredMagnets(filtered)
+  }, [readerMagnets, searchTerm, selectedGenre, selectedFormat])
+
   useEffect(() => {
     fetchReaderMagnets()
   }, [])
 
   useEffect(() => {
     filterMagnets()
-  }, [readerMagnets, searchTerm, selectedGenre, selectedFormat])
+  }, [filterMagnets])
 
   // Check for mobile view
   useEffect(() => {
@@ -86,60 +110,9 @@ export default function FreeBooksPage() {
     }
   }
 
-  const filterMagnets = () => {
-    let filtered = readerMagnets.filter(magnet => magnet.is_active)
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(magnet =>
-        magnet.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        magnet.books.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        magnet.books.genre.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    // Filter by genre
-    if (selectedGenre !== 'all') {
-      filtered = filtered.filter(magnet => 
-        magnet.books.genre.toLowerCase() === selectedGenre.toLowerCase()
-      )
-    }
-
-    // Filter by format
-    if (selectedFormat !== 'all') {
-      filtered = filtered.filter(magnet => magnet.format === selectedFormat)
-    }
-
-    setFilteredMagnets(filtered)
-  }
-
   const getUniqueGenres = () => {
     const genres = readerMagnets.map(magnet => magnet.books.genre)
     return ['all', ...Array.from(new Set(genres))]
-  }
-
-  const formatDownloadCount = (count: number) => {
-    if (count >= 1000000) {
-      return `${(count / 1000000).toFixed(1)}M`
-    } else if (count >= 1000) {
-      return `${(count / 1000).toFixed(1)}K`
-    }
-    return count.toString()
-  }
-
-  const getFormatIcon = (format: string) => {
-    switch (format) {
-      case 'pdf':
-        return '📄'
-      case 'epub':
-        return '📱'
-      case 'mobi':
-        return '📖'
-      case 'chapter':
-        return '📝'
-      default:
-        return '📚'
-    }
   }
 
   // Convert reader magnets to feed items for voting functionality

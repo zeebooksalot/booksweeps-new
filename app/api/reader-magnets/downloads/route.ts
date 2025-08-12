@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { getClientIP } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,8 +16,8 @@ export async function POST(request: NextRequest) {
     const { 
       delivery_method_id,
       email,
-      name,
-      ip_address
+      name
+      // Remove ip_address from body - we'll get it from request headers
     } = body
 
     if (!delivery_method_id || !email) {
@@ -25,6 +26,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Get real IP address from request headers
+    const clientIP = getClientIP(request)
+    const userAgent = request.headers.get('user-agent') || null
 
     // First, get the delivery method to check if it exists and is active
     const { data: deliveryMethod, error: methodError } = await supabase
@@ -71,14 +76,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Insert the delivery record
-    const { data: delivery, error: deliveryError } = await supabase
+    // Insert the delivery record with real IP and user agent
+    const { error: deliveryError } = await supabase
       .from('reader_deliveries')
       .insert({
         delivery_method_id,
         reader_email: email,
         reader_name: name,
-        ip_address,
+        ip_address: clientIP, // Use real IP from request headers
+        user_agent: userAgent, // Add user agent tracking
         delivered_at: new Date().toISOString(),
         status: 'delivered'
       })
