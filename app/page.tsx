@@ -295,7 +295,7 @@ export default function BookSweepsHomepage() {
   })
 
   const handleVote = async (id: string) => {
-    console.log(`Voted for item ${id}`)
+    // TODO: Implement voting functionality
     
     // Add haptic feedback for mobile
     if (navigator.vibrate) {
@@ -357,7 +357,7 @@ export default function BookSweepsHomepage() {
   }
 
   const handleSwipeLeft = (id: string) => {
-    console.log(`Skipped item ${id}`)
+    // TODO: Implement skip functionality
   }
 
   const handleSwipeRight = (id: string) => {

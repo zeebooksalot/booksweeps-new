@@ -40,7 +40,6 @@ interface ReaderMagnet {
     genre: string
     page_count?: number
     format: 'pdf' | 'epub' | 'mobi' | 'chapter'
-    file_size?: string
   }
   benefits: string[]
   testimonials: {
@@ -127,8 +126,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                 cover_url: apiMagnet.books?.cover_image_url || "/placeholder.svg?height=300&width=200",
                 genre: apiMagnet.books?.genre || "General",
                 page_count: apiMagnet.books?.page_count,
-                format: apiMagnet.format || 'pdf',
-                file_size: "2.3 MB" // This would come from book_files table
+                format: apiMagnet.format || 'pdf'
               },
               benefits: [
                 "Exclusive content not available anywhere else",
@@ -163,108 +161,8 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
           }
         }
 
-        // If API fails, use real data from database for the known delivery method
-        if (slug === 'free-illicit-throne-bound-by-bloodlines-download-b34d325b') {
-          const realMagnet: ReaderMagnet = {
-            id: "9a6516b7-9232-4b81-9776-e2a47d8c57e7",
-            slug: slug,
-            title: "Free Illicit Throne (Bound by Bloodlines) Download",
-            subtitle: "Get your free copy of \"Illicit Throne (Bound by Bloodlines)\" by Clarissa Bright",
-            description: "Get your free copy of \"Illicit Throne (Bound by Bloodlines)\" by Clarissa Bright",
-            author: {
-              name: "Clarissa Bright",
-              bio: "Romance author known for compelling characters and vivid storytelling.",
-              avatar_url: "/placeholder.svg?height=64&width=64",
-              website: "https://clarissabright.com"
-            },
-            book: {
-              title: "Illicit Throne (Bound by Bloodlines)",
-              cover_url: "/placeholder.svg?height=300&width=200",
-              genre: "Romance",
-              page_count: 45,
-              format: 'epub',
-              file_size: "2.3 MB"
-            },
-            benefits: [
-              "Exclusive content not available anywhere else",
-              "Get a taste of the author's writing style",
-              "Learn about the world before the main story",
-              "Free forever - no strings attached"
-            ],
-            testimonials: [
-              {
-                name: "Sarah M.",
-                text: "This chapter was absolutely magical! I couldn't put it down and immediately bought the full book.",
-                rating: 5
-              },
-              {
-                name: "Michael R.",
-                text: "Clarissa's writing is so immersive. This free chapter convinced me to read her entire series.",
-                rating: 5
-              },
-              {
-                name: "Jessica L.",
-                text: "I love getting free chapters from my favorite authors. This one was perfect!",
-                rating: 4
-              }
-            ],
-            download_count: 0, // Will be updated from real data
-            created_at: "2024-01-15",
-            is_active: true
-          }
-          setMagnet(realMagnet)
-          return
-        }
-
-        // Fallback to generic mock data for unknown slugs
-        const mockMagnet: ReaderMagnet = {
-          id: "9a6516b7-9232-4b81-9776-e2a47d8c57e7",
-          slug: slug,
-          title: "Free Book Download",
-          subtitle: "Get your free copy of this amazing book",
-          description: "Download your free copy of this exclusive content.",
-          author: {
-            name: "Unknown Author",
-            bio: "Author bio not available",
-            avatar_url: "/placeholder.svg?height=64&width=64",
-            website: ""
-          },
-          book: {
-            title: "Unknown Book",
-            cover_url: "/placeholder.svg?height=300&width=200",
-            genre: "General",
-            page_count: 45,
-            format: 'pdf',
-            file_size: "2.3 MB"
-          },
-          benefits: [
-            "Exclusive content not available anywhere else",
-            "Get a taste of the author's writing style",
-            "Learn about the world before the main story",
-            "Free forever - no strings attached"
-          ],
-          testimonials: [
-            {
-              name: "Sarah M.",
-              text: "This chapter was absolutely magical! I couldn't put it down and immediately bought the full book.",
-              rating: 5
-            },
-            {
-              name: "Michael R.",
-              text: "The writing is so immersive. This free chapter convinced me to read the entire series.",
-              rating: 5
-            },
-            {
-              name: "Jessica L.",
-              text: "I love getting free chapters from my favorite authors. This one was perfect!",
-              rating: 4
-            }
-          ],
-          download_count: 0,
-          created_at: "2024-01-15",
-          is_active: true
-        }
-        setMagnet(mockMagnet)
+        // If API fails, show error instead of fallback data
+        setError('Reader magnet not found or unavailable')
       } catch (err) {
         setError('Failed to load reader magnet')
       } finally {
@@ -295,14 +193,16 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
       })
 
       if (!response.ok) {
-        throw new Error('Failed to process download')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to process download')
       }
 
       const data = await response.json()
       setIsSubmitted(true)
-      setDownloadUrl(data.download_url || "https://example.com/download/oceans-echo-chapter.pdf")
+      setDownloadUrl(data.download_url || null)
     } catch (err) {
-      setError('Failed to submit form')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit form'
+      setError(errorMessage)
     } finally {
       setIsSubmitting(false)
     }
@@ -440,17 +340,32 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                     Your free {magnet.book.format.toUpperCase()} is ready to download.
                   </p>
                   <div className="space-y-4">
-                    <Button
-                      onClick={() => window.open(downloadUrl, '_blank')}
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                      size="lg"
-                    >
-                      <Download className="h-5 w-5 mr-2" />
-                      Download Now
-                    </Button>
-                    <p className="text-xs text-gray-500">
-                      You'll also receive updates about new releases and exclusive content.
-                    </p>
+                    {downloadUrl ? (
+                      <>
+                        <Button
+                          onClick={() => window.open(downloadUrl, '_blank')}
+                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                          size="lg"
+                        >
+                          <Download className="h-5 w-5 mr-2" />
+                          Download Now
+                        </Button>
+                        <p className="text-xs text-gray-500">
+                          You'll also receive updates about new releases and exclusive content.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                            Your download is being prepared. Please check your email for the download link.
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          If you don't receive the email within a few minutes, please check your spam folder.
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -466,6 +381,14 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                       Enter your email to download this exclusive content instantly.
                     </p>
                   </div>
+
+                  {error && (
+                    <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                      <p className="text-sm text-red-800 dark:text-red-200">
+                        {error}
+                      </p>
+                    </div>
+                  )}
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -529,12 +452,6 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                       <span>Format:</span>
                       <span className="font-medium">{magnet.book.format.toUpperCase()}</span>
                     </div>
-                    {magnet.book.file_size && (
-                      <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-                        <span>File Size:</span>
-                        <span className="font-medium">{magnet.book.file_size}</span>
-                      </div>
-                    )}
                     {magnet.book.page_count && (
                       <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
                         <span>Pages:</span>

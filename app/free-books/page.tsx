@@ -89,19 +89,13 @@ export default function FreeBooksPage() {
 
   const fetchReaderMagnets = async () => {
     try {
-      console.log('Fetching reader magnets...')
       const response = await fetch('/api/reader-magnets')
-      console.log('Response status:', response.status)
       
       if (response.ok) {
         const data = await response.json()
-        console.log('API response:', data)
-        console.log('Reader magnets count:', data.reader_magnets?.length || 0)
         setReaderMagnets(data.reader_magnets || [])
       } else {
         console.error('Failed to fetch reader magnets:', response.status, response.statusText)
-        const errorText = await response.text()
-        console.error('Error response:', errorText)
       }
     } catch (error) {
       console.error('Error fetching reader magnets:', error)
@@ -140,17 +134,17 @@ export default function FreeBooksPage() {
 
   const handleVote = (id: string) => {
     // Handle voting logic here
-    console.log('Voted for:', id)
+    // TODO: Implement voting functionality
   }
 
   const handleSwipeLeft = (id: string) => {
     // Handle swipe left logic here
-    console.log('Swiped left on:', id)
+    // TODO: Implement swipe left functionality
   }
 
   const handleSwipeRight = (id: string) => {
     // Handle swipe right logic here
-    console.log('Swiped right on:', id)
+    // TODO: Implement swipe right functionality
   }
 
   if (isLoading) {

@@ -17,10 +17,23 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const user_id = searchParams.get('user_id')
 
-    // Test query - get ALL delivery methods without any filters
+    // Build query with proper filtering
     let query = supabase
       .from('book_delivery_methods')
       .select('*')
+
+    // Apply slug filter if provided
+    if (slug) {
+      query = query.eq('slug', slug)
+    }
+
+    // Apply user filter if provided
+    if (user_id) {
+      query = query.eq('user_id', user_id)
+    }
+
+    // Only show active delivery methods
+    query = query.eq('is_active', true)
 
     // Apply sorting - newest first
     query = query.order('created_at', { ascending: false })

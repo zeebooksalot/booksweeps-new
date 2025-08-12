@@ -10,15 +10,7 @@ export const supabase = supabaseUrl && supabaseAnonKey
         // Enable cross-domain authentication
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: true,
-        // Set cookie domain for cross-subdomain sharing
-        cookieOptions: {
-          domain: process.env.NODE_ENV === 'production' 
-            ? '.booksweeps.com'  // Allows sharing across subdomains
-            : 'localhost',
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax'
-        }
+        detectSessionInUrl: true
       }
     })
   : null
