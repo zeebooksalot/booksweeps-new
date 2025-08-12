@@ -105,8 +105,10 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
         
         if (response.ok) {
           const data = await response.json()
+          
           if (data.reader_magnets && data.reader_magnets.length > 0) {
             const apiMagnet = data.reader_magnets[0]
+            
             // Map API data to our interface
             const mappedMagnet: ReaderMagnet = {
               id: apiMagnet.id,
@@ -115,7 +117,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
               subtitle: apiMagnet.description || "", // Use description as subtitle
               description: apiMagnet.description || "",
               author: {
-                name: apiMagnet.books?.author || "Unknown Author",
+                name: apiMagnet.pen_names?.name || apiMagnet.books?.author || "Unknown Author",
                 bio: apiMagnet.pen_names?.bio || "Author bio not available",
                 avatar_url: apiMagnet.pen_names?.avatar_url || "/placeholder.svg?height=64&width=64",
                 website: apiMagnet.pen_names?.website
@@ -155,6 +157,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
               created_at: apiMagnet.created_at,
               is_active: apiMagnet.is_active
             }
+            
             setMagnet(mappedMagnet)
             return
           }

@@ -22,21 +22,12 @@ export async function GET(request: NextRequest) {
       .from('book_delivery_methods')
       .select('*')
 
-    console.log('Testing: Getting ALL delivery methods')
-
     // Apply sorting - newest first
     query = query.order('created_at', { ascending: false })
 
     // Apply pagination
     const offset = (page - 1) * limit
     const { data, error, count } = await query.range(offset, offset + limit - 1)
-
-    console.log('Test query result:', { 
-      data: data?.length || 0, 
-      error: error?.message, 
-      count,
-      firstItem: data?.[0] 
-    })
 
     if (error) {
       console.error('Database error:', error)
@@ -55,6 +46,17 @@ export async function GET(request: NextRequest) {
           .eq('id', magnet.book_id)
           .single()
         
+        // Fetch the pen name information if book has a pen_name_id
+        let penNameData = null
+        if (bookData?.pen_name_id) {
+          const { data: penData } = await supabase
+            .from('pen_names')
+            .select('id, name, bio, website, avatar_url')
+            .eq('id', bookData.pen_name_id)
+            .single()
+          penNameData = penData
+        }
+        
         // Calculate download count
         const { count: downloadCount } = await supabase
           .from('reader_deliveries')
@@ -64,6 +66,7 @@ export async function GET(request: NextRequest) {
         return {
           ...magnet,
           books: bookData || null,
+          pen_names: penNameData || null,
           download_count: downloadCount || 0
         }
       })
