@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useApi } from "@/hooks/use-api"
+import { Header } from "@/components/Header"
 
 export default function GiveawayEntryPage({ params }: { params: { id: string } }) {
   const [giveaway, setGiveaway] = useState<any>(null)
@@ -24,8 +25,21 @@ export default function GiveawayEntryPage({ params }: { params: { id: string } }
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isMobileView, setIsMobileView] = useState(false)
 
   const campaignsApi = useApi<any>()
+
+  // Check for mobile view
+  useEffect(() => {
+    const checkMobileView = () => {
+      setIsMobileView(window.innerWidth < 768)
+    }
+    
+    checkMobileView()
+    window.addEventListener('resize', checkMobileView)
+    return () => window.removeEventListener('resize', checkMobileView)
+  }, [])
 
   useEffect(() => {
     const fetchGiveaway = async () => {
@@ -114,8 +128,15 @@ export default function GiveawayEntryPage({ params }: { params: { id: string } }
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-4xl mx-auto px-4 py-6">
+      <Header 
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        isMobileView={isMobileView}
+      />
+
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto px-4 py-8 pt-20">
+        <div className="mb-6">
           <Link href="/giveaways" className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-4">
             <ArrowLeft className="h-4 w-4" />
             Back to Giveaways
@@ -124,10 +145,6 @@ export default function GiveawayEntryPage({ params }: { params: { id: string } }
             {giveaway.title}
           </h1>
         </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Book Info */}
           <div className="lg:col-span-2">

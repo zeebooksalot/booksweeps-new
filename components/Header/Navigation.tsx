@@ -27,6 +27,7 @@ export function Navigation({ className = "" }: NavigationProps) {
       label: "Books",
       href: "#",
       dropdownItems: [
+        { label: "Free Books", href: "/free-books" },
         { label: "New Releases", href: "#" },
         { label: "Bestsellers", href: "#" },
         { label: "By Genre", href: "#" }

@@ -15,7 +15,8 @@
     "migrate:reset": "tsx scripts/migrate.ts --reset",
     "db:seed": "tsx scripts/seed.ts",
     "migrate:voting": "tsx scripts/run-voting-migration.ts",
-    "validate:config": "tsx scripts/validate-config.ts"
+    "validate:config": "tsx scripts/validate-config.ts",
+    "test:delivery": "tsx scripts/test-delivery-methods.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

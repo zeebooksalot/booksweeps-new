@@ -2,9 +2,10 @@
 
 import { useCallback, useMemo } from "react"
 import Link from "next/link"
-import { Mail, Menu } from "lucide-react"
+import { Mail, Menu, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { useAuth } from "@/components/auth/AuthProvider"
 
 interface MobileMenuProps {
@@ -18,15 +19,27 @@ export function MobileMenu({ className = "" }: MobileMenuProps) {
   const navigationItems = useMemo(() => [
     {
       label: "Books",
-      href: "#"
+      href: "#",
+      subItems: [
+        { label: "Free Books", href: "/free-books" },
+        { label: "New Releases", href: "#" },
+        { label: "Bestsellers", href: "#" },
+        { label: "By Genre", href: "#" }
+      ]
     },
     {
       label: "Authors",
-      href: "#"
+      href: "#",
+      subItems: [
+        { label: "Featured Authors", href: "#" },
+        { label: "New Authors", href: "#" },
+        { label: "Author Interviews", href: "#" }
+      ]
     },
     {
       label: "Giveaways",
-      href: "/giveaways"
+      href: "/giveaways",
+      subItems: []
     }
   ], [])
 
@@ -66,13 +79,38 @@ export function MobileMenu({ className = "" }: MobileMenuProps) {
 
           <nav className="flex flex-col gap-4" role="navigation" aria-label="Main navigation">
             {navigationItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="text-16 font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-500 transition-colors"
-              >
-                {item.label}
-              </Link>
+              item.subItems && item.subItems.length > 0 ? (
+                <Collapsible key={item.label}>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="justify-between w-full text-16 font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-500 transition-colors"
+                    >
+                      {item.label}
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-4 space-y-2">
+                    {item.subItems.map((subItem) => (
+                      <Link
+                        key={subItem.label}
+                        href={subItem.href}
+                        className="block text-14 text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-colors"
+                      >
+                        {subItem.label}
+                      </Link>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="text-16 font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-500 transition-colors"
+                >
+                  {item.label}
+                </Link>
+              )
             ))}
           </nav>
 
@@ -98,23 +136,28 @@ export function MobileMenu({ className = "" }: MobileMenuProps) {
                 </Button>
                 <Button
                   variant="outline"
-                  className="justify-start gap-2 bg-transparent border-gray-200 dark:border-gray-700"
                   onClick={handleSignOut}
-                  aria-label="Sign out"
+                  className="justify-start gap-2 bg-transparent border-gray-200 dark:border-gray-700"
                 >
-                  Sign out
+                  Sign Out
                 </Button>
               </>
             ) : (
-              <Button 
-                asChild 
-                variant="outline" 
-                className="justify-start gap-2 bg-transparent border-gray-200 dark:border-gray-700"
-              >
-                <Link href="/login">
-                  <span>Sign In</span>
-                </Link>
-              </Button>
+              <>
+                <Button 
+                  asChild 
+                  variant="outline" 
+                  className="justify-start gap-2 bg-transparent border-gray-200 dark:border-gray-700"
+                >
+                  <Link href="/login">Sign In</Link>
+                </Button>
+                <Button 
+                  asChild 
+                  className="justify-start gap-2"
+                >
+                  <Link href="/signup">Sign Up</Link>
+                </Button>
+              </>
             )}
           </div>
         </div>

@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/components/auth/AuthProvider"
 import { LoadingSpinner } from "@/components/ui/loading"
 import { ErrorState } from "@/components/ui/error-state"
+import { Header } from "@/components/Header"
 
 interface DownloadHistory {
   id: string
@@ -60,6 +61,19 @@ export default function DashboardPage() {
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [dataError, setDataError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("overview")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isMobileView, setIsMobileView] = useState(false)
+
+  // Check for mobile view
+  useEffect(() => {
+    const checkMobileView = () => {
+      setIsMobileView(window.innerWidth < 768)
+    }
+    
+    checkMobileView()
+    window.addEventListener('resize', checkMobileView)
+    return () => window.removeEventListener('resize', checkMobileView)
+  }, [])
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -212,31 +226,14 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <Link href="/" className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                <BookOpen className="h-6 w-6" />
-                <span className="font-semibold">BookSweeps</span>
-              </Link>
-              <div className="flex items-center gap-4">
-                <Button variant="outline" size="sm">
-                  <Bell className="h-4 w-4 mr-2" />
-                  Notifications
-                </Button>
-                <Link href="/profile">
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Header 
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          isMobileView={isMobileView}
+        />
 
         {/* Loading Content */}
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto px-4 py-8 pt-20">
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center gap-3">
               <LoadingSpinner size="lg" />
@@ -253,31 +250,14 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Header */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <Link href="/" className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                <BookOpen className="h-6 w-6" />
-                <span className="font-semibold">BookSweeps</span>
-              </Link>
-              <div className="flex items-center gap-4">
-                <Button variant="outline" size="sm">
-                  <Bell className="h-4 w-4 mr-2" />
-                  Notifications
-                </Button>
-                <Link href="/profile">
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Header 
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          isMobileView={isMobileView}
+        />
 
         {/* Error Content */}
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto px-4 py-8 pt-20">
           <div className="flex items-center justify-center py-12">
             <ErrorState
               title="Failed to Load Dashboard"
@@ -293,31 +273,14 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-              <BookOpen className="h-6 w-6" />
-              <span className="font-semibold">BookSweeps</span>
-            </Link>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm">
-                <Bell className="h-4 w-4 mr-2" />
-                Notifications
-              </Button>
-              <Link href="/profile">
-                <Button variant="outline" size="sm">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Settings
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header 
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        isMobileView={isMobileView}
+      />
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8 pt-20">
         {/* User Profile Section */}
         <div className="mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">

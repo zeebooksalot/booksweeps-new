@@ -17,34 +17,12 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const user_id = searchParams.get('user_id')
 
+    // Test query - get ALL delivery methods without any filters
     let query = supabase
       .from('book_delivery_methods')
-      .select(`
-        *,
-        books (
-          id,
-          title,
-          author,
-          description,
-          cover_image_url,
-          genre,
-          page_count,
-          pen_name_id
-        )
-      `)
+      .select('*')
 
-    // Apply filters
-    if (slug) {
-      query = query.eq('slug', slug)
-    }
-
-    if (user_id) {
-      query = query.eq('books.user_id', user_id)
-    }
-
-    // Only show active delivery methods that are reader magnets
-    query = query.eq('is_active', true)
-      .eq('delivery_method', 'ebook')
+    console.log('Testing: Getting ALL delivery methods')
 
     // Apply sorting - newest first
     query = query.order('created_at', { ascending: false })
@@ -53,15 +31,31 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit
     const { data, error, count } = await query.range(offset, offset + limit - 1)
 
+    console.log('Test query result:', { 
+      data: data?.length || 0, 
+      error: error?.message, 
+      count,
+      firstItem: data?.[0] 
+    })
+
     if (error) {
+      console.error('Database error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Calculate download counts for each delivery method
-    const magnetsWithCounts = await Promise.all(
-      data.map(async (magnet) => {
+    // If we get data, then fetch the books separately
+    const magnetsWithBooks = await Promise.all(
+      (data || []).map(async (magnet) => {
         if (!supabase) return magnet
         
+        // Fetch the book separately
+        const { data: bookData } = await supabase
+          .from('books')
+          .select('id, title, author, description, cover_image_url, genre, page_count, pen_name_id')
+          .eq('id', magnet.book_id)
+          .single()
+        
+        // Calculate download count
         const { count: downloadCount } = await supabase
           .from('reader_deliveries')
           .select('*', { count: 'exact', head: true })
@@ -69,13 +63,14 @@ export async function GET(request: NextRequest) {
 
         return {
           ...magnet,
+          books: bookData || null,
           download_count: downloadCount || 0
         }
       })
     )
 
     return NextResponse.json({
-      reader_magnets: magnetsWithCounts,
+      reader_magnets: magnetsWithBooks,
       pagination: {
         page,
         limit,

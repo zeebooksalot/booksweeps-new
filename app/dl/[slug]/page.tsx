@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Header } from "@/components/Header"
 
 interface ReaderMagnet {
   id: string
@@ -52,6 +53,15 @@ interface ReaderMagnet {
   is_active: boolean
 }
 
+// Data mapping from book_delivery_methods table:
+// - id: delivery_method.id
+// - title: delivery_method.title
+// - description: delivery_method.description
+// - format: delivery_method.format
+// - author: books.author + pen_names.bio
+// - book: books.* (title, cover_image_url, genre, page_count)
+// - download_count: calculated from reader_deliveries table
+
 export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: string }> }) {
   const [magnet, setMagnet] = useState<ReaderMagnet | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -62,6 +72,8 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [downloadUrl, setDownloadUrl] = useState("")
   const [slug, setSlug] = useState<string>("")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isMobileView, setIsMobileView] = useState(false)
 
   useEffect(() => {
     const initParams = async () => {
@@ -70,6 +82,17 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
     }
     initParams()
   }, [params])
+
+  // Check for mobile view
+  useEffect(() => {
+    const checkMobileView = () => {
+      setIsMobileView(window.innerWidth < 768)
+    }
+    
+    checkMobileView()
+    window.addEventListener('resize', checkMobileView)
+    return () => window.removeEventListener('resize', checkMobileView)
+  }, [])
 
   useEffect(() => {
     if (!slug) return
@@ -89,24 +112,45 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
               id: apiMagnet.id,
               slug: apiMagnet.slug,
               title: apiMagnet.title,
-              subtitle: apiMagnet.subtitle,
-              description: apiMagnet.description,
+              subtitle: apiMagnet.description || "", // Use description as subtitle
+              description: apiMagnet.description || "",
               author: {
-                name: apiMagnet.authors?.name || "Unknown Author",
-                bio: apiMagnet.authors?.bio || "",
-                avatar_url: apiMagnet.authors?.avatar_url || "/placeholder.svg?height=64&width=64",
-                website: apiMagnet.authors?.website
+                name: apiMagnet.books?.author || "Unknown Author",
+                bio: apiMagnet.pen_names?.bio || "Author bio not available",
+                avatar_url: apiMagnet.pen_names?.avatar_url || "/placeholder.svg?height=64&width=64",
+                website: apiMagnet.pen_names?.website
               },
               book: {
                 title: apiMagnet.books?.title || "Unknown Book",
-                cover_url: apiMagnet.books?.cover_url || "/placeholder.svg?height=300&width=200",
+                cover_url: apiMagnet.books?.cover_image_url || "/placeholder.svg?height=300&width=200",
                 genre: apiMagnet.books?.genre || "General",
-                page_count: apiMagnet.page_count,
+                page_count: apiMagnet.books?.page_count,
                 format: apiMagnet.format || 'pdf',
-                file_size: apiMagnet.file_size
+                file_size: "2.3 MB" // This would come from book_files table
               },
-              benefits: apiMagnet.benefits || [],
-              testimonials: [], // Would come from separate API
+              benefits: [
+                "Exclusive content not available anywhere else",
+                "Get a taste of the author's writing style",
+                "Learn about the world before the main story",
+                "Free forever - no strings attached"
+              ], // Default benefits since not stored in DB
+              testimonials: [
+                {
+                  name: "Sarah M.",
+                  text: "This chapter was absolutely magical! I couldn't put it down and immediately bought the full book.",
+                  rating: 5
+                },
+                {
+                  name: "Michael R.",
+                  text: "Elena's writing is so immersive. This free chapter convinced me to read her entire series.",
+                  rating: 5
+                },
+                {
+                  name: "Jessica L.",
+                  text: "I love getting free chapters from my favorite authors. This one was perfect!",
+                  rating: 4
+                }
+              ], // Default testimonials since not stored in DB
               download_count: apiMagnet.download_count || 0,
               created_at: apiMagnet.created_at,
               is_active: apiMagnet.is_active
@@ -187,7 +231,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          reader_magnet_id: magnet?.id || "1",
+          delivery_method_id: magnet?.id || "1",
           email,
           name,
           ip_address: '127.0.0.1' // In production, get from request
@@ -250,23 +294,14 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
-      <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-              <BookOpen className="h-6 w-6" />
-              <span className="font-semibold">BookSweeps</span>
-            </Link>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Download className="h-4 w-4" />
-              <span>{magnet.download_count.toLocaleString()} downloads</span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header 
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        isMobileView={isMobileView}
+      />
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8 pt-20">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
           {/* Left Column - Book Info */}
           <div className="space-y-8">

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useApi } from "@/hooks/use-api"
+import { Header } from "@/components/Header"
 
 interface Giveaway {
   id: string
@@ -55,6 +56,7 @@ export default function GiveawaysPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [isMobileView, setIsMobileView] = useState(false)
   const [filters, setFilters] = useState({
     genre: '',
     featured: false,
@@ -66,6 +68,17 @@ export default function GiveawaysPage() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   
   const campaignsApi = useApi<{ campaigns: any[]; pagination: any }>()
+
+  // Check for mobile view
+  useEffect(() => {
+    const checkMobileView = () => {
+      setIsMobileView(window.innerWidth < 768)
+    }
+    
+    checkMobileView()
+    window.addEventListener('resize', checkMobileView)
+    return () => window.removeEventListener('resize', checkMobileView)
+  }, [])
 
   const fetchGiveaways = async () => {
     setIsLoading(true)
@@ -258,56 +271,15 @@ export default function GiveawaysPage() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                🎁 Giveaways
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
-                Discover and enter amazing book giveaways from your favorite authors
-              </p>
-            </div>
-            
-            {/* Search and Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
-                <Input
-                  placeholder="Search giveaways..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-full sm:w-64"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  className="gap-2"
-                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                >
-                  <Filter className="h-4 w-4" />
-                  Filters
-                  {(filters.genre || filters.featured || filters.status !== 'all' || filters.prizeType !== 'all') && (
-                    <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
-                      {[filters.genre, filters.featured, filters.status !== 'all', filters.prizeType !== 'all'].filter(Boolean).length}
-                    </Badge>
-                  )}
-                </Button>
-                <Button variant="outline" className="gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Sort
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Header */}
+        <Header 
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          isMobileView={isMobileView}
+        />
 
-      {/* Advanced Filters Panel */}
+        {/* Advanced Filters Panel */}
       {showAdvancedFilters && (
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
