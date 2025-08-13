@@ -11,12 +11,9 @@
   NPM_FLAGS = "--legacy-peer-deps"
   NODE_OPTIONS = "--max-old-space-size=4096"
   NEXT_PUBLIC_SUPABASE_URL = "https://yomnitxefrkuvnbnbhut.supabase.co"
-  NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbW5pdHhlZnJrdXZuYm5iaHV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMzE3NDgsImV4cCI6MjA2NzYwNzc0OH0.Imw2JQVeQdAr-FjvBP_4Xbl2QxmREB8S_pfuFgr2GTQ"
   NEXT_PUBLIC_SITE_URL = "https://staging.booksweeps.com"
   NEXT_PUBLIC_READER_URL = "https://read.booksweeps.com"
   NEXT_PUBLIC_AUTHOR_URL = "https://app.booksweeps.com"
-  SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbW5pdHhlZnJrdXZuYm5iaHV0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjAzMTc0OCwiZXhwIjoyMDY3NjA3NzQ4fQ.ecvDjITJYvbiL1vgZUiO4FRH46yHxlthxU5t0FsIChU"
-
 
 [[headers]]
   for = "/*"
@@ -31,4 +28,4 @@
   [headers.values]
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization" 
+    Access-Control-Allow-Headers = "Content-Type, Authorization, x-csrf-token" 

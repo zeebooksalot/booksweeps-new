@@ -2,6 +2,7 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { shouldRedirectUser, getPlatformHosts } from '@/lib/config'
+import { validateCsrfToken } from '@/lib/csrf'
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
@@ -24,6 +25,34 @@ export async function middleware(req: NextRequest) {
     }
 
     const currentHost = req.nextUrl.hostname
+
+    // CSRF Protection for state-changing operations
+    const stateChangingMethods = ['POST', 'PUT', 'DELETE', 'PATCH']
+    if (stateChangingMethods.includes(req.method)) {
+      // Skip CSRF check for auth endpoints and public endpoints
+      const skipCsrfPaths = [
+        '/api/auth/',
+        '/api/csrf/generate', // CSRF token generation endpoint
+        '/api/reader-magnets/downloads',
+        '/api/entries',
+        '/api/votes'
+      ]
+      
+      const shouldSkipCsrf = skipCsrfPaths.some(path => 
+        req.nextUrl.pathname.startsWith(path)
+      )
+      
+      if (!shouldSkipCsrf && session) {
+        const csrfToken = req.headers.get('x-csrf-token')
+        if (!validateCsrfToken(csrfToken, session.user.id)) {
+          console.warn(`CSRF token validation failed for user ${session.user.id}`)
+          return NextResponse.json(
+            { error: 'CSRF token invalid or missing' }, 
+            { status: 403 }
+          )
+        }
+      }
+    }
 
     // Protected routes
     const protectedRoutes = ['/dashboard', '/books', '/campaigns']
@@ -88,10 +117,22 @@ export async function middleware(req: NextRequest) {
     }
 
     // Handle API routes with authentication
-    // Only protect non-auth API routes
+    // Allow public access to read-only endpoints
+    const publicApiEndpoints = [
+      '/api/books',
+      '/api/authors',
+      '/api/giveaways',
+      '/api/reader-magnets'
+    ]
+    
+    const isPublicApiEndpoint = publicApiEndpoints.some(endpoint => 
+      req.nextUrl.pathname.startsWith(endpoint) && req.method === 'GET'
+    )
+    
+    // Only protect non-auth, non-public API routes
     if (req.nextUrl.pathname.startsWith('/api/') && 
         !req.nextUrl.pathname.startsWith('/api/auth/') &&
-        !req.nextUrl.pathname.startsWith('/api/reader-magnets/')) {
+        !isPublicApiEndpoint) {
       if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
@@ -116,6 +157,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }

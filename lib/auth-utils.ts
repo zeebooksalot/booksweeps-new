@@ -9,7 +9,7 @@ export interface AuthError {
 /**
  * Consistent error handling for auth operations
  */
-export function handleAuthError(error: any, context: string): AuthError {
+export function handleAuthError(error: unknown, context: string): AuthError {
   console.error(`Error in ${context}:`, error)
   
   if (error instanceof Error) {

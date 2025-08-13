@@ -11,7 +11,11 @@ import { USER_TYPE_OPTIONS, GENRE_OPTIONS } from '@/constants/auth'
 import { User } from 'lucide-react'
 
 interface ProfileFormProps {
-  user: any // User from Supabase
+  user: {
+    id: string
+    email?: string
+    user_metadata?: Record<string, unknown>
+  }
 }
 
 export function ProfileForm({ user }: ProfileFormProps) {

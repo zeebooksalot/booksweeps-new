@@ -8,7 +8,11 @@ import { User } from "@supabase/supabase-js"
 
 interface DashboardHeaderProps {
   user: User
-  userProfile: any // TODO: Add proper type
+  userProfile: {
+    avatar_url?: string | null
+    display_name?: string | null
+    favorite_genres: string[]
+  }
   stats: {
     totalDownloads: number
     totalFavorites: number
