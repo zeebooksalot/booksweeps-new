@@ -6,23 +6,17 @@ import Link from "next/link"
 import { useCsrf } from "@/hooks/useCsrf"
 import { 
   Download,
-  Mail,
   BookOpen,
   Star,
   CheckCircle,
-  ArrowRight,
   Heart,
   Share2,
-  MessageCircle,
-  Calendar,
-  User,
   Lock
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { LoadingSpinner } from "@/components/ui/loading"
-import { ErrorState } from "@/components/ui/error-state"
+
 import { Header } from "@/components/Header/index"
 
 interface ReaderMagnet {
@@ -257,7 +251,6 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
       <Header 
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        isMobileView={isMobileView}
       />
 
       {/* Main Content */}

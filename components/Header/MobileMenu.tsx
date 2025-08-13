@@ -7,11 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useAuth } from "@/components/auth/AuthProvider-refactored"
 
-interface NavigationItem {
-  label: string
-  href: string
-  dropdownItems?: DropdownItem[]
-}
+
 
 interface DropdownItem {
   label: string

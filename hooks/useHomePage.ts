@@ -127,76 +127,78 @@ export function useHomePage() {
   // Combine all data
   const allData = useMemo(() => [...booksData, ...authorsData], [booksData, authorsData])
 
-  // Filter data based on current filters
+  // Pre-compute search indices for better performance
+  const searchIndex = useMemo(() => {
+    return allData.map(item => ({
+      id: item.id,
+      type: item.type,
+      searchText: item.type === 'book' 
+        ? `${(item as BookItem).title} ${(item as BookItem).author} ${(item as BookItem).description} ${(item as BookItem).genres.join(" ")}`.toLowerCase()
+        : `${(item as AuthorItem).name} ${(item as AuthorItem).bio}`.toLowerCase(),
+      parsedDate: item.type === 'book' 
+        ? new Date((item as BookItem).publishDate).getTime()
+        : new Date((item as AuthorItem).joinedDate).getTime(),
+      item
+    }))
+  }, [allData])
+
+  // Filter data based on current filters with optimized logic
   const filteredData = useMemo(() => {
-    return allData.filter((item) => {
-      // Basic tab filtering
-      if (filters.activeTab === "books" && item.type !== "book") return false
-      if (filters.activeTab === "authors" && item.type !== "author") return false
-      if (filters.activeTab === "giveaways" && !item.hasGiveaway) return false
-      
-      // Search query filtering
-      if (filters.searchQuery.trim()) {
-        const query = filters.searchQuery.toLowerCase()
-        if (item.type === "book") {
-          const book = item as BookItem
-          const searchText = `${book.title} ${book.author} ${book.description} ${book.genres.join(" ")}`.toLowerCase()
-          if (!searchText.includes(query)) return false
-        } else {
-          const author = item as AuthorItem
-          const searchText = `${author.name} ${author.bio}`.toLowerCase()
+    const now = Date.now()
+    
+    return searchIndex
+      .filter(({ type, searchText, parsedDate, item }) => {
+        // Basic tab filtering
+        if (filters.activeTab === "books" && type !== "book") return false
+        if (filters.activeTab === "authors" && type !== "author") return false
+        if (filters.activeTab === "giveaways" && !item.hasGiveaway) return false
+        
+        // Search query filtering (optimized)
+        if (filters.searchQuery.trim()) {
+          const query = filters.searchQuery.toLowerCase()
           if (!searchText.includes(query)) return false
         }
-      }
-      
-      // Genre filtering
-      if (filters.selectedGenres.length > 0) {
-        if (item.type === "book") {
+        
+        // Genre filtering (only for books)
+        if (filters.selectedGenres.length > 0 && type === "book") {
           const book = item as BookItem
           const hasMatchingGenre = book.genres.some(genre => filters.selectedGenres.includes(genre))
           if (!hasMatchingGenre) return false
         }
-      }
-      
-      // Rating filtering
-      if (filters.ratingFilter > 0) {
-        if (item.type === "book") {
+        
+        // Rating filtering (only for books)
+        if (filters.ratingFilter > 0 && type === "book") {
           const book = item as BookItem
           if (book.rating < filters.ratingFilter) return false
         }
-      }
-      
-      // Giveaway filtering
-      if (filters.hasGiveaway !== null) {
-        if (item.hasGiveaway !== filters.hasGiveaway) return false
-      }
-      
-      // Date range filtering
-      if (filters.dateRange !== "all") {
-        const itemDate = item.type === "book" 
-          ? new Date((item as BookItem).publishDate)
-          : new Date((item as AuthorItem).joinedDate)
-        const now = new Date()
         
-        switch (filters.dateRange) {
-          case "week":
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-            if (itemDate < weekAgo) return false
-            break
-          case "month":
-            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-            if (itemDate < monthAgo) return false
-            break
-          case "year":
-            const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-            if (itemDate < yearAgo) return false
-            break
+        // Giveaway filtering
+        if (filters.hasGiveaway !== null) {
+          if (item.hasGiveaway !== filters.hasGiveaway) return false
         }
-      }
-      
-      return true
-    })
-  }, [allData, filters])
+        
+        // Date range filtering (optimized with pre-computed dates)
+        if (filters.dateRange !== "all") {
+          switch (filters.dateRange) {
+            case "week":
+              const weekAgo = now - 7 * 24 * 60 * 60 * 1000
+              if (parsedDate < weekAgo) return false
+              break
+            case "month":
+              const monthAgo = now - 30 * 24 * 60 * 60 * 1000
+              if (parsedDate < monthAgo) return false
+              break
+            case "year":
+              const yearAgo = now - 365 * 24 * 60 * 60 * 1000
+              if (parsedDate < yearAgo) return false
+              break
+          }
+        }
+        
+        return true
+      })
+      .map(({ item }) => item)
+  }, [searchIndex, filters])
 
   // Handle voting
   const handleVote = useCallback(async (id: string) => {

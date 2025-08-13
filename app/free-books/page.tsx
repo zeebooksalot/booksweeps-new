@@ -33,7 +33,6 @@ export default function FreeBooksPage() {
       <Header 
         searchQuery={filters.searchTerm}
         onSearchChange={(searchTerm) => updateFilters({ searchTerm })}
-        isMobileView={isMobileView}
       />
 
       {/* Main Content */}

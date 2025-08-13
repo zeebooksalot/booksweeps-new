@@ -38,7 +38,6 @@ export default function GiveawayEntryPage({ params }: GiveawayEntryPageProps) {
       <Header 
         searchQuery=""
         onSearchChange={() => {}}
-        isMobileView={isMobileView}
       />
 
       {/* Main Content */}

@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { SearchBar } from "./SearchBar"
@@ -10,10 +11,9 @@ import { MobileMenu } from "./MobileMenu"
 interface HeaderProps {
   searchQuery: string
   onSearchChange: (query: string) => void
-  isMobileView: boolean
 }
 
-export function Header({ searchQuery, onSearchChange, isMobileView }: HeaderProps) {
+export const Header = React.memo(({ searchQuery, onSearchChange }: HeaderProps) => {
   const [showMobileSearch, setShowMobileSearch] = useState(false)
 
   return (
@@ -70,4 +70,6 @@ export function Header({ searchQuery, onSearchChange, isMobileView }: HeaderProp
       </div>
     </header>
   )
-}
+})
+
+Header.displayName = 'Header'

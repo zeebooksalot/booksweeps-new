@@ -5,11 +5,7 @@ import Link from "next/link"
 import { ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-interface NavigationItem {
-  label: string
-  href: string
-  dropdownItems?: DropdownItem[]
-}
+
 
 interface DropdownItem {
   label: string

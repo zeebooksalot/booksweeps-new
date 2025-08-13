@@ -1,7 +1,8 @@
 "use client"
 
+import Image from "next/image"
 import { useSimpleDebouncedSearch } from "@/hooks/use-debounced-search"
-import { ErrorBoundary } from "@/components/ErrorBoundary"
+
 import { Header } from "@/components/Header/index"
 import { LoadingSpinner } from "@/components/ui/loading"
 import { ErrorState } from "@/components/ui/error-state"
@@ -22,7 +23,6 @@ export default function DashboardPageRefactored() {
     isMobileView,
     filters,
     updateFilters,
-    refreshData,
     handleTabChange,
     user,
     userProfile,
@@ -66,7 +66,6 @@ export default function DashboardPageRefactored() {
       <Header 
         searchQuery={filters.searchQuery}
         onSearchChange={debouncedSearchChange}
-        isMobileView={isMobileView}
       />
 
       {/* Main Content */}
@@ -128,9 +127,11 @@ export default function DashboardPageRefactored() {
                       <div className="space-y-3">
                         {downloads.slice(0, 3).map((download) => (
                           <div key={download.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                            <img 
+                            <Image 
                               src={download.cover_url} 
                               alt={download.title}
+                              width={48}
+                              height={64}
                               className="w-12 h-16 object-cover rounded"
                             />
                             <div className="flex-1">
@@ -166,9 +167,11 @@ export default function DashboardPageRefactored() {
                           .slice(0, 2)
                           .map((book) => (
                             <div key={book.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                              <img 
+                              <Image 
                                 src={book.cover_url} 
                                 alt={book.title}
+                                width={48}
+                                height={64}
                                 className="w-12 h-16 object-cover rounded"
                               />
                               <div className="flex-1">
@@ -203,9 +206,11 @@ export default function DashboardPageRefactored() {
                     <div className="grid gap-4">
                       {downloads.map((download) => (
                         <div key={download.id} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <img 
+                          <Image 
                             src={download.cover_url} 
                             alt={download.title}
+                            width={64}
+                            height={80}
                             className="w-16 h-20 object-cover rounded"
                           />
                           <div className="flex-1">
@@ -249,9 +254,11 @@ export default function DashboardPageRefactored() {
                     <div className="grid gap-4">
                       {favorites.map((author) => (
                         <div key={author.id} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <img 
+                          <Image 
                             src={author.avatar_url} 
                             alt={author.name}
+                            width={64}
+                            height={64}
                             className="w-16 h-16 object-cover rounded-full"
                           />
                           <div className="flex-1">
@@ -286,9 +293,11 @@ export default function DashboardPageRefactored() {
                     <div className="grid gap-4">
                       {readingList.map((book) => (
                         <div key={book.id} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <img 
+                          <Image 
                             src={book.cover_url} 
                             alt={book.title}
+                            width={64}
+                            height={80}
                             className="w-16 h-20 object-cover rounded"
                           />
                           <div className="flex-1">

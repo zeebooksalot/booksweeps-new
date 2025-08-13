@@ -1,10 +1,9 @@
 "use client"
 
-import { Loader2, BookOpen, User, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface LoadingSpinnerProps {
-  size?: "sm" | "md" | "lg"
+  size?: "sm" | "md" | "lg" | "xl"
   className?: string
 }
 
@@ -12,126 +11,182 @@ export function LoadingSpinner({ size = "md", className }: LoadingSpinnerProps) 
   const sizeClasses = {
     sm: "h-4 w-4",
     md: "h-6 w-6", 
-    lg: "h-8 w-8"
+    lg: "h-8 w-8",
+    xl: "h-12 w-12"
   }
 
   return (
-    <Loader2 
+    <div
       className={cn(
-        "animate-spin text-orange-500",
+        "animate-spin rounded-full border-2 border-gray-200 border-t-orange-500",
         sizeClasses[size],
         className
-      )} 
+      )}
+      role="status"
+      aria-label="Loading"
+    >
+      <span className="sr-only">Loading...</span>
+    </div>
+  )
+}
+
+// Skeleton components for better loading states
+export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn("animate-pulse rounded-md bg-gray-200 dark:bg-gray-700", className)}
+      {...props}
     />
   )
 }
 
-interface LoadingCardProps {
-  type?: "book" | "author" | "generic"
-  className?: string
+export function FeedItemSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="flex items-start space-x-4 p-6">
+        {/* Cover/Avatar skeleton */}
+        <div className="w-16 h-20 bg-gray-200 dark:bg-gray-700 rounded-lg flex-shrink-0"></div>
+        
+        {/* Content skeleton */}
+        <div className="flex-1 space-y-3 min-w-0">
+          {/* Title skeleton */}
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+          
+          {/* Author/Name skeleton */}
+          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+          
+          {/* Description skeleton */}
+          <div className="space-y-2">
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+          </div>
+          
+          {/* Stats skeleton */}
+          <div className="flex items-center space-x-4">
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-14"></div>
+          </div>
+        </div>
+        
+        {/* Action button skeleton */}
+        <div className="w-20 h-8 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+      </div>
+    </div>
+  )
 }
 
-export function LoadingCard({ type = "generic", className }: LoadingCardProps) {
-  const icons = {
-    book: BookOpen,
-    author: User,
-    generic: Search
-  }
-
-  const Icon = icons[type]
-
+export function MobileCardSkeleton() {
   return (
-    <div className={cn(
-      "animate-pulse bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4",
-      className
-    )}>
-      <div className="flex items-center space-x-4">
-        <div className="rounded-lg bg-gray-200 dark:bg-gray-700 h-12 w-12 flex items-center justify-center">
-          <Icon className="h-6 w-6 text-gray-400" />
+    <div className="animate-pulse mx-4 mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+        {/* Cover skeleton */}
+        <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 rounded-lg mb-4"></div>
+        
+        {/* Content skeleton */}
+        <div className="space-y-3">
+          <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+          <div className="space-y-2">
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+          </div>
         </div>
-        <div className="flex-1 space-y-2">
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+        
+        {/* Action buttons skeleton */}
+        <div className="flex justify-between items-center mt-4">
+          <div className="w-16 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+          <div className="w-16 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
         </div>
       </div>
     </div>
   )
 }
 
-interface LoadingGridProps {
-  count?: number
-  type?: "book" | "author" | "generic"
-  className?: string
-}
-
-export function LoadingGrid({ count = 6, type = "generic", className }: LoadingGridProps) {
+export function FilterSkeleton() {
   return (
-    <div className={cn("grid gap-4", className)}>
-      {Array.from({ length: count }).map((_, i) => (
-        <LoadingCard key={i} type={type} />
-      ))}
+    <div className="animate-pulse mx-4 mb-6">
+      <div className="flex items-center space-x-4 mb-4">
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div>
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-full w-24"></div>
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div>
+      </div>
+      <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
     </div>
   )
 }
 
-interface LoadingPageProps {
-  message?: string
-  className?: string
+export function SidebarSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="space-y-4">
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+              </div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }
 
-export function LoadingPage({ message = "Loading...", className }: LoadingPageProps) {
+// Loading overlay for full-page loading states
+export function LoadingOverlay({ 
+  message = "Loading...", 
+  showSpinner = true 
+}: { 
+  message?: string
+  showSpinner?: boolean 
+}) {
   return (
-    <div className={cn(
-      "min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900",
-      className
-    )}>
+    <div 
+      className="fixed inset-0 bg-white dark:bg-gray-900 bg-opacity-90 dark:bg-opacity-90 flex items-center justify-center z-50"
+      role="status"
+      aria-label="Loading content"
+    >
       <div className="text-center">
-        <LoadingSpinner size="lg" className="mx-auto mb-4" />
+        {showSpinner && <LoadingSpinner size="lg" className="mb-4" />}
         <p className="text-gray-600 dark:text-gray-400">{message}</p>
       </div>
     </div>
   )
 }
 
-interface LoadingOverlayProps {
-  isVisible: boolean
-  message?: string
-  className?: string
-}
-
-export function LoadingOverlay({ isVisible, message = "Loading...", className }: LoadingOverlayProps) {
-  if (!isVisible) return null
-
+// Progressive loading indicator
+export function ProgressiveLoader({ 
+  progress, 
+  message 
+}: { 
+  progress: number
+  message?: string 
+}) {
   return (
-    <div className={cn(
-      "fixed inset-0 bg-black/50 flex items-center justify-center z-50",
-      className
-    )}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
-        <div className="flex items-center space-x-3">
-          <LoadingSpinner size="md" />
-          <span className="text-gray-700 dark:text-gray-300">{message}</span>
+    <div className="w-full max-w-md mx-auto p-6">
+      <div className="mb-4">
+        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
+          <span>{message || "Loading..."}</span>
+          <span>{Math.round(progress)}%</span>
+        </div>
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+          <div 
+            className="bg-orange-500 h-2 rounded-full transition-all duration-300 ease-out"
+            style={{ width: `${progress}%` }}
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          />
         </div>
       </div>
-    </div>
-  )
-}
-
-interface SkeletonProps {
-  className?: string
-  lines?: number
-}
-
-export function Skeleton({ className, lines = 1 }: SkeletonProps) {
-  return (
-    <div className={cn("space-y-2", className)}>
-      {Array.from({ length: lines }).map((_, i) => (
-        <div
-          key={i}
-          className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"
-          style={{ width: `${Math.random() * 40 + 60}%` }}
-        />
-      ))}
     </div>
   )
 }

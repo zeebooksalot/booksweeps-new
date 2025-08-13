@@ -32,7 +32,6 @@ export default function GiveawaysPage() {
         <Header 
           searchQuery={filters.searchQuery}
           onSearchChange={(searchQuery) => updateFilters({ searchQuery })}
-          isMobileView={isMobileView}
         />
         <div className={GIVEAWAY_STYLES.mainContent}>
           <div className="text-center">
@@ -49,7 +48,6 @@ export default function GiveawaysPage() {
       <Header 
         searchQuery={filters.searchQuery}
         onSearchChange={(searchQuery) => updateFilters({ searchQuery })}
-        isMobileView={isMobileView}
       />
 
       {/* Main Content */}

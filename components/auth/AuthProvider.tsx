@@ -192,6 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error updating user profile:', error)
       throw error
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   // Update user settings
