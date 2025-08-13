@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
     
     const { data: existingDelivery, error: existingError } = await supabase
       .from('reader_deliveries')
-      .select('id, download_count, last_download_at, re_download_count')
+      .select('id, download_count, last_download_at, re_download_count, access_token')
       .eq('delivery_method_id', delivery_method_id)
       .eq('reader_email', email)
       .single()
@@ -232,6 +232,8 @@ export async function POST(request: NextRequest) {
       })
       return NextResponse.json({ error: existingError.message }, { status: 500 })
     }
+
+    let accessToken = null
 
     if (existingDelivery) {
       // Update existing delivery record (re-download)
@@ -268,6 +270,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: updateError.message }, { status: 500 })
       }
 
+      // Use existing access token if available, otherwise generate new one
+      accessToken = existingDelivery.access_token
+      if (!accessToken) {
+        const { generateAccessToken } = await import('@/lib/access-token')
+        accessToken = await generateAccessToken(existingDelivery.id, 24) // 24 hour expiry
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[${requestId}] 🔑 Access token generated for existing delivery: ${accessToken ? 'success' : 'failed'}`)
+        }
+      }
+
       if (process.env.NODE_ENV === 'development') {
         console.log(`[${requestId}] ✅ Existing delivery record updated successfully (re-download #${updateData.re_download_count || 'N/A'})`)
       }
@@ -277,7 +290,7 @@ export async function POST(request: NextRequest) {
         console.log(`[${requestId}] 💾 Inserting new delivery record (first-time download)`)
       }
       
-      const { error: deliveryError } = await supabase
+      const { data: newDelivery, error: deliveryError } = await supabase
         .from('reader_deliveries')
         .insert({
           delivery_method_id,
@@ -305,6 +318,16 @@ export async function POST(request: NextRequest) {
 
       if (process.env.NODE_ENV === 'development') {
         console.log(`[${requestId}] ✅ New delivery record inserted successfully`)
+      }
+
+      // Generate access token for new delivery
+      if (newDelivery?.id) {
+        const { generateAccessToken } = await import('@/lib/access-token')
+        accessToken = await generateAccessToken(newDelivery.id, 24) // 24 hour expiry
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[${requestId}] 🔑 Access token generated: ${accessToken ? 'success' : 'failed'}`)
+        }
       }
     }
 
@@ -366,6 +389,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       download_url: downloadUrl,
+      access_token: accessToken, // Include access token in response
       message: 'Download link generated successfully',
       is_redownload: !!existingDelivery,
       download_count: existingDelivery ? (existingDelivery.download_count || 1) + 1 : 1

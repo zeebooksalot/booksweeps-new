@@ -68,6 +68,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [downloadUrl, setDownloadUrl] = useState("")
+  const [accessToken, setAccessToken] = useState("")
   const [slug, setSlug] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
   const [isMobileView, setIsMobileView] = useState(false)
@@ -198,6 +199,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
       const data = await response.json()
       setIsSubmitted(true)
       setDownloadUrl(data.download_url || null)
+      setAccessToken(data.access_token || null)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit form'
       setError(errorMessage)
@@ -371,6 +373,22 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                           <Download className="h-5 w-5 mr-2" />
                           Download Now
                         </Button>
+                        
+                        {accessToken && (
+                          <Button
+                            onClick={() => {
+                              // Redirect to reader with access token
+                              const readerUrl = `https://read.booksweeps.com/library?token=${encodeURIComponent(accessToken)}`
+                              window.open(readerUrl, '_blank')
+                            }}
+                            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                            size="lg"
+                          >
+                            <BookOpen className="h-5 w-5 mr-2" />
+                            Read in Browser
+                          </Button>
+                        )}
+                        
                         <p className="text-xs text-gray-500">
                           You&apos;ll also receive updates about new releases and exclusive content.
                         </p>
