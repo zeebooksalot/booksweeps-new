@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { useAuth } from "@/components/auth/AuthProvider-refactored"
+import { useAuth } from "@/components/auth/AuthProvider"
 
 export const useHeader = () => {
   const { user, signOut } = useAuth()

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/components/auth/AuthProvider-refactored'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 export function useCsrf() {
   const { user } = useAuth()

@@ -4,7 +4,7 @@ import { useCallback } from "react"
 import Link from "next/link"
 import { Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/components/auth/AuthProvider-refactored"
+import { useAuth } from "@/components/auth/AuthProvider"
 
 interface UserActionsProps {
   className?: string

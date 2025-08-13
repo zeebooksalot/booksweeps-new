@@ -4,6 +4,58 @@ export interface AuthError {
   message: string
   code?: string
   context?: string
+  isRetryable?: boolean
+}
+
+/**
+ * Check if an error is a resource exhaustion error
+ */
+export function isResourceExhaustionError(error: unknown): boolean {
+  if (error instanceof Error) {
+    return error.message.includes('ERR_INSUFFICIENT_RESOURCES') ||
+           error.message.includes('Failed to fetch') ||
+           error.message.includes('NetworkError') ||
+           error.message.includes('net::ERR_INSUFFICIENT_RESOURCES')
+  }
+  return false
+}
+
+/**
+ * Retry function with exponential backoff
+ */
+export async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: unknown
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error
+      
+      // Don't retry if it's not a retryable error
+      if (!isResourceExhaustionError(error)) {
+        throw error
+      }
+      
+      // If this is the last attempt, throw the error
+      if (attempt === maxRetries) {
+        throw error
+      }
+      
+      // Calculate delay with exponential backoff
+      const delay = baseDelay * Math.pow(2, attempt)
+      console.warn(`Resource exhaustion error, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`)
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+  
+  throw lastError
 }
 
 /**
@@ -12,10 +64,21 @@ export interface AuthError {
 export function handleAuthError(error: unknown, context: string): AuthError {
   console.error(`Error in ${context}:`, error)
   
+  // Check for resource exhaustion errors
+  if (isResourceExhaustionError(error)) {
+    return {
+      message: 'System resources are temporarily unavailable. Please try again in a moment.',
+      code: 'RESOURCE_EXHAUSTION',
+      context,
+      isRetryable: true
+    }
+  }
+  
   if (error instanceof Error) {
     return {
       message: error.message,
       context,
+      isRetryable: isResourceExhaustionError(error)
     }
   }
   
@@ -23,12 +86,14 @@ export function handleAuthError(error: unknown, context: string): AuthError {
     return {
       message: error,
       context,
+      isRetryable: false
     }
   }
   
   return {
     message: `An unexpected error occurred in ${context}`,
     context,
+    isRetryable: false
   }
 }
 

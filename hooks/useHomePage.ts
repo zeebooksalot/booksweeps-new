@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useApi } from "./use-api"
-import { useAuth } from "@/components/auth/AuthProvider-refactored"
+import { useAuth } from "@/components/auth/AuthProvider"
 import { useCsrf } from "./useCsrf"
 import { 
   BookItem, 

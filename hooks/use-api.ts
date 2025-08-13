@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useAuth } from '@/components/auth/AuthProvider-refactored'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { useCsrf } from './useCsrf'
 
 interface ApiResponse<T> {

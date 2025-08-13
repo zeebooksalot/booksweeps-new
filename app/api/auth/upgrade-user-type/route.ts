@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { getClientIP } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if Supabase client is available
-    if (!supabase) {
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
+    
+    // Get current user session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
+    if (sessionError || !session) {
       return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
@@ -23,6 +29,22 @@ export async function POST(request: NextRequest) {
     if (!user_id || !new_user_type) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      )
+    }
+
+    // Security check: ensure user can only upgrade their own account
+    if (session.user.id !== user_id) {
+      return NextResponse.json(
+        { error: 'Unauthorized: can only upgrade your own account' },
+        { status: 403 }
+      )
+    }
+
+    // Validate user type transition
+    if (new_user_type !== 'both') {
+      return NextResponse.json(
+        { error: 'Invalid user type transition' },
         { status: 400 }
       )
     }

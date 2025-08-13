@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useAuth } from '@/components/auth/AuthProvider-refactored'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { ProfileFormData } from '@/types/auth'
 import { validateUserProfile, handleAuthError } from '@/lib/auth-utils'
 

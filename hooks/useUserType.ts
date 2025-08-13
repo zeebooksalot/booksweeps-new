@@ -1,4 +1,4 @@
-import { useAuth } from '@/components/auth/AuthProvider-refactored'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 

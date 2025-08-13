@@ -1,22 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/components/auth/AuthProvider-refactored'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/use-toast'
 import { AuthorChoiceModal } from '@/components/auth/AuthorChoiceModal'
-import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
-
-// Simple in-memory cache for user types
-const userTypeCache = new Map<string, CachedUserType>()
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-
-interface CachedUserType {
-  userType: string
-  timestamp: number
-}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -26,133 +16,118 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showAuthorChoice, setShowAuthorChoice] = useState(false)
   const [authorUser, setAuthorUser] = useState<User | null>(null)
+  const [loginInProgress, setLoginInProgress] = useState(false)
   
-  const { signIn } = useAuth()
+  const { signIn, user, userType, loading: authLoading, sessionEstablished } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const redirectTo = searchParams.get('redirectTo') || '/dashboard'
 
-  // Function to get user type with caching
-  const getUserType = async (userId: string): Promise<string | null> => {
-    const now = Date.now()
-    const cached = userTypeCache.get(userId) as CachedUserType | undefined
-    
-    // Return cached value if still valid
-    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-      return cached.userType
-    }
-    
-    // Fetch from database
-    if (!supabase) {
-      console.error('Supabase client not available')
-      return null
-    }
-    
-    const { data: userProfile, error } = await supabase
-      .from('users')
-      .select('user_type')
-      .eq('id', userId)
-      .single()
-
-    if (error) {
-      console.error('Error fetching user type:', error)
-      return null
-    }
-
-    // Cache the result
-    userTypeCache.set(userId, {
-      userType: userProfile.user_type,
-      timestamp: now
-    })
-    
-    return userProfile.user_type
-  }
-
-  // Clear cache when user signs out
+  // Handle user type checking after successful login
   useEffect(() => {
-    const clearCache = () => {
-      userTypeCache.clear()
-    }
-    
-    // Listen for sign out events
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'supabase.auth.token' && !e.newValue) {
-        clearCache()
+    if (user && userType && !authLoading && !showAuthorChoice && loginInProgress && sessionEstablished) {
+      setCheckingUserType(true)
+      setLoginInProgress(false) // Reset login progress flag
+      
+      // If user is author type, show choice modal
+      if (userType === 'author') {
+        setAuthorUser(user)
+        setShowAuthorChoice(true)
+        setCheckingUserType(false)
+        return
       }
-    })
-    
-    // Listen for user type upgrade events
-    const handleUserTypeUpgrade = (event: CustomEvent) => {
-      const { userId } = event.detail
-      userTypeCache.delete(userId)
-              if (process.env.NODE_ENV === 'development') {
-          console.log('User type cache cleared for user:', userId)
-        }
+
+      // For reader and both types, proceed normally
+      toast({ title: 'Signed in', description: 'Welcome back!' })
+      router.push(redirectTo)
+      setCheckingUserType(false)
     }
-    
-    window.addEventListener('userTypeUpgraded', handleUserTypeUpgrade as EventListener)
-    
-    return () => {
-      window.removeEventListener('storage', clearCache)
-      window.removeEventListener('userTypeUpgraded', handleUserTypeUpgrade as EventListener)
+  }, [user, userType, authLoading, showAuthorChoice, loginInProgress, sessionEstablished, toast, router, redirectTo])
+
+  // Fallback timeout for login progress - prevents stuck state
+  useEffect(() => {
+    if (loginInProgress) {
+      const timeout = setTimeout(() => {
+        console.warn('Login timeout - resetting progress state')
+        setLoginInProgress(false)
+        setLoading(false)
+      }, 5000) // 5 second timeout as fallback
+      
+      return () => clearTimeout(timeout)
     }
-  }, [])
+  }, [loginInProgress])
+
+  // Handle auth errors and provide retry option
+  useEffect(() => {
+    if (errorMessage && !loading) {
+      // Clear error after 5 seconds to prevent stuck state
+      const timeout = setTimeout(() => {
+        setErrorMessage(null)
+      }, 5000)
+      
+      return () => clearTimeout(timeout)
+    }
+  }, [errorMessage, loading])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Prevent concurrent submissions
+    if (loading || authLoading) {
+      return
+    }
+    
+    const loginStartTime = performance.now()
     setLoading(true)
     setErrorMessage(null)
+    setLoginInProgress(true) // Set flag to indicate login is in progress
+    
+    // Client-side validation
+    if (!email.trim()) {
+      setErrorMessage('Email is required')
+      setLoading(false)
+      setLoginInProgress(false)
+      return
+    }
+    
+    if (!password.trim()) {
+      setErrorMessage('Password is required')
+      setLoading(false)
+      setLoginInProgress(false)
+      return
+    }
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email.trim())) {
+      setErrorMessage('Please enter a valid email address')
+      setLoading(false)
+      setLoginInProgress(false)
+      return
+    }
     
     try {
       // Sign in the user
-      await signIn(email, password)
+      await signIn(email.trim(), password)
       
-      // Wait a moment for AuthProvider to update
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // No arbitrary delay needed - the auth state change will trigger the redirect
+      // The useEffect above will handle the user type checking when the session is established
       
-      // Get the current user to check their type
-      if (!supabase) {
-        console.error('Supabase client not available')
-        toast({ title: 'Signed in', description: 'Welcome back!' })
-        router.push(redirectTo)
-        return
-      }
-      
-      setCheckingUserType(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (user) {
-        // Check user type with caching
-        const userType = await getUserType(user.id)
-
-        if (!userType) {
-          // Continue with normal flow if we can't check type
-          toast({ title: 'Signed in', description: 'Welcome back!' })
-          router.push(redirectTo)
-          return
-        }
-
-        // If user is author type, show choice modal
-        if (userType === 'author') {
-          setAuthorUser(user)
-          setShowAuthorChoice(true)
-          return
-        }
-
-        // For reader and both types, proceed normally
-        toast({ title: 'Signed in', description: 'Welcome back!' })
-        router.push(redirectTo)
+      // Log performance metrics in development
+      if (process.env.NODE_ENV === 'development') {
+        const loginTime = performance.now() - loginStartTime
+        console.log(`Login initiated in ${loginTime.toFixed(2)}ms`)
       }
       
     } catch (error) {
       console.error('Login error:', error)
       const message = (error as Error).message || 'Login failed'
       setErrorMessage(message)
+      setLoginInProgress(false) // Reset flag on error
       toast({ title: 'Sign in failed', description: message, variant: 'destructive' })
     } finally {
       setLoading(false)
-      setCheckingUserType(false)
     }
   }
 
@@ -212,11 +187,11 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || authLoading}
                 className="inline-flex items-center justify-center h-11 w-full rounded-full bg-orange-500 text-white text-14 font-semibold hover:bg-orange-600 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
                 aria-describedby={errorMessage ? "error-message" : undefined}
               >
-                {loading ? (checkingUserType ? 'Checking account...' : 'Signing in...') : 'Sign in'}
+                {loading ? 'Signing in...' : (checkingUserType ? 'Checking account...' : 'Sign in')}
               </button>
 
               <div className="text-center text-14 text-gray-600 dark:text-gray-400">

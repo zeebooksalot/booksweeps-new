@@ -73,6 +73,24 @@ export function useAuthActions() {
       await supabase.auth.signOut()
       throw new Error(AUTH_ERROR_MESSAGES.emailNotVerified)
     }
+
+    // Optimized session establishment - only refresh if needed
+    try {
+      // Check if session is already established
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session) {
+        // Only refresh if session is not established
+        const { error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshError) {
+          console.warn('Session refresh failed:', refreshError)
+          // Don't throw - the session might still be valid
+        }
+      }
+    } catch (refreshError) {
+      console.warn('Session establishment error:', refreshError)
+      // Continue anyway - the auth state change listener will handle session state
+    }
   }, [])
 
   // Sign up user

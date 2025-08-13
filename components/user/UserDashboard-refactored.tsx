@@ -1,6 +1,6 @@
 'use client'
 
-import { useAuth } from '@/components/auth/AuthProvider-refactored'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { LoadingSpinner } from '@/components/ui/loading'
 import { ErrorState } from '@/components/ui/error-state'
 import { useUserDashboard } from '@/hooks/useUserDashboard'

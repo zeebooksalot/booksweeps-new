@@ -46,13 +46,17 @@ export interface AuthContextType {
   user: User | null
   userProfile: UserProfile | null
   userSettings: UserSettings | null
+  userType: string | null
   loading: boolean
+  error: string | null
+  sessionEstablished: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, userData?: Partial<UserProfile>) => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>
   updateSettings: (updates: Partial<UserSettings>) => Promise<void>
   refreshUserProfile: () => Promise<void>
+  clearError: () => void
 }
 
 // Profile form interface

@@ -128,35 +128,38 @@ export async function POST(request: NextRequest) {
 
     const responseTime = Date.now() - startTime
     
+    const deliveryMethod = bookData.book_delivery_methods?.[0]
+    const book = deliveryMethod?.books?.[0]
+    
     console.log(`[${requestId}] ✅ Token validation successful`, {
       responseTime: `${responseTime}ms`,
       deliveryId: delivery.id,
-      bookTitle: bookData.book_delivery_methods?.books?.title
+      bookTitle: book?.title
     })
 
     const response = NextResponse.json({
       success: true,
       delivery: {
-        id: delivery.id,
-        email: delivery.reader_email,
-        name: delivery.reader_name,
-        delivered_at: delivery.delivered_at,
-        download_count: delivery.download_count
+        id: bookData.id,
+        email: bookData.reader_email,
+        name: bookData.reader_name || '',
+        delivered_at: bookData.delivered_at || null,
+        download_count: bookData.download_count || 0
       },
       book: {
-        id: bookData.book_delivery_methods?.books?.id,
-        title: bookData.book_delivery_methods?.books?.title,
-        author: bookData.book_delivery_methods?.books?.author,
-        cover_url: bookData.book_delivery_methods?.books?.cover_image_url,
-        genre: bookData.book_delivery_methods?.books?.genre,
-        page_count: bookData.book_delivery_methods?.books?.page_count,
-        format: bookData.book_delivery_methods?.format,
-        files: bookData.book_delivery_methods?.books?.book_files || []
+        id: book?.id,
+        title: book?.title,
+        author: book?.author,
+        cover_url: book?.cover_image_url,
+        genre: book?.genre,
+        page_count: book?.page_count,
+        format: deliveryMethod?.format,
+        files: book?.book_files || []
       },
       delivery_method: {
-        id: bookData.book_delivery_methods?.id,
-        title: bookData.book_delivery_methods?.title,
-        description: bookData.book_delivery_methods?.description
+        id: deliveryMethod?.id,
+        title: deliveryMethod?.title,
+        description: deliveryMethod?.description
       }
     })
 
