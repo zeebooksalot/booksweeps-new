@@ -34,6 +34,28 @@ const envSchema = z.object({
   MONITORING_ENABLE_PERFORMANCE_TRACKING: z.string().optional().transform(val => val === 'true'),
   MONITORING_ENABLE_SECURITY_ALERTS: z.string().optional().transform(val => val === 'true'),
   
+  // External logging services
+  NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
+  SENTRY_ENVIRONMENT: z.string().optional().default('production'),
+  SENTRY_TRACES_SAMPLE_RATE: z.string().optional().transform(val => parseFloat(val || '0.1')),
+  SENTRY_PROFILES_SAMPLE_RATE: z.string().optional().transform(val => parseFloat(val || '0.1')),
+  
+  LOGROCKET_APP_ID: z.string().optional(),
+  LOGROCKET_ENABLE: z.string().optional().transform(val => val === 'true'),
+  
+  DATADOG_API_KEY: z.string().optional(),
+  DATADOG_ENABLE: z.string().optional().transform(val => val === 'true'),
+  DATADOG_SERVICE: z.string().optional().default('booksweeps'),
+  
+  NEW_RELIC_LICENSE_KEY: z.string().optional(),
+  NEW_RELIC_APP_NAME: z.string().optional().default('booksweeps'),
+  NEW_RELIC_ENABLE: z.string().optional().transform(val => val === 'true'),
+  
+  // Security monitoring
+  SECURITY_ENABLE_FILE_SCANNING: z.string().optional().transform(val => val === 'true'),
+  SECURITY_ENABLE_VIRUS_SCANNING: z.string().optional().transform(val => val === 'true'),
+  SECURITY_MAX_FILE_SIZE_FOR_SCANNING_MB: z.string().optional().transform(val => parseInt(val || '10')),
+  
   // Cross-domain configuration
   CROSS_DOMAIN_AUTH_ENABLED: z.string().optional().transform(val => val === 'true'),
   CROSS_DOMAIN_ALLOWED_ORIGINS: z.string().optional().transform(val => 
@@ -69,6 +91,21 @@ let env: {
   MONITORING_ENABLE_CONSOLE_LOGGING: boolean
   MONITORING_ENABLE_PERFORMANCE_TRACKING: boolean
   MONITORING_ENABLE_SECURITY_ALERTS: boolean
+  NEXT_PUBLIC_SENTRY_DSN?: string
+  SENTRY_ENVIRONMENT: string
+  SENTRY_TRACES_SAMPLE_RATE: number
+  SENTRY_PROFILES_SAMPLE_RATE: number
+  LOGROCKET_APP_ID?: string
+  LOGROCKET_ENABLE: boolean
+  DATADOG_API_KEY?: string
+  DATADOG_ENABLE: boolean
+  DATADOG_SERVICE: string
+  NEW_RELIC_LICENSE_KEY?: string
+  NEW_RELIC_APP_NAME: string
+  NEW_RELIC_ENABLE: boolean
+  SECURITY_ENABLE_FILE_SCANNING: boolean
+  SECURITY_ENABLE_VIRUS_SCANNING: boolean
+  SECURITY_MAX_FILE_SIZE_FOR_SCANNING_MB: number
   CROSS_DOMAIN_AUTH_ENABLED: boolean
   CROSS_DOMAIN_ALLOWED_ORIGINS: string[]
   NODE_ENV: 'development' | 'production' | 'test'
@@ -98,6 +135,17 @@ if (isEdgeFunction) {
     MONITORING_ENABLE_CONSOLE_LOGGING: true,
     MONITORING_ENABLE_PERFORMANCE_TRACKING: false,
     MONITORING_ENABLE_SECURITY_ALERTS: false,
+    SENTRY_ENVIRONMENT: 'production',
+    SENTRY_TRACES_SAMPLE_RATE: 0.1,
+    SENTRY_PROFILES_SAMPLE_RATE: 0.1,
+    LOGROCKET_ENABLE: false,
+    DATADOG_ENABLE: false,
+    DATADOG_SERVICE: 'booksweeps',
+    NEW_RELIC_APP_NAME: 'booksweeps',
+    NEW_RELIC_ENABLE: false,
+    SECURITY_ENABLE_FILE_SCANNING: false,
+    SECURITY_ENABLE_VIRUS_SCANNING: false,
+    SECURITY_MAX_FILE_SIZE_FOR_SCANNING_MB: 10,
     CROSS_DOMAIN_AUTH_ENABLED: false,
     CROSS_DOMAIN_ALLOWED_ORIGINS: [],
     NODE_ENV: 'production' as const,
@@ -129,6 +177,11 @@ export const SECURITY_CONFIG = {
   // File access control
   enableFileAccessControl: env.SECURITY_ENABLE_FILE_ACCESS_CONTROL ?? true,
   
+  // File scanning
+  enableFileScanning: env.SECURITY_ENABLE_FILE_SCANNING ?? false,
+  enableVirusScanning: env.SECURITY_ENABLE_VIRUS_SCANNING ?? false,
+  maxFileSizeForScanningMB: env.SECURITY_MAX_FILE_SIZE_FOR_SCANNING_MB ?? 10,
+  
   // Download settings
   downloadExpiryHours: env.DOWNLOAD_EXPIRY_HOURS ?? 24,
   maxFileSizeMB: env.DOWNLOAD_MAX_FILE_SIZE_MB ?? 100,
@@ -153,7 +206,9 @@ export const SECURITY_CONFIG = {
     'X-Frame-Options': 'DENY',
     'X-XSS-Protection': '1; mode=block',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co; frame-ancestors 'none';"
   } as const
 }
 
@@ -170,6 +225,38 @@ export const MONITORING_CONFIG = {
   enableConsoleLogging: env.MONITORING_ENABLE_CONSOLE_LOGGING ?? true,
   enablePerformanceTracking: env.MONITORING_ENABLE_PERFORMANCE_TRACKING ?? false,
   enableSecurityAlerts: env.MONITORING_ENABLE_SECURITY_ALERTS ?? false,
+} as const
+
+// External logging services configuration
+export const EXTERNAL_LOGGING_CONFIG = {
+  // Sentry configuration
+  sentry: {
+    dsn: env.NEXT_PUBLIC_SENTRY_DSN,
+    environment: env.SENTRY_ENVIRONMENT,
+    tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE,
+    profilesSampleRate: env.SENTRY_PROFILES_SAMPLE_RATE,
+    enabled: !!env.NEXT_PUBLIC_SENTRY_DSN,
+  },
+  
+  // LogRocket configuration
+  logrocket: {
+    appId: env.LOGROCKET_APP_ID,
+    enabled: env.LOGROCKET_ENABLE && !!env.LOGROCKET_APP_ID,
+  },
+  
+  // Datadog configuration
+  datadog: {
+    apiKey: env.DATADOG_API_KEY,
+    service: env.DATADOG_SERVICE,
+    enabled: env.DATADOG_ENABLE && !!env.DATADOG_API_KEY,
+  },
+  
+  // New Relic configuration
+  newRelic: {
+    licenseKey: env.NEW_RELIC_LICENSE_KEY,
+    appName: env.NEW_RELIC_APP_NAME,
+    enabled: env.NEW_RELIC_ENABLE && !!env.NEW_RELIC_LICENSE_KEY,
+  },
 } as const
 
 // Cross-domain configuration
@@ -290,6 +377,7 @@ export const CONFIG = {
   security: SECURITY_CONFIG,
   features: FEATURE_FLAGS,
   monitoring: MONITORING_CONFIG,
+  externalLogging: EXTERNAL_LOGGING_CONFIG,
   crossDomain: CROSS_DOMAIN_CONFIG,
   env: ENV_CONFIG,
   rateLimit: RATE_LIMIT_CONFIG,
@@ -302,6 +390,7 @@ export const CONFIG = {
 export type SecurityConfig = typeof SECURITY_CONFIG
 export type FeatureFlags = typeof FEATURE_FLAGS
 export type MonitoringConfig = typeof MONITORING_CONFIG
+export type ExternalLoggingConfig = typeof EXTERNAL_LOGGING_CONFIG
 export type CrossDomainConfig = typeof CROSS_DOMAIN_CONFIG
 export type EnvConfig = typeof ENV_CONFIG
 export type RateLimitConfig = typeof RATE_LIMIT_CONFIG
@@ -330,6 +419,11 @@ export function shouldLogError(): boolean {
 
 export function shouldSanitizeErrors(): boolean {
   return ERROR_CONFIG.sanitizeErrors
+}
+
+export function isExternalLoggingEnabled(service: keyof ExternalLoggingConfig): boolean {
+  const serviceConfig = EXTERNAL_LOGGING_CONFIG[service]
+  return serviceConfig.enabled
 }
 
 // Configuration validation
@@ -369,6 +463,23 @@ export function validateConfig(): { valid: boolean; errors: string[] } {
   
   if (SECURITY_CONFIG.maxFileSizeMB <= 0) {
     errors.push('DOWNLOAD_MAX_FILE_SIZE_MB must be positive')
+  }
+  
+  // Validate external logging configuration
+  if (EXTERNAL_LOGGING_CONFIG.sentry.enabled && !EXTERNAL_LOGGING_CONFIG.sentry.dsn) {
+    errors.push('SENTRY_DSN is required when Sentry is enabled')
+  }
+  
+  if (EXTERNAL_LOGGING_CONFIG.logrocket.enabled && !EXTERNAL_LOGGING_CONFIG.logrocket.appId) {
+    errors.push('LOGROCKET_APP_ID is required when LogRocket is enabled')
+  }
+  
+  if (EXTERNAL_LOGGING_CONFIG.datadog.enabled && !EXTERNAL_LOGGING_CONFIG.datadog.apiKey) {
+    errors.push('DATADOG_API_KEY is required when Datadog is enabled')
+  }
+  
+  if (EXTERNAL_LOGGING_CONFIG.newRelic.enabled && !EXTERNAL_LOGGING_CONFIG.newRelic.licenseKey) {
+    errors.push('NEW_RELIC_LICENSE_KEY is required when New Relic is enabled')
   }
   
   return {

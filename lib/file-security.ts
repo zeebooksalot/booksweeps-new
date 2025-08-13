@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { isValidUUID } from './validation'
 import { generateAccessToken, validateAccessToken } from './access-token'
+import { logSecurityEvent, ErrorSeverity } from './error-handler'
 
 export interface FileAccessRequest {
   deliveryId: string
@@ -27,6 +28,244 @@ export interface FileAccessAudit {
   accessGranted: boolean
   reason?: string
   timestamp: string
+}
+
+// File type signatures (magic numbers)
+const FILE_SIGNATURES = {
+  // PDF files
+  'application/pdf': ['25504446'], // %PDF
+  
+  // EPUB files (ZIP-based)
+  'application/epub+zip': ['504B0304', '504B0506', '504B0708'], // ZIP signatures
+  
+  // MOBI files
+  'application/x-mobipocket-ebook': ['424F4F4B4D4F4249'], // BOOKMOBI
+  
+  // Text files
+  'text/plain': [], // No specific signature, validate by content
+  
+  // Microsoft Word files
+  'application/msword': ['D0CF11E0A1B11AE1'], // DOC
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['504B0304'] // DOCX (ZIP-based)
+} as const
+
+// Maximum file size for content validation (10MB)
+const MAX_CONTENT_VALIDATION_SIZE = 10 * 1024 * 1024
+
+// Suspicious patterns for content analysis
+const SUSPICIOUS_PATTERNS = [
+  /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, // Script tags
+  /javascript:/gi, // JavaScript protocol
+  /vbscript:/gi, // VBScript protocol
+  /data:text\/html/gi, // Data URLs with HTML
+  /eval\s*\(/gi, // eval() calls
+  /document\.write/gi, // document.write calls
+  /window\.open/gi, // window.open calls
+  /<iframe/gi, // iframe tags
+  /<object/gi, // object tags
+  /<embed/gi, // embed tags
+] as const
+
+/**
+ * Validate file magic number (file signature)
+ */
+export function validateFileSignature(buffer: Buffer, expectedMimeType: string): boolean {
+  try {
+    const signatures = FILE_SIGNATURES[expectedMimeType as keyof typeof FILE_SIGNATURES]
+    if (!signatures || signatures.length === 0) {
+      // For text files, we'll do content validation instead
+      return expectedMimeType === 'text/plain'
+    }
+    
+    const hexString = buffer.slice(0, 16).toString('hex').toUpperCase()
+    
+    return signatures.some(signature => 
+      hexString.startsWith(signature.toUpperCase())
+    )
+  } catch (error) {
+    console.error('File signature validation error:', error)
+    return false
+  }
+}
+
+/**
+ * Analyze file content for suspicious patterns
+ */
+export function analyzeFileContent(buffer: Buffer, mimeType: string): {
+  isSafe: boolean
+  suspiciousPatterns: string[]
+  riskLevel: 'low' | 'medium' | 'high'
+} {
+  const suspiciousPatterns: string[] = []
+  let riskLevel: 'low' | 'medium' | 'high' = 'low'
+  
+  try {
+    // Only analyze text-based files
+    if (!mimeType.startsWith('text/') && 
+        mimeType !== 'application/pdf' && 
+        mimeType !== 'application/epub+zip') {
+      return { isSafe: true, suspiciousPatterns, riskLevel }
+    }
+    
+    // Limit content analysis to reasonable size
+    if (buffer.length > MAX_CONTENT_VALIDATION_SIZE) {
+      console.warn('File too large for content analysis, skipping')
+      return { isSafe: true, suspiciousPatterns, riskLevel }
+    }
+    
+    const content = buffer.toString('utf8', 0, Math.min(buffer.length, 1024 * 1024)) // First 1MB
+    
+    // Check for suspicious patterns
+    for (const pattern of SUSPICIOUS_PATTERNS) {
+      if (pattern.test(content)) {
+        suspiciousPatterns.push(pattern.source)
+        riskLevel = riskLevel === 'low' ? 'medium' : 'high'
+      }
+    }
+    
+    // Additional checks for PDF files
+    if (mimeType === 'application/pdf') {
+      const pdfContent = buffer.toString('ascii', 0, Math.min(buffer.length, 4096))
+      
+      // Check for JavaScript in PDF
+      if (/\/JS\s+\d+\s+\d+\s+R/.test(pdfContent) || /\/JavaScript/.test(pdfContent)) {
+        suspiciousPatterns.push('PDF_JavaScript')
+        riskLevel = 'high'
+      }
+      
+      // Check for embedded files
+      if (/\/EmbeddedFile/.test(pdfContent)) {
+        suspiciousPatterns.push('PDF_EmbeddedFile')
+        riskLevel = riskLevel === 'low' ? 'medium' : 'high'
+      }
+    }
+    
+    // Additional checks for EPUB files
+    if (mimeType === 'application/epub+zip') {
+      // EPUB files are ZIP-based, check for suspicious files inside
+      const zipContent = buffer.toString('ascii', 0, Math.min(buffer.length, 1024))
+      
+      if (/\.(js|vbs|bat|cmd|exe|dll|scr|pif|com)$/i.test(zipContent)) {
+        suspiciousPatterns.push('EPUB_ExecutableFile')
+        riskLevel = 'high'
+      }
+    }
+    
+    return {
+      isSafe: suspiciousPatterns.length === 0,
+      suspiciousPatterns,
+      riskLevel
+    }
+  } catch (error) {
+    console.error('File content analysis error:', error)
+    return { isSafe: false, suspiciousPatterns: ['AnalysisError'], riskLevel: 'high' }
+  }
+}
+
+/**
+ * Comprehensive file validation
+ */
+export async function validateFileSecurity(
+  fileName: string,
+  mimeType: string,
+  fileBuffer?: Buffer,
+  context?: Record<string, unknown>
+): Promise<{
+  isValid: boolean
+  reason?: string
+  securityAnalysis?: {
+    signatureValid: boolean
+    contentAnalysis: {
+      isSafe: boolean
+      suspiciousPatterns: string[]
+      riskLevel: 'low' | 'medium' | 'high'
+    }
+  }
+}> {
+  try {
+    // Basic format validation
+    if (!validateFileFormat(fileName, mimeType)) {
+      return {
+        isValid: false,
+        reason: 'Invalid file format'
+      }
+    }
+    
+    // If we have file content, perform deeper validation
+    if (fileBuffer) {
+      // Validate file signature
+      const signatureValid = validateFileSignature(fileBuffer, mimeType)
+      
+      // Analyze file content
+      const contentAnalysis = analyzeFileContent(fileBuffer, mimeType)
+      
+      // Log security events for suspicious files
+      if (!contentAnalysis.isSafe) {
+        const securityContext = {
+          fileName,
+          mimeType,
+          suspiciousPatterns: contentAnalysis.suspiciousPatterns,
+          riskLevel: contentAnalysis.riskLevel,
+          ...context
+        }
+        
+        logSecurityEvent(
+          'Suspicious file content detected',
+          contentAnalysis.riskLevel === 'high' ? ErrorSeverity.CRITICAL : ErrorSeverity.HIGH,
+          {
+            correlationId: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            sessionId: `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: new Date().toISOString(),
+            endpoint: '/file-validation',
+            method: 'POST'
+          },
+          securityContext
+        )
+      }
+      
+      // Reject high-risk files
+      if (contentAnalysis.riskLevel === 'high') {
+        return {
+          isValid: false,
+          reason: 'File contains potentially malicious content',
+          securityAnalysis: {
+            signatureValid,
+            contentAnalysis
+          }
+        }
+      }
+      
+      // Warn about medium-risk files but allow them
+      if (contentAnalysis.riskLevel === 'medium') {
+        console.warn('Medium-risk file detected:', {
+          fileName,
+          mimeType,
+          suspiciousPatterns: contentAnalysis.suspiciousPatterns
+        })
+      }
+      
+      return {
+        isValid: signatureValid && contentAnalysis.isSafe,
+        reason: !signatureValid ? 'Invalid file signature' : 
+                !contentAnalysis.isSafe ? 'Suspicious file content' : undefined,
+        securityAnalysis: {
+          signatureValid,
+          contentAnalysis
+        }
+      }
+    }
+    
+    // If no file content provided, only validate format
+    return {
+      isValid: true
+    }
+  } catch (error) {
+    console.error('File security validation error:', error)
+    return {
+      isValid: false,
+      reason: 'Validation failed'
+    }
+  }
 }
 
 /**
@@ -102,6 +341,27 @@ export async function generateSecureDownloadUrl(
 
     if (!accessValidation.allowed) {
       console.warn('File access denied:', accessValidation.reason)
+      
+      // Log security event for denied access
+      logSecurityEvent(
+        'File access denied',
+        ErrorSeverity.MEDIUM,
+        {
+          correlationId: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          sessionId: `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: new Date().toISOString(),
+          endpoint: '/file-access',
+          method: 'GET',
+          ip: request.ip,
+          userAgent: request.userAgent
+        },
+        {
+          deliveryId: request.deliveryId,
+          userId: request.userId,
+          reason: accessValidation.reason
+        }
+      )
+      
       await logFileAccess({
         ...request,
         accessGranted: false,

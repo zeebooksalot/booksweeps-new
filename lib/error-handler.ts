@@ -34,6 +34,11 @@ export interface ErrorContext {
   timestamp?: string
   requestBody?: unknown
   queryParams?: Record<string, unknown>
+  sessionId?: string
+  correlationId?: string
+  requestDuration?: number
+  userType?: string
+  platform?: string
 }
 
 // Sanitized error response
@@ -54,6 +59,99 @@ export interface InternalError {
   context: ErrorContext
   stack?: string
   timestamp: string
+  correlationId: string
+  sessionId?: string
+}
+
+// External logging service interface
+interface ExternalLoggingService {
+  captureException(error: InternalError): Promise<void>
+  captureMessage(message: string, level: 'info' | 'warn' | 'error', context?: Record<string, unknown>): Promise<void>
+  setUser(userId: string, userData?: Record<string, unknown>): void
+  setTag(key: string, value: string): void
+}
+
+// Simple console-based external logging service
+class ConsoleLoggingService implements ExternalLoggingService {
+  async captureException(error: InternalError): Promise<void> {
+    const logEntry = {
+      timestamp: error.timestamp,
+      correlationId: error.correlationId,
+      sessionId: error.sessionId,
+      type: error.type,
+      severity: error.severity,
+      message: error.message,
+      context: error.context,
+      stack: error.stack
+    }
+    
+    console.error('🚨 EXTERNAL LOGGING - Exception:', JSON.stringify(logEntry, null, 2))
+  }
+  
+  async captureMessage(message: string, level: 'info' | 'warn' | 'error', context?: Record<string, unknown>): Promise<void> {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      level,
+      message,
+      context
+    }
+    
+    switch (level) {
+      case 'error':
+        console.error('🔴 EXTERNAL LOGGING - Error:', JSON.stringify(logEntry, null, 2))
+        break
+      case 'warn':
+        console.warn('🟡 EXTERNAL LOGGING - Warning:', JSON.stringify(logEntry, null, 2))
+        break
+      case 'info':
+        console.log('🟢 EXTERNAL LOGGING - Info:', JSON.stringify(logEntry, null, 2))
+        break
+    }
+  }
+  
+  setUser(userId: string, userData?: Record<string, unknown>): void {
+    console.log('👤 EXTERNAL LOGGING - Set User:', { userId, userData })
+  }
+  
+  setTag(key: string, value: string): void {
+    console.log('🏷️ EXTERNAL LOGGING - Set Tag:', { key, value })
+  }
+}
+
+// Initialize external logging service
+let externalLoggingService: ExternalLoggingService | null = null
+
+// Initialize external logging service based on environment
+function initializeExternalLogging(): ExternalLoggingService {
+  if (externalLoggingService) {
+    return externalLoggingService
+  }
+  
+  // Check for Sentry configuration
+  if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+    try {
+      // For now, use console logging as fallback
+      // Sentry integration can be added later with proper module resolution
+      console.log('⚠️ Sentry DSN found but integration not yet configured')
+    } catch (error) {
+      console.warn('⚠️ Failed to initialize Sentry, falling back to console logging:', error)
+    }
+  }
+  
+  // Fallback to console logging
+  externalLoggingService = new ConsoleLoggingService()
+  console.log('✅ Console logging service initialized')
+  return externalLoggingService
+}
+
+// Generate correlation ID for request tracing
+function generateCorrelationId(): string {
+  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+// Generate session ID
+function generateSessionId(): string {
+  return `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
 
 /**
@@ -204,7 +302,7 @@ export function sanitizeError(error: unknown, context: ErrorContext): SanitizedE
 }
 
 /**
- * Log internal error with full details
+ * Log internal error with full details and external service integration
  */
 function logInternalError(
   error: unknown,
@@ -212,6 +310,9 @@ function logInternalError(
   severity: ErrorSeverity,
   context: ErrorContext
 ): void {
+  const correlationId = context.correlationId || generateCorrelationId()
+  const sessionId = context.sessionId || generateSessionId()
+  
   const internalError: InternalError = {
     type,
     severity,
@@ -219,10 +320,14 @@ function logInternalError(
     originalError: error,
     context: {
       ...context,
+      correlationId,
+      sessionId,
       timestamp: new Date().toISOString()
     },
     stack: error instanceof Error ? error.stack : undefined,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    correlationId,
+    sessionId
   }
   
   // Log based on severity
@@ -244,10 +349,29 @@ function logInternalError(
       break
   }
   
-  // In production, you might want to send to external logging service
-  if (process.env.NODE_ENV === 'production') {
-    // TODO: Send to external logging service (e.g., Sentry, LogRocket)
-    // logToExternalService(internalError)
+  // Send to external logging service
+  try {
+    const loggingService = initializeExternalLogging()
+    
+    // Set user context if available
+    if (context.userId) {
+      loggingService.setUser(context.userId, {
+        userType: context.userType,
+        platform: context.platform,
+        ip: context.ip
+      })
+    }
+    
+    // Set correlation and session tags
+    loggingService.setTag('correlationId', correlationId)
+    loggingService.setTag('sessionId', sessionId)
+    loggingService.setTag('errorType', type)
+    loggingService.setTag('severity', severity)
+    
+    // Capture the exception
+    loggingService.captureException(internalError)
+  } catch (loggingError) {
+    console.error('Failed to send error to external logging service:', loggingError)
   }
 }
 
@@ -283,17 +407,58 @@ export function createErrorResponse(
 }
 
 /**
- * Wrapper function for API route error handling
+ * Wrapper function for API route error handling with request tracing
  */
 export function withErrorHandling<T extends unknown[], R>(
   handler: (...args: T) => Promise<R>
 ): (...args: T) => Promise<R> {
   return async (...args: T): Promise<R> => {
+    const startTime = Date.now()
+    const correlationId = generateCorrelationId()
+    const sessionId = generateSessionId()
+    
     try {
-      return await handler(...args)
-    } catch (error) {
       // Extract context from request if available
       const context: ErrorContext = {
+        correlationId,
+        sessionId,
+        timestamp: new Date().toISOString()
+      }
+      
+      // Try to extract request context
+      if (args[0] instanceof Request) {
+        const request = args[0] as Request
+        context.method = request.method
+        context.endpoint = new URL(request.url).pathname
+        context.userAgent = request.headers.get('user-agent') || undefined
+        context.ip = request.headers.get('x-forwarded-for') || 
+                    request.headers.get('x-real-ip') || 
+                    request.headers.get('cf-connecting-ip') || 
+                    undefined
+      }
+      
+      const result = await handler(...args)
+      
+      // Log successful request
+      const duration = Date.now() - startTime
+      if (duration > 1000) { // Log slow requests
+        const loggingService = initializeExternalLogging()
+        loggingService.captureMessage(
+          `Slow request detected: ${context.endpoint} took ${duration}ms`,
+          'warn',
+          { ...context, requestDuration: duration }
+        )
+      }
+      
+      return result
+    } catch (error) {
+      const duration = Date.now() - startTime
+      
+      // Extract context from request if available
+      const context: ErrorContext = {
+        correlationId,
+        sessionId,
+        requestDuration: duration,
         timestamp: new Date().toISOString()
       }
       
@@ -356,9 +521,12 @@ function getHttpStatus(errorType: ErrorType): number {
 }
 
 /**
- * Extract error context from NextRequest
+ * Extract error context from NextRequest with enhanced information
  */
 export function extractErrorContext(request: NextRequest): ErrorContext {
+  const correlationId = generateCorrelationId()
+  const sessionId = generateSessionId()
+  
   return {
     method: request.method,
     endpoint: request.nextUrl.pathname,
@@ -367,14 +535,17 @@ export function extractErrorContext(request: NextRequest): ErrorContext {
         request.headers.get('x-real-ip') || 
         request.headers.get('cf-connecting-ip') || 
         undefined,
-    timestamp: new Date().toISOString()
+    correlationId,
+    sessionId,
+    timestamp: new Date().toISOString(),
+    platform: request.nextUrl.hostname
   }
 }
 
 /**
  * Handle specific error types with custom logic
  */
-export function handleSpecificError(error: unknown, context: ErrorContext): SanitizedError | null {
+export function handleSpecificError(error: unknown, _context: ErrorContext): SanitizedError | null {
   // Handle Supabase errors
   if (error && typeof error === 'object' && 'code' in error) {
     const supabaseError = error as { code: string }
@@ -408,4 +579,50 @@ export function handleSpecificError(error: unknown, context: ErrorContext): Sani
   }
   
   return null
+}
+
+/**
+ * Log security events
+ */
+export function logSecurityEvent(
+  event: string,
+  severity: ErrorSeverity,
+  context: ErrorContext,
+  details?: Record<string, unknown>
+): void {
+  const loggingService = initializeExternalLogging()
+  
+  loggingService.captureMessage(
+    `Security Event: ${event}`,
+    severity === ErrorSeverity.CRITICAL || severity === ErrorSeverity.HIGH ? 'error' : 'warn',
+    {
+      ...context,
+      securityEvent: event,
+      severity,
+      details
+    }
+  )
+}
+
+/**
+ * Log performance metrics
+ */
+export function logPerformanceMetric(
+  metric: string,
+  value: number,
+  unit: string,
+  context: ErrorContext
+): void {
+  const loggingService = initializeExternalLogging()
+  
+  loggingService.captureMessage(
+    `Performance Metric: ${metric} = ${value}${unit}`,
+    'info',
+    {
+      ...context,
+      performanceMetric: metric,
+      value,
+      unit
+    }
+  )
 }

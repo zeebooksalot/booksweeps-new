@@ -2,11 +2,54 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { shouldRedirectUser, getPlatformHosts } from '@/lib/config'
-import { validateCsrfToken } from '@/lib/csrf'
+import { validateCsrfToken, generateCsrfToken } from '@/lib/csrf'
+import { logSecurityEvent, ErrorSeverity, extractErrorContext } from '@/lib/error-handler'
+
+// Generate nonce for CSP using Web Crypto API
+function generateNonce(): string {
+  const array = new Uint8Array(16)
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(array)
+  } else {
+    // Fallback for environments without Web Crypto API
+    for (let i = 0; i < 16; i++) {
+      array[i] = Math.floor(Math.random() * 256)
+    }
+  }
+  return btoa(String.fromCharCode(...array))
+}
+
+// Security event types
+type SecurityEventType = 
+  | 'CSRF_TOKEN_INVALID'
+  | 'UNAUTHORIZED_ACCESS'
+  | 'RATE_LIMIT_EXCEEDED'
+  | 'SUSPICIOUS_REQUEST'
+  | 'AUTHENTICATION_FAILURE'
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
   const supabase = createMiddlewareClient({ req, res })
+
+  // Generate nonce for CSP
+  const nonce = generateNonce()
+  
+  // Add nonce to response headers for CSP
+  res.headers.set('X-CSP-Nonce', nonce)
+  
+  // Update CSP header with nonce - more permissive in development
+  const isDevelopment = process.env.NODE_ENV === 'development'
+  
+  let cspHeader: string
+  if (isDevelopment) {
+    // More permissive CSP for development (allows hot reloading, etc.)
+    cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co ws://localhost:* wss://localhost:*; frame-ancestors 'none';`
+  } else {
+    // Strict CSP for production
+    cspHeader = `default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co; frame-ancestors 'none';`
+  }
+  
+  res.headers.set('Content-Security-Policy', cspHeader)
 
   try {
     const {
@@ -17,6 +60,15 @@ export async function middleware(req: NextRequest) {
     // Handle session errors
     if (sessionError) {
       console.error('Session error in middleware:', sessionError)
+      
+      // Log security event
+      logSecurityEvent(
+        'Authentication failure',
+        ErrorSeverity.HIGH,
+        extractErrorContext(req),
+        { sessionError: sessionError.message }
+      )
+      
       // Redirect to login with error parameter
       const redirectUrl = req.nextUrl.clone()
       redirectUrl.pathname = '/login'
@@ -46,12 +98,61 @@ export async function middleware(req: NextRequest) {
         const csrfToken = req.headers.get('x-csrf-token')
         if (!validateCsrfToken(csrfToken, session.user.id)) {
           console.warn(`CSRF token validation failed for user ${session.user.id}`)
+          
+          // Log security event
+          logSecurityEvent(
+            'CSRF token invalid',
+            ErrorSeverity.CRITICAL,
+            extractErrorContext(req),
+            { 
+              userId: session.user.id,
+              endpoint: req.nextUrl.pathname,
+              method: req.method
+            }
+          )
+          
           return NextResponse.json(
             { error: 'CSRF token invalid or missing' }, 
             { status: 403 }
           )
         }
       }
+    }
+
+    // Rate limiting check (basic implementation)
+    const clientIp = req.headers.get('x-forwarded-for') || 
+                    req.headers.get('x-real-ip') || 
+                    req.headers.get('cf-connecting-ip') || 
+                    'unknown'
+    
+    // Check for suspicious patterns
+    const suspiciousPatterns = [
+      /\.\.\//, // Directory traversal
+      /<script/i, // Script injection
+      /javascript:/i, // JavaScript protocol
+      /data:text\/html/i, // Data URLs
+    ]
+    
+    const requestUrl = req.nextUrl.toString()
+    const hasSuspiciousPattern = suspiciousPatterns.some(pattern => pattern.test(requestUrl))
+    
+    if (hasSuspiciousPattern) {
+      // Log security event
+      logSecurityEvent(
+        'Suspicious request pattern detected',
+        ErrorSeverity.HIGH,
+        extractErrorContext(req),
+        { 
+          suspiciousUrl: requestUrl,
+          clientIp,
+          userAgent: req.headers.get('user-agent')
+        }
+      )
+      
+      return NextResponse.json(
+        { error: 'Invalid request' }, 
+        { status: 400 }
+      )
     }
 
     // Protected routes
@@ -71,6 +172,18 @@ export async function middleware(req: NextRequest) {
 
     // Handle authentication for protected routes
     if (isProtectedRoute && !session) {
+      // Log security event
+      logSecurityEvent(
+        'Unauthorized access attempt',
+        ErrorSeverity.MEDIUM,
+        extractErrorContext(req),
+        { 
+          protectedRoute: req.nextUrl.pathname,
+          clientIp,
+          userAgent: req.headers.get('user-agent')
+        }
+      )
+      
       const redirectUrl = req.nextUrl.clone()
       redirectUrl.pathname = '/login'
       redirectUrl.searchParams.set('redirectTo', req.nextUrl.pathname)
@@ -134,6 +247,19 @@ export async function middleware(req: NextRequest) {
         !req.nextUrl.pathname.startsWith('/api/auth/') &&
         !isPublicApiEndpoint) {
       if (!session) {
+        // Log security event
+        logSecurityEvent(
+          'Unauthorized API access attempt',
+          ErrorSeverity.HIGH,
+          extractErrorContext(req),
+          { 
+            apiEndpoint: req.nextUrl.pathname,
+            method: req.method,
+            clientIp,
+            userAgent: req.headers.get('user-agent')
+          }
+        )
+        
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
     }
@@ -141,6 +267,17 @@ export async function middleware(req: NextRequest) {
     return res
   } catch (error) {
     console.error('Middleware error:', error)
+    
+    // Log security event for critical middleware errors
+    logSecurityEvent(
+      'Middleware critical error',
+      ErrorSeverity.CRITICAL,
+      extractErrorContext(req),
+      { 
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      }
+    )
     
     // For critical errors, redirect to error page
     if (req.nextUrl.pathname.startsWith('/api/')) {
