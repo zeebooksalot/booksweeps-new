@@ -98,8 +98,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // Load user profile
-  const loadUserProfile = useCallback(async (userId: string) => {
+  // Load user profile - moved inside useEffect to avoid dependency issues
+  const loadUserProfileInternal = useCallback(async (userId: string) => {
     if (!supabase) {
       console.error('Supabase client not initialized')
       return
@@ -130,8 +130,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.email, createUserProfile])
 
-  // Load user settings
-  const loadUserSettings = useCallback(async (userId: string) => {
+  // Load user settings - moved inside useEffect to avoid dependency issues
+  const loadUserSettingsInternal = useCallback(async (userId: string) => {
     if (!supabase) {
       console.error('Supabase client not initialized')
       return
@@ -178,12 +178,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Reload profile
-      await loadUserProfile(user.id)
+      await loadUserProfileInternal(user.id)
     } catch (err) {
       console.error('Error updating profile:', err)
       throw err
     }
-  }, [user, loadUserProfile])
+  }, [user, loadUserProfileInternal])
 
   // Update settings
   const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {
@@ -201,12 +201,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Reload settings
-      await loadUserSettings(user.id)
+      await loadUserSettingsInternal(user.id)
     } catch (err) {
       console.error('Error updating settings:', err)
       throw err
     }
-  }, [user, loadUserSettings])
+  }, [user, loadUserSettingsInternal])
 
   // Simple sign in
   const signIn = useCallback(async (email: string, password: string) => {
@@ -423,7 +423,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null)
   }, [])
 
-  // Initialize auth state
+  // Initialize auth state - FIXED: Removed problematic dependencies
   useEffect(() => {
     debug.log('=== AUTH INITIALIZATION START ===')
     debug.log('Auth initialization triggered', {
@@ -473,8 +473,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           debug.log('Loading profile and settings for existing session...')
           await Promise.all([
-            loadUserProfile(session.user.id),
-            loadUserSettings(session.user.id)
+            loadUserProfileInternal(session.user.id),
+            loadUserSettingsInternal(session.user.id)
           ])
         }
       } catch (err) {
@@ -511,8 +511,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           debug.log('Loading profile and settings for user:', session.user.id)
           try {
             await Promise.all([
-              loadUserProfile(session.user.id),
-              loadUserSettings(session.user.id)
+              loadUserProfileInternal(session.user.id),
+              loadUserSettingsInternal(session.user.id)
             ])
             debug.log('Profile and settings loaded successfully')
           } catch (error) {
@@ -546,7 +546,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       isInitializedRef.current = false
     }
-  }, [loadUserProfile, loadUserSettings, debug]) // Remove user and sessionEstablished from dependencies
+  }, [debug]) // FIXED: Only depend on debug, not the load functions
 
   const contextValue: AuthContextType = {
     user,
@@ -562,8 +562,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     updateProfile,
     updateSettings,
-    refreshUserProfile: () => user ? loadUserProfile(user.id) : Promise.resolve(),
-    loadUserProfile: () => user ? loadUserProfile(user.id) : Promise.resolve(),
+    refreshUserProfile: () => user ? loadUserProfileInternal(user.id) : Promise.resolve(),
+    loadUserProfile: () => user ? loadUserProfileInternal(user.id) : Promise.resolve(),
     clearError,
   }
 
