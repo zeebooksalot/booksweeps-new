@@ -279,7 +279,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sessionEstablished
       })
       
-      // Clear local state immediately to prevent UI issues
+      debug.log('Starting Supabase sign out...')
+      
+      // Sign out from Supabase FIRST (before clearing local state)
+      const { error } = await supabase.auth.signOut()
+      
+      if (error) {
+        debug.logSignOutError(error, user?.id)
+        debug.log('Supabase sign out failed, but continuing with local cleanup')
+        // Don't throw error, just log it since we've already cleared local state
+      } else {
+        debug.log('Successfully signed out from Supabase')
+      }
+      
+      // Clear local state AFTER Supabase sign out
       setUser(null)
       setUserProfile(null)
       setUserSettings(null)
@@ -287,20 +300,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       debug.log('Local state cleared')
       
-      // Sign out from Supabase (this will clear localStorage and cookies)
-      const { error } = await supabase.auth.signOut()
-      
-      if (error) {
-        debug.logSignOutError(error, user?.id)
-        // Don't throw error, just log it since we've already cleared local state
-      } else {
-        debug.log('Successfully signed out from Supabase')
-      }
-      
       // Force clear any remaining session data
       if (typeof window !== 'undefined') {
         debug.log('Clearing browser storage')
-        debugStorageClearing()
+        try {
+          debugStorageClearing()
+          debug.log('Browser storage cleared successfully')
+        } catch (storageError) {
+          debug.log('Error clearing browser storage', { error: storageError })
+        }
         
         debug.log('Redirecting to homepage using router')
         
@@ -309,6 +317,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           router.push('/')
           navigation.success()
+          debug.log('Router navigation initiated successfully')
         } catch (routerError) {
           navigation.failure(routerError)
           debug.log('Router navigation failed, falling back to window.location', {
@@ -319,8 +328,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             window.location.replace('/')
             fallbackNavigation.success()
+            debug.log('Window location fallback initiated successfully')
           } catch (locationError) {
             fallbackNavigation.failure(locationError)
+            debug.log('Both router and window.location failed', { error: locationError })
           }
         }
         return // Exit early since we're redirecting
