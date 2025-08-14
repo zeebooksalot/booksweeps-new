@@ -70,6 +70,8 @@ export function useDashboardLoading() {
 
   // Check if we should block the UI
   const shouldBlockUI = useCallback(() => {
+    // Only block UI if auth is actively loading
+    // Don't block if auth loading is false (even if other loading states are true)
     return loadingState.isAuthLoading
   }, [loadingState.isAuthLoading])
 

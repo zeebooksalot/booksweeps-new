@@ -1,97 +1,80 @@
-# Security Improvements: Input Validation & Sanitization
-
-## Overview
-
-This document outlines the comprehensive input validation and sanitization system implemented to enhance the security of the BookSweeps application.
+# Security Improvements Summary
 
 ## 🔒 Security Features Implemented
 
-### 0. ✅ CSRF Protection System (COMPLETED - December 2024)
+### 0. ✅ Enhanced Failed Login Tracking System (COMPLETED - December 2024)
+**Status**: ✅ PRODUCTION READY  
+**Impact**: Critical security enhancement for brute force protection  
+**Description**: Comprehensive multi-layer failed login tracking system with enterprise-grade security:
 
+**Security Features:**
+- **Dual Rate Limiting**: Email-based (5 attempts) + IP-based (10 attempts) protection
+- **Accurate Lockout Timing**: 15-minute lockouts based on actual last attempt timestamp
+- **Multi-Domain Context**: Captures referring URL and login page URL for comprehensive tracking
+- **Real-time Protection**: Immediate lockouts with clear user feedback
+- **Database Integration**: Full Supabase integration with proper RLS policies
+- **Build Compatibility**: Fully compatible with Next.js 15 and modern TypeScript
+
+**Implementation Details:**
+- `lib/failed-login-tracker.ts` - Core tracking logic with dual rate limiting
+- `app/api/auth/track-login/route.ts` - API endpoint for tracking and checking attempts
+- `app/(auth)/login/page.tsx` - Integration with login form and user feedback
+- `lib/client-ip.ts` - Utility for extracting client IP addresses (async-compatible)
+- `lib/referring-url.ts` - Utility for capturing referring URLs (async-compatible)
+- Database migrations for comprehensive audit trail
+
+**Security Benefits:**
+- Prevents brute force attacks across multiple domains
+- Provides comprehensive audit trail for security monitoring
+- Implements industry-standard rate limiting practices
+- Ready for production deployment with full build compatibility
+
+### 1. ✅ CSRF Protection System (COMPLETED - December 2024)
 **Status**: ✅ PRODUCTION READY  
 **Impact**: Critical security enhancement  
-**Completion Date**: December 2024
+**Description**: Successfully implemented comprehensive CSRF protection:
 
-**Description**: Successfully implemented comprehensive CSRF protection across the application, providing defense against Cross-Site Request Forgery attacks while maintaining full functionality and zero breaking changes.
+**Security Features:**
+- **Token Generation**: Secure CSRF tokens generated per user session
+- **Automatic Inclusion**: All API calls automatically include CSRF tokens
+- **Server-side Validation**: Middleware validates tokens for state-changing operations
+- **Type Safety**: Full TypeScript integration with proper error handling
 
-**Key Features**:
-- **Active Token Generation**: CSRF tokens generated on-demand with user-specific validation
-- **Middleware Integration**: Automatic CSRF validation for all state-changing API routes
-- **Client-Side Protection**: All API calls automatically include CSRF tokens via `fetchWithCsrf`
-- **Smart Exemptions**: Authentication and public routes properly exempted from validation
-- **Type Safety**: Full TypeScript support with proper error handling
-- **SSR Compatibility**: Seamless integration with SSR authentication system
+**Implementation Details:**
+- `hooks/useCsrf.ts` - Active token generation and API integration
+- `lib/csrf.ts` - Server-side validation utilities
+- `middleware.ts` - CSRF validation in request pipeline
+- `app/api/csrf/generate/route.ts` - Token generation endpoint
+- `hooks/use-api.ts` - Automatic CSRF token inclusion
 
-**Files Updated**:
-- `lib/csrf.ts` - Added `validateCsrfFromRequest` function
-- `hooks/useCsrf.ts` - Updated to actively generate and include CSRF tokens
-- `app/api/csrf/generate/route.ts` - Updated to use `createRouteHandlerClient`
-- `middleware.ts` - Re-enabled CSRF validation for state-changing operations
-- `hooks/use-api.ts` - Modified to use CSRF-protected `fetchWithCsrf`
-- `hooks/useHomePage.ts` - Updated to use CSRF protection for votes
-- `app/dl/[slug]/page.tsx` - Updated to use CSRF protection for downloads
+**Security Benefits:**
+- Protects against Cross-Site Request Forgery attacks
+- Maintains user session integrity
+- Provides comprehensive audit trail
+- Ready for production deployment
 
-**Security Benefits**:
-- Protection against CSRF attacks on all state-changing operations
-- User-specific token validation tied to authenticated sessions
-- Automatic token refresh and management
-- Graceful error handling with clear security messages
-- Zero impact on existing functionality
-
----
-
-### 1. ✅ SSR-Compatible Authentication System (COMPLETED - December 2024)
-
+### 2. ✅ SSR-Compatible Authentication System (COMPLETED - December 2024)
 **Status**: ✅ PRODUCTION READY  
-**Impact**: Critical security enhancement  
-**Completion Date**: December 2024
+**Impact**: Critical for middleware and server component compatibility  
+**Description**: Successfully migrated from localStorage-only sessions to cookie + localStorage support:
 
-**Description**: Updated the entire authentication system to use SSR-compatible Supabase clients that handle both cookies and localStorage automatically, ensuring seamless integration with middleware and proper session management.
+**Security Features:**
+- **Cookie-based Sessions**: Enhanced security with cookie-based session management
+- **Middleware Integration**: Perfect integration with existing middleware
+- **Server Component Support**: Full SSR compatibility for session validation
+- **Cross-Platform**: Works across all platforms and domains
 
-**Files Updated**:
-- **Core Infrastructure**:
-  - `lib/supabase.ts` - Updated to use `createClientComponentClient()`
-  - `components/auth/AuthProvider.tsx` - Updated to use `createClientComponentClient()`
+**Implementation Details:**
+- Updated 11 API routes to use `createRouteHandlerClient`
+- Updated 5 client-side hooks to use `createClientComponentClient`
+- Updated 2 auth pages for SSR compatibility
+- Updated core authentication components
 
-- **API Routes (11 files)**:
-  - `app/api/comments/route.ts`
-  - `app/api/reader/validate-token/route.ts`
-  - `app/api/pen-names/route.ts`
-  - `app/api/reader-magnets/downloads/route.ts`
-  - `app/api/entries/route.ts`
-  - `app/api/campaigns/route.ts`
-  - `app/api/reader-magnets/route.ts`
-  - `app/api/votes/route.ts`
-  - `app/api/authors/[id]/route.ts`
-  - `app/api/books/[id]/route.ts`
-  - `app/api/auth/upgrade-user-type/route.ts`
-
-- **Client-Side Hooks (5 files)**:
-  - `hooks/useAuthState.ts`
-  - `hooks/useUserType.ts`
-  - `hooks/useUserProfile.ts`
-  - `hooks/useUserSettings.ts`
-  - `hooks/useAuthActions.ts`
-
-- **Auth Pages (2 files)**:
-  - `app/(auth)/forgot-password/page.tsx`
-  - `app/(auth)/update-password/page.tsx`
-
-- **Components (1 file)**:
-  - `components/auth/AuthorChoiceModal.tsx`
-
-**Security Benefits Achieved**:
-- **✅ Enhanced Session Security**: Cookie-based sessions are more secure than localStorage-only
-- **✅ Middleware Integration**: Perfect integration with existing security middleware
-- **✅ SSR Compatibility**: Works seamlessly with server-side rendering
-- **✅ Cross-Platform Security**: Consistent security across all platforms and domains
-- **✅ Authentication Reliability**: Resolves authentication issues with middleware
-- **✅ Session Persistence**: Automatic cookie + localStorage management
-- **✅ Production Ready**: Fully tested and ready for production deployment
-
-**Security Review Score**: 92/100 - Excellent security posture with comprehensive input validation, rate limiting, and security headers.
-
----
+**Security Benefits:**
+- Enhanced security with cookie-based sessions
+- Full middleware compatibility for authentication checks
+- Server component support for session validation
+- Improved session persistence and refresh handling
 
 ### 1. Comprehensive Validation Library (`lib/validation.ts`)
 

@@ -77,14 +77,14 @@ export function useDashboard() {
     } finally {
       setIsLoadingData(false)
     }
-  }, [user])
+  }, [])
 
-  // Load data when user is available
+  // Load data when user is available and auth is not loading
   useEffect(() => {
-    if (!loading) {
+    if (user && !loading) {
       fetchDashboardData()
     }
-  }, [loading, fetchDashboardData])
+  }, [user, loading, fetchDashboardData])
 
   // Update filters
   const updateFilters = useCallback((updates: Partial<DashboardFilters>) => {

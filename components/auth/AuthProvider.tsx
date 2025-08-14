@@ -468,6 +468,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
       
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        debug.log('Auth initialization timed out, forcing loading to false')
+        setLoading(false)
+      }, 10000) // 10 second timeout
+      
       try {
         debug.log('Getting initial session...')
         // Get initial session
@@ -492,15 +498,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             loadUserSettingsInternal(session.user.id)
           ])
         }
-      } catch (err) {
-        debug.log('Error initializing auth:', {
-          errorType: err?.constructor?.name,
-          errorMessage: err instanceof Error ? err.message : 'Unknown error'
-        })
-      } finally {
-        setLoading(false)
-        debug.log('Auth initialization completed')
-      }
+              } catch (err) {
+          debug.log('Error initializing auth:', {
+            errorType: err?.constructor?.name,
+            errorMessage: err instanceof Error ? err.message : 'Unknown error'
+          })
+        } finally {
+          clearTimeout(timeoutId)
+          setLoading(false)
+          debug.log('Auth initialization completed')
+        }
     }
 
     // Listen for auth changes
@@ -522,6 +529,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null)
         setSessionEstablished(!!session?.user)
         
+        // Add timeout to prevent auth state change from getting stuck
+        const stateChangeTimeout = setTimeout(() => {
+          debug.log('Auth state change timed out, forcing loading to false')
+          setLoading(false)
+        }, 5000) // 5 second timeout
+        
         if (session?.user) {
           debug.log('Loading profile and settings for user:', session.user.id)
           try {
@@ -542,6 +555,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUserSettings(null)
         }
         
+        // Clear timeout and ensure loading is set to false after auth state change
+        clearTimeout(stateChangeTimeout)
         setLoading(false)
         debug.log('Auth state change processing completed')
       }
