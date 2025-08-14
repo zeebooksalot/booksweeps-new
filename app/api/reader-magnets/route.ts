@@ -1,120 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-
-interface MagnetWithJoins {
-  id: string
-  book_id: string
-  title: string
-  description?: string
-  slug: string
-  format: string
-  requires_email: boolean
-  email_template?: string
-  download_limit?: number
-  expiry_days?: number
-  custom_css?: string
-  is_active: boolean
-  created_at: string
-  updated_at: string
-  books?: {
-    id: string
-    title: string
-    author: string
-    description?: string
-    cover_image_url?: string
-    genre?: string
-    page_count?: number
-    pen_name_id?: string
-    pen_names?: {
-      id: string
-      name: string
-      bio?: string
-      website?: string
-      avatar_url?: string
-    }
-  }
-  reader_deliveries?: Array<{ id: string }>
-}
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
 
     const { searchParams } = new URL(request.url)
-    const slug = searchParams.get('slug')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
     const user_id = searchParams.get('user_id')
+    const genre = searchParams.get('genre')
+    const search = searchParams.get('search')
+
+    let query = supabase
+      .from('reader_magnets')
+      .select('*')
+
+    if (user_id) {
+      query = query.eq('user_id', user_id)
+    }
+
+    if (genre) {
+      query = query.eq('genre', genre)
+    }
+
+    if (search) {
+      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,author_name.ilike.%${search}%`)
+    }
+
+    // Only show active reader magnets
+    query = query.eq('status', 'active')
+
+    // Apply sorting
+    query = query.order('download_count', { ascending: false })
+      .order('created_at', { ascending: false })
 
     // Apply pagination
     const offset = (page - 1) * limit
-    
-    // Optimized query with joins to avoid N+1 problem
-    let optimizedQuery = supabase
-      .from('book_delivery_methods')
-      .select(`
-        *,
-        books (
-          id,
-          title,
-          author,
-          description,
-          cover_image_url,
-          genre,
-          page_count,
-          pen_name_id,
-          pen_names (
-            id,
-            name,
-            bio,
-            website,
-            avatar_url
-          )
-        ),
-        reader_deliveries!delivery_method_id (
-          id
-        )
-      `)
-      .eq('is_active', true)
-
-    // Apply slug filter if provided
-    if (slug) {
-      optimizedQuery = optimizedQuery.eq('slug', slug)
-    }
-
-    // Apply user filter if provided
-    if (user_id) {
-      optimizedQuery = optimizedQuery.eq('user_id', user_id)
-    }
-
-    // Apply sorting and pagination
-    const { data, error, count } = await optimizedQuery
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+    const { data, error, count } = await query.range(offset, offset + limit - 1)
 
     if (error) {
-      console.error('Database error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Transform the data to match the expected format
-    const magnetsWithBooks = (data || []).map((magnet: MagnetWithJoins) => {
-      return {
-        ...magnet,
-        books: magnet.books || null,
-        pen_names: magnet.books?.pen_names || null,
-        download_count: magnet.reader_deliveries?.length || 0
-      }
-    })
-
     return NextResponse.json({
-      reader_magnets: magnetsWithBooks,
+      reader_magnets: data,
       pagination: {
         page,
         limit,
@@ -132,29 +64,22 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
 
     const body = await request.json()
     const { 
-      book_id,
-      title,
-      description,
-      slug,
-      format = 'pdf',
-      requires_email = true,
-      email_template,
-      download_limit,
-      expiry_days,
-      custom_css
+      user_id, 
+      title, 
+      description, 
+      cover_image_url, 
+      genre, 
+      author_name,
+      file_url,
+      download_limit
     } = body
 
-    if (!book_id || !title || !slug) {
+    if (!user_id || !title || !description) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -162,20 +87,18 @@ export async function POST(request: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('book_delivery_methods')
+      .from('reader_magnets')
       .insert({
-        book_id,
+        user_id,
         title,
         description,
-        slug,
-        format,
-        requires_email,
-        email_template,
+        cover_image_url,
+        genre,
+        author_name,
+        file_url,
         download_limit,
-        expiry_days,
-        custom_css,
-        is_active: true,
-        delivery_method: 'ebook'
+        status: 'active',
+        download_count: 0
       })
       .select()
       .single()

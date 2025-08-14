@@ -1,36 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
 
     const { id } = await params
-
     const { data, error } = await supabase
-      .from('authors')
+      .from('pen_names')
       .select(`
         *,
         books (
           id,
           title,
-          cover_url,
-          votes_count,
-          rating,
-          has_giveaway,
-          publish_date
+          description,
+          cover_image_url,
+          genre,
+          page_count,
+          upvotes_count,
+          downvotes_count
         )
       `)
       .eq('id', id)
+      .eq('status', 'active')
       .single()
 
     if (error) {
@@ -55,27 +52,22 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
 
     const { id } = await params
     const body = await request.json()
-    const { name, bio, avatar_url, website_url, twitter_url, goodreads_url } = body
+    const { name, bio, website, social_links, avatar_url, genre } = body
 
     const { data, error } = await supabase
-      .from('authors')
+      .from('pen_names')
       .update({
         name,
         bio,
+        website,
+        social_links,
         avatar_url,
-        website_url,
-        twitter_url,
-        goodreads_url,
+        genre,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)

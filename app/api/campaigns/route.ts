@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
-    const status = searchParams.get('status') || 'active'
-    const featured = searchParams.get('featured')
-    const genre = searchParams.get('genre')
+    const user_id = searchParams.get('user_id')
+    const status = searchParams.get('status')
+    const search = searchParams.get('search')
 
     let query = supabase
       .from('campaigns')
@@ -32,34 +28,24 @@ export async function GET(request: NextRequest) {
         pen_names (
           id,
           name,
-          bio,
           avatar_url
-        ),
-        users (
-          id,
-          display_name,
-          first_name,
-          last_name
         )
       `)
 
-    // Apply filters
-    if (status !== 'all') {
+    if (user_id) {
+      query = query.eq('user_id', user_id)
+    }
+
+    if (status) {
       query = query.eq('status', status)
     }
 
-    if (featured === 'true') {
-      query = query.eq('is_featured', true)
+    if (search) {
+      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`)
     }
 
-    if (genre) {
-      query = query.eq('campaign_genre', genre)
-    }
-
-    // Apply sorting - featured campaigns first, then by entry count
-    query = query.order('is_featured', { ascending: false })
-      .order('entry_count', { ascending: false })
-      .order('created_at', { ascending: false })
+    // Apply sorting
+    query = query.order('created_at', { ascending: false })
 
     // Apply pagination
     const offset = (page - 1) * limit
@@ -88,13 +74,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
 
     const body = await request.json()
     const { 
@@ -102,19 +83,24 @@ export async function POST(request: NextRequest) {
       title, 
       description, 
       book_id, 
-      campaign_type = 'giveaway',
+      pen_name_id,
+      campaign_type,
       prize_description,
       rules,
       start_date,
       end_date,
       max_entries,
-      number_of_winners = 1,
-      target_entries = 100,
-      minimum_age = 18,
-      gdpr_checkbox = false
+      number_of_winners,
+      target_entries,
+      duration,
+      entry_methods,
+      selected_books,
+      gdpr_checkbox,
+      custom_thank_you_page,
+      social_media_config
     } = body
 
-    if (!user_id || !title) {
+    if (!user_id || !title || !campaign_type) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -128,6 +114,7 @@ export async function POST(request: NextRequest) {
         title,
         description,
         book_id,
+        pen_name_id,
         campaign_type,
         prize_description,
         rules,
@@ -136,10 +123,15 @@ export async function POST(request: NextRequest) {
         max_entries,
         number_of_winners,
         target_entries,
-        minimum_age,
+        duration,
+        entry_methods,
+        selected_books,
         gdpr_checkbox,
+        custom_thank_you_page,
+        social_media_config,
         status: 'draft',
-        entry_count: 0
+        entry_count: 0,
+        is_featured: false
       })
       .select()
       .single()

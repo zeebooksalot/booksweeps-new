@@ -1,17 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-import { getClientIP } from '@/lib/utils'
-import { checkRateLimit, createRateLimitIdentifier, RATE_LIMITS } from '@/lib/rate-limiter'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+
+export async function GET(request: NextRequest) {
+  try {
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
+
+    const { searchParams } = new URL(request.url)
+    const campaign_id = searchParams.get('campaign_id')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+
+    if (!campaign_id) {
+      return NextResponse.json(
+        { error: 'Campaign ID is required' },
+        { status: 400 }
+      )
+    }
+
+    const { data, error, count } = await supabase
+      .from('reader_entries')
+      .select('*')
+      .eq('campaign_id', campaign_id)
+      .order('created_at', { ascending: false })
+      .range((page - 1) * limit, page * limit - 1)
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      entries: data,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        totalPages: Math.ceil((count || 0) / limit)
+      }
+    })
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
 
     const body = await request.json()
     const { 
@@ -23,7 +62,7 @@ export async function POST(request: NextRequest) {
       entry_data = {},
       marketing_opt_in = false,
       referral_code,
-      user_id
+      referred_by
     } = body
 
     if (!campaign_id || !email || !entry_method) {
@@ -33,58 +72,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get real IP address and user agent from request headers
-    const clientIP = getClientIP(request)
+    // Get client IP and user agent
+    const clientIP = request.headers.get('x-forwarded-for') || 
+                    request.headers.get('x-real-ip') || 
+                    request.headers.get('cf-connecting-ip') || 
+                    'unknown'
     const userAgent = request.headers.get('user-agent') || null
 
-    // Apply rate limiting - check both IP and email-based limits
-    const ipIdentifier = createRateLimitIdentifier('ip', clientIP, 'campaign_entry')
-    const emailIdentifier = createRateLimitIdentifier('email', email, 'campaign_entry')
-    
-    // Check IP-based rate limit
-    const ipRateLimit = await checkRateLimit(ipIdentifier, RATE_LIMITS.CAMPAIGN_ENTRY)
-    if (!ipRateLimit.allowed) {
-      return NextResponse.json(
-        { 
-          error: 'Too many campaign entry requests. Please try again later.',
-          retryAfter: Math.ceil(ipRateLimit.resetTime / 1000)
-        },
-        { status: 429 }
-      )
-    }
-    
-    // Check email-based rate limit for this specific campaign
-    const campaignRateLimit = await checkRateLimit(
-      `${emailIdentifier}:${campaign_id}`, 
-      RATE_LIMITS.CAMPAIGN_ENTRY
-    )
-    if (!campaignRateLimit.allowed) {
-      return NextResponse.json(
-        { 
-          error: 'You have entered this campaign too many times. Please try again later.',
-          retryAfter: Math.ceil(campaignRateLimit.resetTime / 1000)
-        },
-        { status: 429 }
-      )
-    }
-
-    // Check if user already entered this campaign
-    const { data: existingEntry } = await supabase
-      .from('reader_entries')
-      .select('id')
-      .eq('campaign_id', campaign_id)
-      .eq('email', email)
-      .single()
-
-    if (existingEntry) {
-      return NextResponse.json(
-        { error: 'You have already entered this campaign' },
-        { status: 400 }
-      )
-    }
-
-    // Create entry with IP address and user agent tracking
-    const { data: entry, error: entryError } = await supabase
+    const { data, error } = await supabase
       .from('reader_entries')
       .insert({
         campaign_id,
@@ -93,32 +88,32 @@ export async function POST(request: NextRequest) {
         last_name,
         entry_method,
         entry_data,
+        ip_address: clientIP,
+        user_agent: userAgent,
         marketing_opt_in,
         referral_code,
-        user_id,
-        ip_address: clientIP, // Add real IP address tracking
-        user_agent: userAgent, // Add user agent tracking
-        verified: true,
-        status: 'valid'
+        referred_by,
+        status: 'pending',
+        verified: false
       })
       .select()
       .single()
 
-    if (entryError) {
-      return NextResponse.json({ error: entryError.message }, { status: 500 })
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Update campaign entry count
-    const { error: updateError } = await supabase
-      .from('campaigns')
-      .update({ entry_count: supabase.rpc('increment', { table_name: 'campaigns', column_name: 'entry_count' }) })
-      .eq('id', campaign_id)
+    // Update entry count
+    const { error: updateError } = await supabase.rpc('increment_campaign_entries', {
+      campaign_id_param: campaign_id
+    })
 
     if (updateError) {
-      console.error('Error updating campaign entry count:', updateError)
+      console.error('Error updating entry count:', updateError)
+      // Don't fail the request if count update fails
     }
 
-    return NextResponse.json({ entry }, { status: 201 })
+    return NextResponse.json({ entry: data }, { status: 201 })
   } catch (error) {
     return NextResponse.json(
       { error: 'Internal server error' },

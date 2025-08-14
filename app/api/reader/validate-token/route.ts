@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { validateAccessToken } from '@/lib/access-token'
 import { 
   sanitizeError, 
@@ -25,16 +26,8 @@ export async function POST(request: NextRequest) {
   const requestId = Math.random().toString(36).substring(2, 15)
   
   try {
-    // Check if Supabase client is available
-    if (!supabase) {
-      console.error(`[${requestId}] ❌ Database connection not available`)
-      const response = NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-      response.headers.set('Access-Control-Allow-Origin', 'https://read.booksweeps.com')
-      return response
-    }
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
 
     // Parse request body
     let body: { token: string }

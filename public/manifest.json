@@ -1,0 +1,49 @@
+{
+  "name": "BookSweeps - Discover Amazing Books",
+  "short_name": "BookSweeps",
+  "description": "Join BookSweeps to discover trending books, vote on your favorites, and enter author giveaways. Find your next great read today!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f97316",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["books", "entertainment", "education"],
+  "icons": [],
+  "shortcuts": [
+    {
+      "name": "Browse Giveaways",
+      "short_name": "Giveaways",
+      "description": "Browse available book giveaways",
+      "url": "/giveaways"
+    },
+    {
+      "name": "My Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your personal dashboard",
+      "url": "/dashboard"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "BookSweeps desktop experience"
+    },
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "BookSweeps mobile experience"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
+}

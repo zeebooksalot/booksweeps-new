@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react"
-import { supabase } from "@/lib/supabase"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { UserProfile, UserSettings, AuthContextType } from "@/types/auth"
 import { ResourceError } from "@/components/ui/resource-error"
 import { useRouter } from "next/navigation"
@@ -30,6 +30,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Use the new debug utilities - create once and store in ref
   const debugRef = useRef(createAuthDebugLogger('AuthProvider'))
   const debug = debugRef.current
+
+  // Create Supabase client using the SSR-compatible client
+  const supabase = createClientComponentClient()
 
   // Create user profile
   const createUserProfile = useCallback(async (userId: string, email: string) => {

@@ -1,246 +1,148 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription 
-} from '@/components/ui/dialog'
+import { useState } from 'react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
-import { supabase } from '@/lib/supabase'
-import { User } from '@supabase/supabase-js'
+import { BookOpen, Users, PenTool, ArrowRight } from 'lucide-react'
 
 interface AuthorChoiceModalProps {
   isOpen: boolean
   onClose: () => void
-  user: User
-  redirectTo?: string
+  onChoice: (userType: 'reader' | 'author' | 'both') => void
 }
 
-export function AuthorChoiceModal({ 
-  isOpen, 
-  onClose, 
-  user, 
-  redirectTo = '/dashboard' 
-}: AuthorChoiceModalProps) {
+export function AuthorChoiceModal({ isOpen, onClose, onChoice }: AuthorChoiceModalProps) {
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
   const { toast } = useToast()
-  const authorSiteButtonRef = useRef<HTMLButtonElement>(null)
-  const upgradeButtonRef = useRef<HTMLButtonElement>(null)
 
-  // Focus management for accessibility
-  useEffect(() => {
-    if (isOpen && authorSiteButtonRef.current) {
-      // Focus the first button when modal opens
-      setTimeout(() => {
-        authorSiteButtonRef.current?.focus()
-      }, 100)
-    }
-  }, [isOpen])
+  // Create Supabase client using the SSR-compatible client
+  const supabase = createClientComponentClient()
 
-  // Keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      onClose()
-    } else if (e.key === 'Tab') {
-      // Ensure focus stays within modal
-      const focusableElements = [
-        authorSiteButtonRef.current,
-        upgradeButtonRef.current
-      ].filter(Boolean) as HTMLElement[]
-      
-      const firstElement = focusableElements[0]
-      const lastElement = focusableElements[focusableElements.length - 1]
-      
-      if (e.shiftKey && document.activeElement === firstElement) {
-        e.preventDefault()
-        lastElement.focus()
-      } else if (!e.shiftKey && document.activeElement === lastElement) {
-        e.preventDefault()
-        firstElement.focus()
-      }
-    }
-  }
-
-  const handleAuthorSite = () => {
-    console.log('=== AUTHOR SITE REDIRECT ===')
-    const authorUrl = process.env.NEXT_PUBLIC_AUTHOR_URL || 'https://app.booksweeps.com'
-    
-    console.log('Author site redirect initiated:', {
-      authorUrl,
-      userEmail: user.email,
-      userId: user.id
-    })
-    
-    // Validate URL format
-    try {
-      new URL(authorUrl)
-    } catch (error) {
-      console.error('Invalid author URL:', authorUrl)
-      toast({ 
-        title: 'Configuration Error', 
-        description: 'Please contact support.', 
-        variant: 'destructive' 
-      })
-      return
-    }
-    
-    // Announce to screen readers
-    const announcement = `Redirecting to author site at ${authorUrl}`
-    const liveRegion = document.createElement('div')
-    liveRegion.setAttribute('aria-live', 'polite')
-    liveRegion.setAttribute('aria-atomic', 'true')
-    liveRegion.className = 'sr-only'
-    liveRegion.textContent = announcement
-    document.body.appendChild(liveRegion)
-    
-    // Remove announcement after a delay
-    setTimeout(() => {
-      document.body.removeChild(liveRegion)
-    }, 1000)
-    
-    // Redirect to author site
-    const redirectUrl = `${authorUrl}/login?email=${encodeURIComponent(user.email || '')}`
-    console.log('Redirecting to:', redirectUrl)
-    window.location.href = redirectUrl
-  }
-
-  const handleUpgradeToReader = async () => {
-    console.log('=== USER TYPE UPGRADE START ===')
+  const handleChoice = async (userType: 'reader' | 'author' | 'both') => {
     setLoading(true)
-    
+
     try {
-      console.log('Calling upgrade API...')
-      // Call API to upgrade user type
-      const response = await fetch('/api/auth/upgrade-user-type', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: user.id,
-          new_user_type: 'both',
-          upgrade_reason: 'author_to_reader_upgrade',
-          domain_referrer: window.location.hostname
-        })
-      })
-
-      console.log('Upgrade API response:', {
-        status: response.status,
-        ok: response.ok,
-        statusText: response.statusText
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Upgrade API error:', errorText)
-        throw new Error('Failed to upgrade account')
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        throw new Error('No user found')
       }
 
-      const data = await response.json()
-      console.log('Upgrade API success:', data)
-      
-      // Clear any cached user type data
-      if (data.cache_invalidated) {
-        console.log('Dispatching cache invalidation event')
-        // Dispatch a custom event to notify other components to clear cache
-        window.dispatchEvent(new CustomEvent('userTypeUpgraded', {
-          detail: { userId: user.id, newUserType: data.new_user_type }
-        }))
+      // Update user type in database
+      const { error } = await supabase
+        .from('users')
+        .update({ user_type: userType })
+        .eq('id', user.id)
+
+      if (error) {
+        throw error
       }
-      
-      toast({ 
-        title: 'Account upgraded!', 
-        description: 'You now have access to both author and reader features.' 
+
+      toast({
+        title: 'Profile updated',
+        description: `You've been set up as a ${userType}.`,
       })
 
-      // Close modal and redirect
-      console.log('Closing modal and redirecting to:', redirectTo)
+      onChoice(userType)
       onClose()
-      router.push(redirectTo)
-      
     } catch (error) {
-      console.error('Upgrade error:', {
-        errorType: error?.constructor?.name,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error'
-      })
-      toast({ 
-        title: 'Upgrade failed', 
-        description: 'Please try again or contact support.', 
-        variant: 'destructive' 
+      console.error('Error updating user type:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to update your profile. Please try again.',
+        variant: 'destructive',
       })
     } finally {
       setLoading(false)
-      console.log('=== USER TYPE UPGRADE END ===')
     }
   }
 
+  const choices = [
+    {
+      id: 'reader' as const,
+      title: 'Reader',
+      description: 'Discover and read books, enter giveaways, and build your reading list.',
+      icon: BookOpen,
+      features: ['Browse books', 'Enter giveaways', 'Track reading', 'Get recommendations'],
+      color: 'bg-blue-50 border-blue-200 text-blue-700',
+    },
+    {
+      id: 'author' as const,
+      title: 'Author',
+      description: 'Publish your books, run giveaways, and connect with readers.',
+      icon: PenTool,
+      features: ['Publish books', 'Run giveaways', 'Track analytics', 'Connect with readers'],
+      color: 'bg-green-50 border-green-200 text-green-700',
+    },
+    {
+      id: 'both' as const,
+      title: 'Reader & Author',
+      description: 'Enjoy the best of both worlds - read and write.',
+      icon: Users,
+      features: ['All reader features', 'All author features', 'Seamless switching'],
+      color: 'bg-purple-50 border-purple-200 text-purple-700',
+    },
+  ]
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent 
-        className="sm:max-w-md"
-        onKeyDown={handleKeyDown}
-        role="dialog"
-        aria-labelledby="author-choice-title"
-        aria-describedby="author-choice-description"
-      >
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle id="author-choice-title">Welcome back, Author!</DialogTitle>
-          <DialogDescription id="author-choice-description">
-            We detected you have an author account. How would you like to proceed?
+          <DialogTitle className="text-2xl font-bold text-center">
+            Choose Your Experience
+          </DialogTitle>
+          <DialogDescription className="text-center text-lg">
+            How would you like to use BookSweeps?
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="space-y-4">
-          <div className="space-y-3">
-            <Button 
-              ref={authorSiteButtonRef}
-              onClick={handleAuthorSite}
-              className="w-full justify-start"
-              variant="outline"
-              aria-describedby="author-site-description"
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+          {choices.map((choice) => (
+            <Card
+              key={choice.id}
+              className={`cursor-pointer transition-all hover:shadow-lg hover:scale-105 ${choice.color}`}
+              onClick={() => !loading && handleChoice(choice.id)}
             >
-              <div className="text-left">
-                <div className="font-semibold">Go to Author Site</div>
-                <div className="text-sm text-muted-foreground">
-                  Continue to app.booksweeps.com to manage your books and campaigns
+              <CardHeader className="text-center">
+                <div className="mx-auto mb-4 p-3 rounded-full bg-white/50">
+                  <choice.icon className="h-8 w-8" />
                 </div>
-              </div>
-            </Button>
-            <div id="author-site-description" className="sr-only">
-              Navigate to the author platform to manage your books and campaigns
-            </div>
-            
-            <Button 
-              ref={upgradeButtonRef}
-              onClick={handleUpgradeToReader}
-              disabled={loading}
-              className="w-full justify-start"
-              aria-describedby="upgrade-description"
-              aria-busy={loading}
-            >
-              <div className="text-left">
-                <div className="font-semibold">
-                  {loading ? 'Upgrading...' : 'Upgrade to Reader Account'}
+                <CardTitle className="text-xl">{choice.title}</CardTitle>
+                <CardDescription className="text-sm">
+                  {choice.description}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {choice.features.map((feature, index) => (
+                    <div key={index} className="flex items-center text-sm">
+                      <ArrowRight className="h-4 w-4 mr-2 flex-shrink-0" />
+                      {feature}
+                    </div>
+                  ))}
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Get access to reader features while keeping your author account
-                </div>
-              </div>
-            </Button>
-            <div id="upgrade-description" className="sr-only">
-              Upgrade your account to access both author and reader features
-            </div>
-          </div>
-          
-          <div className="text-xs text-muted-foreground text-center" role="note">
-            You can always switch between author and reader features later
-          </div>
+                <Button
+                  className="w-full mt-4"
+                  disabled={loading}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleChoice(choice.id)
+                  }}
+                >
+                  {loading ? 'Setting up...' : `Choose ${choice.title}`}
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="mt-6 text-center text-sm text-gray-600">
+          <p>You can change this later in your profile settings.</p>
         </div>
       </DialogContent>
     </Dialog>

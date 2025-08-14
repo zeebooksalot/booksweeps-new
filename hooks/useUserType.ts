@@ -1,40 +1,48 @@
-import { useAuth } from '@/components/auth/AuthProvider'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useEffect } from 'react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-export function useUserType() {
-  const { user } = useAuth()
-  const [userType, setUserType] = useState<'author' | 'reader' | 'both' | null>(null)
-  const [loading, setLoading] = useState(true)
+export function useUserType(userId: string | null) {
+  const [userType, setUserType] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Create Supabase client using the SSR-compatible client
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       setUserType(null)
-      setLoading(false)
       return
     }
 
-    async function fetchUserType() {
+    const fetchUserType = async () => {
+      setLoading(true)
+      setError(null)
+
       try {
-        if (!supabase) return
-        
         const { data, error } = await supabase
           .from('users')
           .select('user_type')
-          .eq('id', user?.id || '')
+          .eq('id', userId)
           .single()
 
-        if (error) throw error
-        setUserType(data.user_type as 'author' | 'reader' | 'both')
-      } catch (error) {
-        console.error('Error fetching user type:', error)
+        if (error) {
+          console.error('Error fetching user type:', error)
+          setError(error.message)
+          return
+        }
+
+        setUserType(data.user_type)
+      } catch (err) {
+        console.error('Error fetching user type:', err)
+        setError('Failed to fetch user type')
       } finally {
         setLoading(false)
       }
     }
 
     fetchUserType()
-  }, [user])
+  }, [userId, supabase])
 
-  return { userType, loading }
+  return { userType, loading, error }
 }

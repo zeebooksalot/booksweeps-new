@@ -1,19 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-// Only create the client if both URL and key are available
-export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        // Enable cross-domain authentication
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true
-      }
-    })
-  : null
+// Create the client component client for client-side usage
+// This automatically handles both cookies and localStorage
+export const supabase = createClientComponentClient()
 
 // Updated Database types to match your schema
 export interface Database {

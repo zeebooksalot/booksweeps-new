@@ -1,95 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-import { checkRateLimit, createRateLimitIdentifier, RATE_LIMITS, getClientIP } from '@/lib/rate-limiter'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
 
     const body = await request.json()
     const { user_id, book_id, pen_name_id, vote_type } = body
 
-    if (!user_id || (!book_id && !pen_name_id) || !vote_type) {
+    if (!user_id || !vote_type || (!book_id && !pen_name_id)) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    if (!['upvote', 'downvote'].includes(vote_type)) {
+    if (vote_type !== 'upvote' && vote_type !== 'downvote') {
       return NextResponse.json(
         { error: 'Invalid vote type' },
         { status: 400 }
       )
     }
 
-    // Apply rate limiting - check both IP and user-based limits
-    const clientIP = getClientIP(request)
-    const ipIdentifier = createRateLimitIdentifier('ip', clientIP, 'vote')
-    const userIdentifier = createRateLimitIdentifier('user', user_id, 'vote')
-    
-    // Check IP-based rate limit
-    const ipRateLimit = await checkRateLimit(ipIdentifier, RATE_LIMITS.VOTE)
-    if (!ipRateLimit.allowed) {
-      return NextResponse.json(
-        { 
-          error: 'Too many vote requests. Please try again later.',
-          retryAfter: Math.ceil(ipRateLimit.resetTime / 1000)
-        },
-        { status: 429 }
-      )
-    }
-    
-    // Check user-based rate limit
-    const userRateLimit = await checkRateLimit(userIdentifier, RATE_LIMITS.VOTE)
-    if (!userRateLimit.allowed) {
-      return NextResponse.json(
-        { 
-          error: 'Too many vote requests from this user. Please try again later.',
-          retryAfter: Math.ceil(userRateLimit.resetTime / 1000)
-        },
-        { status: 429 }
-      )
-    }
-
-    // Check if user already voted
-    const { data: existingVote } = await supabase
+    // Check for existing vote
+    const { data: existingVote, error: checkError } = await supabase
       .from('votes')
       .select('*')
       .eq('user_id', user_id)
-      .eq(book_id ? 'book_id' : 'pen_name_id', book_id || pen_name_id)
-      .single()
+      .eq('vote_type', vote_type)
 
-    if (existingVote) {
-      // Update existing vote
-      const { data: updatedVote, error: updateError } = await supabase
-        .from('votes')
-        .update({ 
-          vote_type,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingVote.id)
-        .select()
-        .single()
-
-      if (updateError) {
-        return NextResponse.json({ error: updateError.message }, { status: 500 })
-      }
-
-      // Update vote counts
-      await updateVoteCounts(book_id, pen_name_id, existingVote.vote_type, vote_type)
-
-      return NextResponse.json({ vote: updatedVote })
+    if (checkError) {
+      return NextResponse.json({ error: checkError.message }, { status: 500 })
     }
 
-    // Create new vote
-    const { data: vote, error: voteError } = await supabase
+    if (book_id) {
+      const existingBookVote = existingVote?.find(vote => vote.book_id === book_id)
+      if (existingBookVote) {
+        return NextResponse.json(
+          { error: 'You have already voted on this book' },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (pen_name_id) {
+      const existingPenNameVote = existingVote?.find(vote => vote.pen_name_id === pen_name_id)
+      if (existingPenNameVote) {
+        return NextResponse.json(
+          { error: 'You have already voted on this pen name' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Insert vote
+    const { data, error } = await supabase
       .from('votes')
       .insert({
         user_id,
@@ -100,15 +67,34 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (voteError) {
-      console.error('Vote creation error:', voteError)
-      return NextResponse.json({ error: voteError.message }, { status: 500 })
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     // Update vote counts
-    await updateVoteCounts(book_id, pen_name_id, null, vote_type)
+    if (book_id) {
+      const { error: updateError } = await supabase.rpc('update_book_vote_count', {
+        book_id_param: book_id,
+        vote_type_param: vote_type
+      })
 
-    return NextResponse.json({ vote }, { status: 201 })
+      if (updateError) {
+        console.error('Error updating book vote count:', updateError)
+      }
+    }
+
+    if (pen_name_id) {
+      const { error: updateError } = await supabase.rpc('update_pen_name_vote_count', {
+        pen_name_id_param: pen_name_id,
+        vote_type_param: vote_type
+      })
+
+      if (updateError) {
+        console.error('Error updating pen name vote count:', updateError)
+      }
+    }
+
+    return NextResponse.json({ vote: data }, { status: 201 })
   } catch (error) {
     return NextResponse.json(
       { error: 'Internal server error' },
