@@ -1,7 +1,7 @@
 'use client'
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { UserProfile, UserSettings, AuthContextType } from "@/types/auth"
 import { ResourceError } from "@/components/ui/resource-error"
@@ -21,6 +21,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [sessionEstablished, setSessionEstablished] = useState(false)
   const router = useRouter()
+
+  // Use refs to maintain state across re-renders
+  const isInitializedRef = useRef(false)
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null)
 
   // Use the new debug utilities
   const debug = createAuthDebugLogger('AuthProvider')
@@ -426,7 +430,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasSupabase: !!supabase,
       currentUser: user?.id,
       loading,
-      sessionEstablished
+      sessionEstablished,
+      isInitialized: isInitializedRef.current
     })
 
     if (!supabase) {
@@ -435,12 +440,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    let isInitialized = false
-    let subscription: { unsubscribe: () => void } | null = null
+    // Check if already initialized
+    if (isInitializedRef.current) {
+      debug.log('Auth already initialized, skipping')
+      return
+    }
 
     const initializeAuth = async () => {
-      if (!supabase || isInitialized) {
-        debug.log('ERROR: Supabase client not initialized or already initialized')
+      if (!supabase) {
+        debug.log('ERROR: Supabase client not initialized in initializeAuth')
         setLoading(false)
         return
       }
@@ -524,18 +532,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     )
 
-    subscription = authSubscription
-    isInitialized = true
+    subscriptionRef.current = authSubscription
+    isInitializedRef.current = true
 
     // Initialize auth after setting up the listener
     initializeAuth()
 
     return () => {
       debug.log('Cleaning up auth state change listener')
-      if (subscription) {
-        subscription.unsubscribe()
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
       }
-      isInitialized = false
+      isInitializedRef.current = false
     }
   }, [loadUserProfile, loadUserSettings, debug]) // Remove user and sessionEstablished from dependencies
 
