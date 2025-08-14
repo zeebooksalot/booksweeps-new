@@ -453,9 +453,18 @@ export function detectMaliciousInput(input: string, isPassword: boolean = false)
     threats.push('PATH_TRAVERSAL')
   }
   
-  // Check for command injection patterns - only for non-password fields
-  if (!isPassword && /[;&|`$()]/.test(input)) {
-    threats.push('COMMAND_INJECTION')
+  // Check for command injection patterns - more specific detection
+  if (!isPassword) {
+    const commandInjectionPatterns = [
+      /(\b(cat|ls|pwd|whoami|id|uname|ps|top|kill|rm|cp|mv|chmod|chown)\b)/gi,
+      /(\b(echo|printf|grep|sed|awk|find|grep|wget|curl|nc|telnet|ssh|scp)\b)/gi,
+      /(\b(exec|system|eval|shell_exec|passthru|proc_open|popen)\b)/gi,
+      /(\b(powershell|cmd|bat|vbs|js|jscript)\b)/gi
+    ]
+    
+    if (commandInjectionPatterns.some(pattern => pattern.test(input))) {
+      threats.push('COMMAND_INJECTION')
+    }
   }
   
   return {

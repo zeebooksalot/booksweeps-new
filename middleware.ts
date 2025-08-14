@@ -38,16 +38,28 @@ export async function middleware(req: NextRequest) {
   // Add nonce to response headers for CSP
   res.headers.set('X-CSP-Nonce', nonce)
   
+  // 🔒 CRITICAL SECURITY HEADERS
+  res.headers.set('X-Content-Type-Options', 'nosniff')
+  res.headers.set('X-Frame-Options', 'DENY')
+  res.headers.set('X-XSS-Protection', '1; mode=block')
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=()')
+  
+  // Add HSTS header for HTTPS enforcement (only in production)
+  if (process.env.NODE_ENV === 'production') {
+    res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
+  }
+  
   // Update CSP header with nonce - more permissive in development
   const isDevelopment = process.env.NODE_ENV === 'development'
   
   let cspHeader: string
   if (isDevelopment) {
     // More permissive CSP for development (allows hot reloading, etc.)
-    cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co ws://localhost:* wss://localhost:*; frame-ancestors 'none';`
+    cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co ws://localhost:* wss://localhost:*; frame-ancestors 'none';`
   } else {
     // Production CSP - allows unsafe-eval and unsafe-inline for Next.js
-    cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co; frame-ancestors 'none';`
+    cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co; frame-ancestors 'none';`
   }
   
   res.headers.set('Content-Security-Policy', cspHeader)
@@ -102,6 +114,18 @@ export async function middleware(req: NextRequest) {
 
     // CSRF Protection disabled - removed validation logic
     // Note: CSRF protection has been disabled for this application
+    
+    // 🔒 REQUEST SIZE LIMITS
+    const contentLength = req.headers.get('content-length')
+    if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) { // 10MB limit
+      logSecurityEvent(
+        'Request too large',
+        ErrorSeverity.MEDIUM,
+        extractErrorContext(req),
+        { contentLength: parseInt(contentLength) }
+      )
+      return NextResponse.json({ error: 'Request too large' }, { status: 413 })
+    }
     
     // Rate limiting check (basic implementation)
     const clientIp = req.headers.get('x-forwarded-for') || 
