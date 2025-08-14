@@ -25,9 +25,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Use refs to maintain state across re-renders
   const isInitializedRef = useRef(false)
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null)
+  const initializationInProgressRef = useRef(false)
 
-  // Use the new debug utilities
-  const debug = createAuthDebugLogger('AuthProvider')
+  // Use the new debug utilities - create once and store in ref
+  const debugRef = useRef(createAuthDebugLogger('AuthProvider'))
+  const debug = debugRef.current
 
   // Create user profile
   const createUserProfile = useCallback(async (userId: string, email: string) => {
@@ -423,15 +425,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null)
   }, [])
 
-  // Initialize auth state - FIXED: Removed problematic dependencies
+  // Initialize auth state - FIXED: No dependencies to prevent re-runs
   useEffect(() => {
+    // Early return if already initialized or initialization in progress
+    if (isInitializedRef.current || initializationInProgressRef.current) {
+      debug.log('Auth already initialized or initialization in progress, skipping')
+      return
+    }
+
     debug.log('=== AUTH INITIALIZATION START ===')
     debug.log('Auth initialization triggered', {
       hasSupabase: !!supabase,
       currentUser: user?.id,
       loading,
       sessionEstablished,
-      isInitialized: isInitializedRef.current
+      isInitialized: isInitializedRef.current,
+      initializationInProgress: initializationInProgressRef.current
     })
 
     if (!supabase) {
@@ -440,16 +449,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // Check if already initialized
-    if (isInitializedRef.current) {
-      debug.log('Auth already initialized, skipping')
-      return
-    }
+    // Set initialization in progress flag to prevent race conditions
+    initializationInProgressRef.current = true
 
     const initializeAuth = async () => {
       if (!supabase) {
         debug.log('ERROR: Supabase client not initialized in initializeAuth')
         setLoading(false)
+        return
+      }
+      
+      // Check if component is still mounted
+      if (!isInitializedRef.current && !initializationInProgressRef.current) {
+        debug.log('Component unmounted during initialization, aborting')
         return
       }
       
@@ -533,10 +545,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
 
     subscriptionRef.current = authSubscription
-    isInitializedRef.current = true
 
     // Initialize auth after setting up the listener
-    initializeAuth()
+    initializeAuth().finally(() => {
+      // Mark as fully initialized after auth setup is complete
+      isInitializedRef.current = true
+      initializationInProgressRef.current = false
+    })
 
     return () => {
       debug.log('Cleaning up auth state change listener')
@@ -545,8 +560,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         subscriptionRef.current = null
       }
       isInitializedRef.current = false
+      initializationInProgressRef.current = false
     }
-  }, [debug]) // FIXED: Only depend on debug, not the load functions
+  }, []) // FIXED: No dependencies to prevent re-runs
 
   const contextValue: AuthContextType = {
     user,
