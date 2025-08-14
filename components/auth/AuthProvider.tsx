@@ -1,50 +1,365 @@
 'use client'
 
-import { createContext, useContext } from 'react'
-import { useAuthState } from '@/hooks/useAuthState'
-import { useAuthActions } from '@/hooks/useAuthActions'
-import { useUserProfile } from '@/hooks/useUserProfile'
-import { useUserSettings } from '@/hooks/useUserSettings'
-import { AuthContextType, UserProfile, UserSettings } from '@/types/auth'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
+import { UserProfile, UserSettings, AuthContextType } from '@/types/auth'
 import { ResourceError } from '@/components/ui/resource-error'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Use modular hooks for different concerns
-  const {
-    user,
-    userProfile,
-    userSettings,
-    loading,
-    profileLoading,
-    error,
-    sessionEstablished,
-    loadUserProfile,
-    clearError,
-  } = useAuthState()
+  const [user, setUser] = useState<any>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [sessionEstablished, setSessionEstablished] = useState(false)
 
-  const {
-    signIn,
-    signUp,
-    signOut,
-  } = useAuthActions()
+  // Create user profile
+  const createUserProfile = useCallback(async (userId: string, email: string) => {
+    if (!supabase) {
+      console.error('Supabase client not initialized')
+      return
+    }
+    try {
+      const { error } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          email: email,
+          user_type: 'reader',
+          favorite_genres: [],
+          reading_preferences: {
+            email_notifications: true,
+            marketing_emails: true,
+            giveaway_reminders: true,
+            weekly_reports: false,
+            theme: 'auto',
+            language: 'en',
+            timezone: 'UTC',
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
 
-  const { updateProfile: updateProfileBase } = useUserProfile()
-  const { updateSettings: updateSettingsBase } = useUserSettings()
+      if (error) {
+        console.error('Error creating user profile:', error)
+        // Don't throw - profile creation is not critical for login
+      }
+    } catch (err) {
+      console.error('Error creating user profile:', err)
+      // Don't throw - profile creation is not critical for login
+    }
+  }, [])
 
-  // Wrapper functions that integrate with the auth state
-  const updateProfile = async (updates: Partial<UserProfile>) => {
-    if (!user) return
-    await updateProfileBase(user.id, updates)
-    await loadUserProfile()
-  }
+  // Create user settings
+  const createUserSettings = useCallback(async (userId: string) => {
+    if (!supabase) {
+      console.error('Supabase client not initialized')
+      return
+    }
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .insert({
+          user_id: userId,
+          theme: 'auto',
+          font: 'Inter',
+          sidebar_collapsed: false,
+          keyboard_shortcuts_enabled: true,
+          email_notifications: true,
+          marketing_emails: true,
+          weekly_reports: false,
+          language: 'en',
+          timezone: 'UTC',
+          usage_analytics: true,
+          auto_save_drafts: true,
+        })
 
-  const updateSettings = async (updates: Partial<UserSettings>) => {
-    if (!user) return
-    await updateSettingsBase(user.id, updates)
-    await loadUserProfile()
-  }
+      if (error) {
+        console.error('Error creating user settings:', error)
+      }
+    } catch (err) {
+      console.error('Error creating user settings:', err)
+    }
+  }, [])
+
+  // Load user profile
+  const loadUserProfile = useCallback(async (userId: string) => {
+    if (!supabase) {
+      console.error('Supabase client not initialized')
+      return
+    }
+    setProfileLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Profile doesn't exist, create one
+          await createUserProfile(userId, user?.email || '')
+          return
+        }
+        console.error('Error loading user profile:', error)
+        return
+      }
+
+      setUserProfile(data as UserProfile)
+    } catch (err) {
+      console.error('Error loading user profile:', err)
+    } finally {
+      setProfileLoading(false)
+    }
+  }, [user?.email, createUserProfile])
+
+  // Load user settings
+  const loadUserSettings = useCallback(async (userId: string) => {
+    if (!supabase) {
+      console.error('Supabase client not initialized')
+      return
+    }
+    try {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Settings don't exist, create them
+          await createUserSettings(userId)
+          return
+        }
+        console.error('Error loading user settings:', error)
+        return
+      }
+
+      setUserSettings(data as UserSettings)
+    } catch (err) {
+      console.error('Error loading user settings:', err)
+    }
+  }, [createUserSettings])
+
+  // Update profile
+  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
+    if (!user || !supabase) return
+    
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id)
+
+      if (error) {
+        console.error('Error updating profile:', error)
+        throw error
+      }
+
+      // Reload profile
+      await loadUserProfile(user.id)
+    } catch (err) {
+      console.error('Error updating profile:', err)
+      throw err
+    }
+  }, [user, loadUserProfile])
+
+  // Update settings
+  const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {
+    if (!user || !supabase) return
+    
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .update(updates)
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.error('Error updating settings:', error)
+        throw error
+      }
+
+      // Reload settings
+      await loadUserSettings(user.id)
+    } catch (err) {
+      console.error('Error updating settings:', err)
+      throw err
+    }
+  }, [user, loadUserSettings])
+
+  // Simple sign in
+  const signIn = useCallback(async (email: string, password: string) => {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
+    }
+    try {
+      setError(null)
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      
+      if (signInError) throw signInError
+      
+      // Check email verification
+      if (!data.user?.email_confirmed_at) {
+        await supabase.auth.signOut()
+        throw new Error('Please verify your email before signing in')
+      }
+      
+      // User is now signed in - the auth state change will handle the rest
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sign in failed'
+      setError(message)
+      throw err
+    }
+  }, [])
+
+  // Simple sign up
+  const signUp = useCallback(async (email: string, password: string, userData?: Partial<UserProfile>) => {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
+    }
+    try {
+      setError(null)
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password
+      })
+      
+      if (signUpError) throw signUpError
+      
+      // Create user profile if signup was successful
+      if (data.user) {
+        await createUserProfile(data.user.id, email)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sign up failed'
+      setError(message)
+      throw err
+    }
+  }, [createUserProfile])
+
+  // Simple sign out
+  const signOut = useCallback(async () => {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
+    }
+    try {
+      setError(null)
+      
+      console.log('Starting sign out process...')
+      
+      // Clear local state immediately to prevent UI issues
+      setUser(null)
+      setUserProfile(null)
+      setUserSettings(null)
+      setSessionEstablished(false)
+      
+      // Sign out from Supabase (this will clear localStorage and cookies)
+      const { error } = await supabase.auth.signOut()
+      
+      if (error) {
+        console.warn('Supabase sign out error:', error)
+        // Don't throw error, just log it since we've already cleared local state
+      } else {
+        console.log('Successfully signed out from Supabase')
+      }
+      
+      // Redirect to homepage to clear any remaining session state
+      // This ensures all client-side state is completely reset
+      if (typeof window !== 'undefined') {
+        console.log('Redirecting to homepage to clear session state...')
+        window.location.href = '/'
+        return // Exit early since we're redirecting
+      }
+      
+      console.log('Sign out process completed')
+      
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sign out failed'
+      setError(message)
+      console.error('Sign out error:', err)
+      // Don't throw error, just log it since we've already cleared local state
+    }
+  }, [])
+
+  // Clear error
+  const clearError = useCallback(() => {
+    setError(null)
+  }, [])
+
+  // Initialize auth state
+  useEffect(() => {
+    if (!supabase) {
+      console.error('Supabase client not initialized')
+      setLoading(false)
+      return
+    }
+
+    const initializeAuth = async () => {
+      if (!supabase) {
+        console.error('Supabase client not initialized')
+        setLoading(false)
+        return
+      }
+      
+      try {
+        // Get initial session
+        const { data: { session } } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
+        setSessionEstablished(!!session?.user)
+        
+        // Load profile and settings if user exists
+        if (session?.user) {
+          await Promise.all([
+            loadUserProfile(session.user.id),
+            loadUserSettings(session.user.id)
+          ])
+        }
+      } catch (err) {
+        console.error('Error initializing auth:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    initializeAuth()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id, 'Session exists:', !!session)
+        
+        setUser(session?.user ?? null)
+        setSessionEstablished(!!session?.user)
+        
+        if (session?.user) {
+          console.log('Loading profile and settings for user:', session.user.id)
+          await Promise.all([
+            loadUserProfile(session.user.id),
+            loadUserSettings(session.user.id)
+          ])
+        } else {
+          console.log('Clearing profile and settings - no session')
+          setUserProfile(null)
+          setUserSettings(null)
+        }
+        
+        setLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [loadUserProfile, loadUserSettings])
 
   const contextValue: AuthContextType = {
     user,
@@ -60,8 +375,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     updateProfile,
     updateSettings,
-    refreshUserProfile: loadUserProfile,
-    loadUserProfile,
+    refreshUserProfile: () => user ? loadUserProfile(user.id) : Promise.resolve(),
+    loadUserProfile: () => user ? loadUserProfile(user.id) : Promise.resolve(),
     clearError,
   }
 

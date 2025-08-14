@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useApi } from "./use-api"
 import { useAuth } from "@/components/auth/AuthProvider"
-import { useCsrf } from "./useCsrf"
 import { 
   BookItem, 
   AuthorItem, 
@@ -30,7 +29,7 @@ export function useHomePage() {
   
   // Auth
   const { user } = useAuth()
-  const { fetchWithCsrf } = useCsrf()
+  // Remove CSRF hook
   
   // API hooks
   const booksApi = useApi<{ data: ApiBook[]; pagination: unknown }>()
@@ -233,8 +232,8 @@ export function useHomePage() {
         voteData.pen_name_id = id
       }
       
-      // Send vote to API with CSRF protection
-      const response = await fetchWithCsrf('/api/votes', {
+      // Send vote to API with regular fetch (CSRF disabled)
+      const response = await fetch('/api/votes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -2,7 +2,7 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { shouldRedirectUser, getPlatformHosts } from '@/lib/config'
-import { validateCsrfToken, generateCsrfToken } from '@/lib/csrf'
+// Remove CSRF imports since CSRF is disabled
 import { logSecurityEvent, ErrorSeverity, extractErrorContext } from '@/lib/error-handler'
 
 // Generate nonce for CSP using Web Crypto API
@@ -57,6 +57,16 @@ export async function middleware(req: NextRequest) {
       error: sessionError,
     } = await supabase.auth.getSession()
 
+    // Debug logging in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Middleware session check:', {
+        pathname: req.nextUrl.pathname,
+        hasSession: !!session,
+        sessionError: sessionError?.message,
+        userId: session?.user?.id
+      })
+    }
+
     // Handle session errors more gracefully
     if (sessionError) {
       console.error('Session error in middleware:', sessionError)
@@ -89,47 +99,9 @@ export async function middleware(req: NextRequest) {
 
     const currentHost = req.nextUrl.hostname
 
-    // CSRF Protection for state-changing operations
-    const stateChangingMethods = ['POST', 'PUT', 'DELETE', 'PATCH']
-    if (stateChangingMethods.includes(req.method)) {
-      // Skip CSRF check for auth endpoints and public endpoints
-      const skipCsrfPaths = [
-        '/api/auth/',
-        '/api/csrf/generate', // CSRF token generation endpoint
-        '/api/reader-magnets/downloads',
-        '/api/entries',
-        '/api/votes'
-      ]
-      
-      const shouldSkipCsrf = skipCsrfPaths.some(path => 
-        req.nextUrl.pathname.startsWith(path)
-      )
-      
-      if (!shouldSkipCsrf && session) {
-        const csrfToken = req.headers.get('x-csrf-token')
-        if (!validateCsrfToken(csrfToken, session.user.id)) {
-          console.warn(`CSRF token validation failed for user ${session.user.id}`)
-          
-          // Log security event
-          logSecurityEvent(
-            'CSRF token invalid',
-            ErrorSeverity.CRITICAL,
-            extractErrorContext(req),
-            { 
-              userId: session.user.id,
-              endpoint: req.nextUrl.pathname,
-              method: req.method
-            }
-          )
-          
-          return NextResponse.json(
-            { error: 'CSRF token invalid or missing' }, 
-            { status: 403 }
-          )
-        }
-      }
-    }
-
+    // CSRF Protection disabled - removed validation logic
+    // Note: CSRF protection has been disabled for this application
+    
     // Rate limiting check (basic implementation)
     const clientIp = req.headers.get('x-forwarded-for') || 
                     req.headers.get('x-real-ip') || 
@@ -183,6 +155,12 @@ export async function middleware(req: NextRequest) {
 
     // Handle authentication for protected routes
     if (isProtectedRoute && !session) {
+      // In development, be more permissive and let client-side auth handle it
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Development mode: Allowing access to protected route without session, letting client handle auth')
+        return res
+      }
+      
       // Log security event
       logSecurityEvent(
         'Unauthorized access attempt',
@@ -250,15 +228,19 @@ export async function middleware(req: NextRequest) {
       '/api/giveaways',
       '/api/reader-magnets'
     ]
-    
+
     const isPublicApiEndpoint = publicApiEndpoints.some(endpoint => 
       req.nextUrl.pathname.startsWith(endpoint) && req.method === 'GET'
     )
-    
+
+    // Allow CSRF generation endpoint for all methods (needed for auth)
+    const isCsrfEndpoint = req.nextUrl.pathname.startsWith('/api/csrf/generate')
+
     // Only protect non-auth, non-public API routes
     if (req.nextUrl.pathname.startsWith('/api/') && 
         !req.nextUrl.pathname.startsWith('/api/auth/') &&
-        !isPublicApiEndpoint) {
+        !isPublicApiEndpoint &&
+        !isCsrfEndpoint) {
       if (!session) {
         // Log security event
         logSecurityEvent(

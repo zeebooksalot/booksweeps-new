@@ -19,7 +19,7 @@ export default function LoginPage() {
   const [showAuthorChoice, setShowAuthorChoice] = useState(false)
   const [hasRedirected, setHasRedirected] = useState(false)
   
-  const { signIn, user, userType, loading: authLoading, sessionEstablished } = useAuth()
+  const { signIn, user, userType, loading: authLoading } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -28,50 +28,24 @@ export default function LoginPage() {
   // Use shared system health hook
   const { healthStatus, isHealthy, isUnhealthy } = useSystemHealth()
 
-  // SIMPLIFIED: Only check for basic auth success
+  // Simplified session establishment check
   useEffect(() => {
-    console.log('Login effect triggered:', {
-      user: !!user,
-      authLoading,
-      showAuthorChoice,
-      loginInProgress,
-      sessionEstablished,
-      hasRedirected,
-      healthStatus
-    })
-    
-    // Changed condition: Remove loginInProgress requirement since it gets set to false
-    if (user && !authLoading && !showAuthorChoice && sessionEstablished && !hasRedirected) {
+    // Only redirect if user is authenticated and login was successful
+    if (user && !authLoading && !showAuthorChoice && !hasRedirected && loginInProgress) {
+      // Set flags immediately to prevent multiple redirects
+      setHasRedirected(true)
+      setLoginInProgress(false)
       setCheckingUserType(true)
-      setHasRedirected(true) // Prevent multiple redirects
       
-      // SIMPLIFIED: Go directly to dashboard, profile will load there
-      console.log('Login successful, redirecting to dashboard')
-      console.log('Redirect target:', redirectTo)
-      
-      // Use router.push for client-side navigation (no page refresh)
-      try {
-        console.log('Using router.push for redirect')
-        router.push(redirectTo)
-      } catch (error) {
-        console.error('Router navigation failed:', error)
-        
-        // Fallback to window.location only if router fails
-        try {
-          console.log('Falling back to window.location')
-          window.location.href = redirectTo
-        } catch (locationError) {
-          console.error('Window location redirect failed:', locationError)
-        }
-      }
+      // Use Next.js router for smooth client-side navigation
+      router.push(redirectTo)
     }
-  }, [user, authLoading, showAuthorChoice, sessionEstablished, hasRedirected, router, redirectTo, healthStatus])
+  }, [user, authLoading, showAuthorChoice, hasRedirected, loginInProgress, router, redirectTo])
 
   // Fallback timeout for login progress - using shared timing constant
   useEffect(() => {
     if (loginInProgress) {
       const timeout = setTimeout(() => {
-        console.warn('Login timeout - resetting progress state')
         setLoginInProgress(false)
         setLoading(false)
         setHasRedirected(false) // Reset redirect flag
@@ -122,7 +96,6 @@ export default function LoginPage() {
       return
     }
     
-    const loginStartTime = performance.now()
     setLoading(true)
     setErrorMessage(null)
     setLoginInProgress(true) // Set flag to indicate login is in progress
@@ -156,14 +129,7 @@ export default function LoginPage() {
       // Sign in the user
       await signIn(email.trim(), password)
       
-      // No arbitrary delay needed - the auth state change will trigger the redirect
-      // The useEffect above will handle the user type checking when the session is established
-      
-      // Log performance metrics in development
-      if (process.env.NODE_ENV === 'development') {
-        const loginTime = performance.now() - loginStartTime
-        console.log(`Login initiated in ${loginTime.toFixed(2)}ms`)
-      }
+      // The auth state change will trigger the redirect via useEffect
       
     } catch (error) {
       console.error('Login error:', error)

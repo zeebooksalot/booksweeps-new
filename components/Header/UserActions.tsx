@@ -16,9 +16,13 @@ export function UserActions({ className = "" }: UserActionsProps) {
   // Handle sign out with proper error handling
   const handleSignOut = useCallback(async () => {
     try {
+      console.log('UserActions: Starting sign out...')
       await signOut()
+      // The signOut function will handle the redirect to homepage
     } catch (error) {
       console.error("Sign out failed:", error)
+      // Redirect to homepage even if sign out fails
+      window.location.href = '/'
     }
   }, [signOut])
 

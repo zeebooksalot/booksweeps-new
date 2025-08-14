@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { useCsrf } from "@/hooks/useCsrf"
+// Remove CSRF import
 import { 
   Download,
   BookOpen,
@@ -59,7 +59,7 @@ interface ReaderMagnet {
 // - download_count: calculated from reader_deliveries table
 
 export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { fetchWithCsrf } = useCsrf()
+  // Remove CSRF hook
   const [magnet, setMagnet] = useState<ReaderMagnet | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -177,8 +177,8 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
     setIsSubmitting(true)
     
     try {
-      // Call the download API with CSRF protection
-      const response = await fetchWithCsrf('/api/reader-magnets/downloads', {
+      // Call the download API with regular fetch (CSRF disabled)
+      const response = await fetch('/api/reader-magnets/downloads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
