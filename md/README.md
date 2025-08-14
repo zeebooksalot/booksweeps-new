@@ -9,6 +9,7 @@ A modern book discovery and voting platform built with Next.js 14, TypeScript, a
 - **Reader Magnets**: Secure download system with rate limiting
 - **Giveaway Campaigns**: Complete campaign management system
 - **SSR-Compatible Authentication**: Robust auth system with cookie + localStorage support
+- **CSRF Protection**: Comprehensive Cross-Site Request Forgery protection for all state-changing operations
 - **Cross-Domain Authentication**: Seamless auth across subdomains
 - **Responsive Design**: Mobile-first approach with beautiful UI
 - **Real-time Updates**: Powered by Supabase
@@ -21,7 +22,7 @@ A modern book discovery and voting platform built with Next.js 14, TypeScript, a
 - **Frontend**: Next.js 14, React 19, TypeScript
 - **Styling**: Tailwind CSS, shadcn/ui
 - **Backend**: Supabase (PostgreSQL, Auth, Storage)
-- **Authentication**: Supabase Auth with SSR-compatible clients
+- **Authentication**: Supabase Auth with SSR-compatible clients and CSRF protection
 - **Deployment**: Netlify
 - **State Management**: React hooks
 - **Icons**: Lucide React
@@ -66,6 +67,7 @@ A modern book discovery and voting platform built with Next.js 14, TypeScript, a
 The platform includes comprehensive security measures:
 
 - **SSR-Compatible Authentication**: Cookie + localStorage session management
+- **CSRF Protection**: Comprehensive Cross-Site Request Forgery protection with user-specific tokens
 - **Input Validation**: Comprehensive validation with XSS, SQL injection, and path traversal detection
 - **Rate Limiting**: Multi-layer rate limiting for API endpoints and downloads
 - **File Security**: File type validation, content analysis, and secure download URLs

@@ -9,6 +9,7 @@ import { AuthorChoiceModal } from '@/components/auth/AuthorChoiceModal'
 import { useSystemHealth } from '@/hooks/useSystemHealth'
 import { AUTH_TIMING } from '@/constants/auth'
 import { validateEmail, validatePassword, detectMaliciousInput } from '@/lib/validation'
+import { useCsrf } from '@/hooks/useCsrf'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -22,6 +23,7 @@ export default function LoginPage() {
   
   const { signIn, user, loading: authLoading } = useAuth()
   const { toast } = useToast()
+  const { fetchWithCsrf } = useCsrf()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo') || '/dashboard'
@@ -193,6 +195,22 @@ export default function LoginPage() {
       await signIn(emailValidation.sanitized!, passwordValidation.sanitized!)
       
       console.log('SignIn function completed successfully')
+      
+      // Track successful login and clear failed attempts
+      try {
+        await fetchWithCsrf('/api/auth/track-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: emailValidation.sanitized,
+            success: true,
+            loginPageUrl: window.location.href
+          })
+        })
+      } catch (trackingError) {
+        console.warn('Failed to track successful login:', trackingError)
+      }
+      
       // The auth state change will trigger the redirect via useEffect
       
     } catch (error) {
@@ -221,6 +239,45 @@ export default function LoginPage() {
       
       setErrorMessage(message)
       setLoginInProgress(false) // Reset flag on error
+      
+      // Track failed login attempt
+      try {
+        const trackingResponse = await fetchWithCsrf('/api/auth/track-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: emailValidation.sanitized,
+            success: false,
+            loginPageUrl: window.location.href
+          })
+        })
+        
+        if (trackingResponse.ok) {
+          const trackingData = await trackingResponse.json()
+          if (trackingData.isLocked || trackingData.isIpLocked) {
+            let lockoutMessage = ''
+            let lockoutTitle = ''
+            
+            if (trackingData.isLocked) {
+              lockoutMessage = `Account temporarily locked due to too many failed attempts. Please try again later.`
+              lockoutTitle = 'Account Locked'
+            } else if (trackingData.isIpLocked) {
+              lockoutMessage = `IP address temporarily locked due to too many failed attempts. Please try again later.`
+              lockoutTitle = 'IP Address Locked'
+            }
+            
+            setErrorMessage(lockoutMessage)
+            toast({ 
+              title: lockoutTitle, 
+              description: lockoutMessage, 
+              variant: 'destructive' 
+            })
+          }
+        }
+      } catch (trackingError) {
+        console.warn('Failed to track failed login attempt:', trackingError)
+      }
+      
       toast({ title: 'Sign in failed', description: message, variant: 'destructive' })
     } finally {
       setLoading(false)
