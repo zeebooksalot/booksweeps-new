@@ -135,6 +135,14 @@ export async function middleware(req: NextRequest) {
                     req.headers.get('cf-connecting-ip') || 
                     'unknown'
     
+    // Allow static files and assets to pass through
+    const staticFileExtensions = ['.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.json']
+    const isStaticFile = staticFileExtensions.some(ext => req.nextUrl.pathname.endsWith(ext))
+    
+    if (isStaticFile) {
+      return res
+    }
+    
     // Enhanced security check using validation library (only for non-API routes)
     if (!req.nextUrl.pathname.startsWith('/api/')) {
       const requestUrl = req.nextUrl.toString()

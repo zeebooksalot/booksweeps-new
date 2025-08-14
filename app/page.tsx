@@ -325,8 +325,7 @@ export default function BookSweepsHomepage() {
                 <div className="flex flex-col gap-8">
                   <div className="flex flex-col">
                     <div className="group -mx-4 flex cursor-pointer flex-col gap-2 rounded-lg p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow-sm">
-                      <Link 
-                        href="/discussions/bookclub" 
+                      <div 
                         className="flex flex-row items-center gap-2 text-14 font-medium text-gray-600 dark:text-gray-400 group-hover:text-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded"
                       >
                         <Image
@@ -337,13 +336,12 @@ export default function BookSweepsHomepage() {
                           className="rounded"
                         />
                         r/bookclub
-                      </Link>
-                      <Link 
-                        href="/discussions/discovery-methods"
+                      </div>
+                      <div 
                         className="block text-16 font-medium text-gray-900 dark:text-gray-100 leading-snug focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded"
                       >
                         What&apos;s your favorite book discovery method?
-                      </Link>
+                      </div>
                       <div className="flex flex-row items-center justify-start gap-3 mt-1">
                         <button 
                           className="flex flex-row items-center gap-1 text-14 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:text-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded"
@@ -362,34 +360,31 @@ export default function BookSweepsHomepage() {
                           135
                         </button>
                         <span className="text-12 text-gray-400" aria-hidden="true">•</span>
-                        <Link 
-                          href="/discussions/discovery-methods#comments"
+                        <div 
                           className="flex flex-row items-center gap-1 text-14 text-gray-600 dark:text-gray-400 hover:text-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded"
                           aria-label="80 comments"
                         >
                           <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
                           80
-                        </Link>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-4">
-                    <Link
-                      href="/discussions"
+                    <div
                       className="inline-block max-h-11 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-center text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
                       aria-label="View all discussions"
                     >
                       View all
-                    </Link>
-                    <Link
-                      href="/discussions/new"
+                    </div>
+                    <div
                       className="flex flex-row items-center justify-center gap-2 text-16 font-semibold text-gray-600 dark:text-gray-400 inline-block max-h-11 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-center transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
                       aria-label="Start a new discussion thread"
                     >
                       <MessageCircle className="h-4 w-4" aria-hidden="true" />
                       Start new thread
-                    </Link>
+                    </div>
                   </div>
                 </div>
               </div>
