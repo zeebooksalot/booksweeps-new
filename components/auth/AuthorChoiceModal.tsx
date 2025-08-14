@@ -68,7 +68,14 @@ export function AuthorChoiceModal({
   }
 
   const handleAuthorSite = () => {
+    console.log('=== AUTHOR SITE REDIRECT ===')
     const authorUrl = process.env.NEXT_PUBLIC_AUTHOR_URL || 'https://app.booksweeps.com'
+    
+    console.log('Author site redirect initiated:', {
+      authorUrl,
+      userEmail: user.email,
+      userId: user.id
+    })
     
     // Validate URL format
     try {
@@ -98,13 +105,17 @@ export function AuthorChoiceModal({
     }, 1000)
     
     // Redirect to author site
-    window.location.href = `${authorUrl}/login?email=${encodeURIComponent(user.email || '')}`
+    const redirectUrl = `${authorUrl}/login?email=${encodeURIComponent(user.email || '')}`
+    console.log('Redirecting to:', redirectUrl)
+    window.location.href = redirectUrl
   }
 
   const handleUpgradeToReader = async () => {
+    console.log('=== USER TYPE UPGRADE START ===')
     setLoading(true)
     
     try {
+      console.log('Calling upgrade API...')
       // Call API to upgrade user type
       const response = await fetch('/api/auth/upgrade-user-type', {
         method: 'POST',
@@ -119,14 +130,24 @@ export function AuthorChoiceModal({
         })
       })
 
+      console.log('Upgrade API response:', {
+        status: response.status,
+        ok: response.ok,
+        statusText: response.statusText
+      })
+
       if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Upgrade API error:', errorText)
         throw new Error('Failed to upgrade account')
       }
 
       const data = await response.json()
+      console.log('Upgrade API success:', data)
       
       // Clear any cached user type data
       if (data.cache_invalidated) {
+        console.log('Dispatching cache invalidation event')
         // Dispatch a custom event to notify other components to clear cache
         window.dispatchEvent(new CustomEvent('userTypeUpgraded', {
           detail: { userId: user.id, newUserType: data.new_user_type }
@@ -139,11 +160,15 @@ export function AuthorChoiceModal({
       })
 
       // Close modal and redirect
+      console.log('Closing modal and redirecting to:', redirectTo)
       onClose()
       router.push(redirectTo)
       
     } catch (error) {
-      console.error('Upgrade error:', error)
+      console.error('Upgrade error:', {
+        errorType: error?.constructor?.name,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      })
       toast({ 
         title: 'Upgrade failed', 
         description: 'Please try again or contact support.', 
@@ -151,6 +176,7 @@ export function AuthorChoiceModal({
       })
     } finally {
       setLoading(false)
+      console.log('=== USER TYPE UPGRADE END ===')
     }
   }
 

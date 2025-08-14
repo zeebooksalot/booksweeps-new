@@ -31,15 +31,37 @@ export default function LoginPage() {
 
   // Simplified session establishment check
   useEffect(() => {
+    console.log('=== LOGIN PAGE AUTH STATE CHECK ===')
+    console.log('Auth state check triggered:', {
+      hasUser: !!user,
+      userId: user?.id,
+      userEmail: user?.email,
+      authLoading,
+      showAuthorChoice,
+      hasRedirected,
+      loginInProgress,
+      redirectTo
+    })
+
     // Only redirect if user is authenticated and login was successful
     if (user && !authLoading && !showAuthorChoice && !hasRedirected && loginInProgress) {
+      console.log('Redirect conditions met - initiating redirect')
       // Set flags immediately to prevent multiple redirects
       setHasRedirected(true)
       setLoginInProgress(false)
       setCheckingUserType(true)
       
+      console.log('Redirecting to:', redirectTo)
       // Use Next.js router for smooth client-side navigation
       router.push(redirectTo)
+    } else {
+      console.log('Redirect conditions not met:', {
+        hasUser: !!user,
+        authLoading,
+        showAuthorChoice,
+        hasRedirected,
+        loginInProgress
+      })
     }
   }, [user, authLoading, showAuthorChoice, hasRedirected, loginInProgress, router, redirectTo])
 
@@ -81,13 +103,24 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    console.log('=== LOGIN FORM SUBMISSION START ===')
+    console.log('Form submission triggered:', {
+      email: email ? `${email.substring(0, 3)}***@${email.split('@')[1]}` : 'null',
+      passwordLength: password?.length || 0,
+      loading,
+      authLoading,
+      isUnhealthy
+    })
+    
     // Prevent concurrent submissions
     if (loading || authLoading) {
+      console.log('Submission blocked - already loading')
       return
     }
     
     // Check system health before attempting login
     if (isUnhealthy) {
+      console.log('Submission blocked - system unhealthy')
       setErrorMessage('System is currently experiencing issues. Please try again later.')
       toast({ 
         title: 'System Unavailable', 
@@ -102,9 +135,18 @@ export default function LoginPage() {
     setLoginInProgress(true) // Set flag to indicate login is in progress
     setHasRedirected(false) // Reset redirect flag
     
+    console.log('Starting input validation...')
+    
     // Comprehensive input validation
     const emailValidation = validateEmail(email)
+    console.log('Email validation result:', {
+      valid: emailValidation.valid,
+      errors: emailValidation.errors,
+      sanitized: emailValidation.sanitized ? `${emailValidation.sanitized.substring(0, 3)}***@${emailValidation.sanitized.split('@')[1]}` : 'null'
+    })
+    
     if (!emailValidation.valid) {
+      console.log('Email validation failed')
       setErrorMessage(emailValidation.errors[0])
       setLoading(false)
       setLoginInProgress(false)
@@ -112,7 +154,15 @@ export default function LoginPage() {
     }
     
     const passwordValidation = validatePassword(password, email)
+    console.log('Password validation result:', {
+      valid: passwordValidation.valid,
+      errors: passwordValidation.errors,
+      strength: passwordValidation.strength,
+      score: passwordValidation.score
+    })
+    
     if (!passwordValidation.valid) {
+      console.log('Password validation failed')
       setErrorMessage(passwordValidation.errors[0])
       setLoading(false)
       setLoginInProgress(false)
@@ -123,6 +173,11 @@ export default function LoginPage() {
     const emailThreats = detectMaliciousInput(email)
     const passwordThreats = detectMaliciousInput(password, true) // Allow special characters in passwords
     
+    console.log('Security check results:', {
+      emailThreats: emailThreats.malicious,
+      passwordThreats: passwordThreats.malicious
+    })
+    
     if (emailThreats.malicious || passwordThreats.malicious) {
       console.warn('Malicious input detected:', { email: emailThreats.threats, password: passwordThreats.threats })
       setErrorMessage('Invalid input detected. Please check your credentials.')
@@ -132,21 +187,21 @@ export default function LoginPage() {
     }
     
     try {
-      // Remove debug logs
-      // console.log('Login validation results:', {
-      //   emailValid: emailValidation.valid,
-      //   emailSanitized: emailValidation.sanitized,
-      //   passwordValid: passwordValidation.valid,
-      //   passwordLength: passwordValidation.sanitized?.length
-      // })
+      console.log('Calling signIn function...')
       
       // Sign in the user with sanitized input
       await signIn(emailValidation.sanitized!, passwordValidation.sanitized!)
       
+      console.log('SignIn function completed successfully')
       // The auth state change will trigger the redirect via useEffect
       
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('Login error:', {
+        errorType: error?.constructor?.name,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack?.substring(0, 200) : 'No stack'
+      })
+      
       let message = 'Login failed'
       
       // Provide more specific error messages
@@ -169,6 +224,7 @@ export default function LoginPage() {
       toast({ title: 'Sign in failed', description: message, variant: 'destructive' })
     } finally {
       setLoading(false)
+      console.log('=== LOGIN FORM SUBMISSION END ===')
     }
   }
 

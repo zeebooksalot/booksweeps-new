@@ -8,6 +8,7 @@ import { ResourceError } from "@/components/ui/resource-error"
 import { useRouter } from "next/navigation"
 import { createAuthDebugLogger, debugStorageClearing, debugNavigation } from "@/lib/debug-utils"
 import { User } from "@supabase/supabase-js"
+import { AuthError } from "@/lib/auth-utils"
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -205,20 +206,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Simple sign in
   const signIn = useCallback(async (email: string, password: string) => {
+    debug.log('=== SIGN IN PROCESS START ===')
+    debug.log('Sign in initiated', {
+      email: email ? `${email.substring(0, 3)}***@${email.split('@')[1]}` : 'null',
+      passwordLength: password?.length || 0,
+      supabaseInitialized: !!supabase,
+      currentUser: user?.id,
+      sessionEstablished,
+      loading,
+      profileLoading
+    })
+
     if (!supabase) {
+      debug.log('ERROR: Supabase client not initialized')
+      debug.log('Environment check:', {
+        hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 20) + '...',
+        keyPrefix: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 10) + '...'
+      })
       throw new Error('Supabase client not initialized')
     }
     
     try {
       setError(null)
+      debug.log('Calling Supabase auth.signInWithPassword...')
       
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password
       })
       
+      debug.log('Supabase sign in response received', {
+        hasData: !!data,
+        hasUser: !!data?.user,
+        userId: data?.user?.id,
+        userEmail: data?.user?.email,
+        emailConfirmed: !!data?.user?.email_confirmed_at,
+        hasError: !!signInError,
+        errorMessage: signInError?.message,
+        errorStatus: signInError?.status,
+        errorName: signInError?.name
+      })
+      
       if (signInError) {
-        console.error('Supabase sign in error details:', {
+        debug.log('Supabase sign in error details:', {
           message: signInError.message,
           status: signInError.status,
           name: signInError.name
@@ -228,17 +260,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Check email verification
       if (!data.user?.email_confirmed_at) {
+        debug.log('Email not verified - signing out and throwing error')
         await supabase.auth.signOut()
         throw new Error('Please verify your email before signing in')
       }
       
+      debug.log('Sign in successful - waiting for auth state change')
+      debug.log('=== SIGN IN PROCESS END ===')
+      
       // User is now signed in - the auth state change will handle the rest
     } catch (err) {
+      debug.log('Sign in error caught:', {
+        errorType: err?.constructor?.name,
+        errorMessage: err instanceof Error ? err.message : 'Unknown error',
+        errorStack: err instanceof Error ? err.stack?.substring(0, 200) : 'No stack'
+      })
       const message = err instanceof Error ? err.message : 'Sign in failed'
       setError(message)
       throw err
     }
-  }, [])
+  }, [user, sessionEstablished, loading, profileLoading, debug])
 
   // Simple sign up
   const signUp = useCallback(async (email: string, password: string) => {
@@ -281,8 +322,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       debug.log('Starting Supabase sign out...')
       
-      // Sign out from Supabase FIRST (before clearing local state)
-      const { error } = await supabase.auth.signOut()
+      // Sign out from Supabase FIRST (before clearing local state) with timeout
+      const signOutPromise = supabase.auth.signOut()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Sign out timeout')), 5000)
+      )
+      
+      const { error } = await Promise.race([signOutPromise, timeoutPromise]) as { error: AuthError | null }
       
       if (error) {
         debug.logSignOutError(error, user?.id)
@@ -373,67 +419,113 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
+    debug.log('=== AUTH INITIALIZATION START ===')
+    debug.log('Auth initialization triggered', {
+      hasSupabase: !!supabase,
+      currentUser: user?.id,
+      loading,
+      sessionEstablished
+    })
+
     if (!supabase) {
-      console.error('Supabase client not initialized')
+      debug.log('ERROR: Supabase client not initialized during auth init')
       setLoading(false)
       return
     }
 
     const initializeAuth = async () => {
       if (!supabase) {
-        console.error('Supabase client not initialized')
+        debug.log('ERROR: Supabase client not initialized in initializeAuth')
         setLoading(false)
         return
       }
       
       try {
+        debug.log('Getting initial session...')
         // Get initial session
         const { data: { session } } = await supabase.auth.getSession()
+        
+        debug.log('Initial session result:', {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          userEmail: session?.user?.email,
+          sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+          currentTime: new Date().toISOString()
+        })
+        
         setUser(session?.user ?? null)
         setSessionEstablished(!!session?.user)
         
         // Load profile and settings if user exists
         if (session?.user) {
+          debug.log('Loading profile and settings for existing session...')
           await Promise.all([
             loadUserProfile(session.user.id),
             loadUserSettings(session.user.id)
           ])
         }
       } catch (err) {
-        console.error('Error initializing auth:', err)
+        debug.log('Error initializing auth:', {
+          errorType: err?.constructor?.name,
+          errorMessage: err instanceof Error ? err.message : 'Unknown error'
+        })
       } finally {
         setLoading(false)
+        debug.log('Auth initialization completed')
       }
     }
 
     initializeAuth()
 
     // Listen for auth changes
+    debug.log('Setting up auth state change listener...')
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id, 'Session exists:', !!session)
+        debug.log('=== AUTH STATE CHANGE ===')
+        debug.log('Auth state change event:', {
+          event,
+          userId: session?.user?.id,
+          userEmail: session?.user?.email,
+          hasSession: !!session,
+          sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+          currentTime: new Date().toISOString(),
+          previousUser: user?.id,
+          previousSessionEstablished: sessionEstablished
+        })
         
         setUser(session?.user ?? null)
         setSessionEstablished(!!session?.user)
         
         if (session?.user) {
-          console.log('Loading profile and settings for user:', session.user.id)
-          await Promise.all([
-            loadUserProfile(session.user.id),
-            loadUserSettings(session.user.id)
-          ])
+          debug.log('Loading profile and settings for user:', session.user.id)
+          try {
+            await Promise.all([
+              loadUserProfile(session.user.id),
+              loadUserSettings(session.user.id)
+            ])
+            debug.log('Profile and settings loaded successfully')
+          } catch (error) {
+            debug.log('Error loading profile/settings:', {
+              errorType: error?.constructor?.name,
+              errorMessage: error instanceof Error ? error.message : 'Unknown error'
+            })
+          }
         } else {
-          console.log('Clearing profile and settings - no session')
+          debug.log('Clearing profile and settings - no session')
           setUserProfile(null)
           setUserSettings(null)
         }
         
         setLoading(false)
+        debug.log('Auth state change processing completed')
       }
     )
 
-    return () => subscription.unsubscribe()
-  }, [loadUserProfile, loadUserSettings])
+    return () => {
+      debug.log('Cleaning up auth state change listener')
+      subscription.unsubscribe()
+    }
+  }, [loadUserProfile, loadUserSettings, debug])
 
   const contextValue: AuthContextType = {
     user,

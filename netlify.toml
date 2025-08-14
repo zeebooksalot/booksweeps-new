@@ -16,6 +16,7 @@
   NEXT_PUBLIC_AUTHOR_URL = "https://app.booksweeps.com"
 
 # Security headers for dynamic pages (exclude static files)
+# Note: CSP is handled by Next.js middleware, not here
 [[headers]]
   for = "/*"
   [headers.values]
