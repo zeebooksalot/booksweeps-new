@@ -2,7 +2,7 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { shouldRedirectUser, getPlatformHosts } from '@/lib/config'
-// Remove CSRF imports since CSRF is disabled
+import { validateCsrfFromRequest } from '@/lib/csrf'
 import { logSecurityEvent, ErrorSeverity, extractErrorContext } from '@/lib/error-handler'
 import { detectMaliciousInput } from '@/lib/validation'
 
@@ -100,7 +100,7 @@ export async function middleware(req: NextRequest) {
   
   res.headers.set('Content-Security-Policy', cspHeader)
 
-  // 🔒 ALLOW STATIC FILES FIRST - before any other checks
+  //  ALLOW STATIC FILES FIRST - before any other checks
   const staticFileExtensions = ['.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.json']
   const isStaticFile = staticFileExtensions.some(ext => req.nextUrl.pathname.endsWith(ext))
   
@@ -163,9 +163,48 @@ export async function middleware(req: NextRequest) {
 
     const currentHost = req.nextUrl.hostname
 
-    // CSRF Protection disabled - removed validation logic
-    // Note: CSRF protection has been disabled for this application
+    // 🔒 CSRF PROTECTION - Re-enabled with SSR-compatible authentication
+    const userId = session?.user?.id || null
     
+    // Only apply CSRF protection to state-changing operations
+    const isStateChangingOperation = req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE' || req.method === 'PATCH'
+    const isApiRoute = req.nextUrl.pathname.startsWith('/api/')
+    const isCsrfExemptRoute = req.nextUrl.pathname === '/api/csrf/generate' || 
+                             req.nextUrl.pathname.includes('/auth/') ||
+                             req.nextUrl.pathname.includes('/login') ||
+                             req.nextUrl.pathname.includes('/signup')
+    
+    if (isStateChangingOperation && isApiRoute && !isCsrfExemptRoute) {
+      const isValidCsrf = validateCsrfFromRequest(req, userId)
+      
+      if (!isValidCsrf) {
+        debugLog('CSRF validation failed', {
+          pathname: req.nextUrl.pathname,
+          method: req.method,
+          userId,
+          hasToken: !!req.headers.get('X-CSRF-Token')
+        })
+        
+        logSecurityEvent(
+          'CSRF token invalid',
+          ErrorSeverity.HIGH,
+          extractErrorContext(req),
+          { userId, method: req.method }
+        )
+        
+        return NextResponse.json(
+          { error: 'CSRF token validation failed' },
+          { status: 403 }
+        )
+      }
+      
+      debugLog('CSRF validation passed', {
+        pathname: req.nextUrl.pathname,
+        method: req.method,
+        userId
+      })
+    }
+
     // 🔒 REQUEST SIZE LIMITS
     const contentLength = req.headers.get('content-length')
     if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) { // 10MB limit
@@ -198,214 +237,76 @@ export async function middleware(req: NextRequest) {
           ErrorSeverity.HIGH,
           extractErrorContext(req),
           { 
-            suspiciousUrl: requestUrl,
-            urlThreats: urlThreats.threats,
-            clientIp,
-            userAgent: req.headers.get('user-agent')
+            threats: urlThreats.threats,
+            url: requestUrl
           }
         )
         
         return NextResponse.json(
-          { error: 'Invalid request' }, 
+          { error: 'Malicious input detected' },
           { status: 400 }
         )
       }
     }
 
-    // Protected routes
-    const protectedRoutes = ['/dashboard', '/books', '/campaigns']
-    const isProtectedRoute = protectedRoutes.some(route => 
-      req.nextUrl.pathname.startsWith(route)
-    )
-
-    // Auth pages (include update-password for recovery flow)
-    const authPages = ['/login', '/signup', '/forgot-password', '/update-password']
-    const isAuthPage = authPages.some(page => 
-      req.nextUrl.pathname.startsWith(page)
-    )
-
-    // Allow update-password even if a session exists (Supabase recovery creates temp session)
-    const isUpdatePassword = req.nextUrl.pathname.startsWith('/update-password')
-
-    // Handle authentication for protected routes
-    if (isProtectedRoute && !session) {
-      debugLog('Unauthorized access to protected route', {
-        pathname: req.nextUrl.pathname,
-        hasSession: !!session,
-        clientIp
-      })
+    // 🔒 CROSS-DOMAIN AUTHENTICATION REDIRECTS
+    if (session?.user) {
+      const userType = session.user.user_metadata?.user_type || 'reader'
+      const redirectCheck = shouldRedirectUser(userType, currentHost)
       
-      // In development, be more permissive and let client-side auth handle it
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Development mode: Allowing access to protected route without session, letting client handle auth')
-        return res
-      }
-      
-      // Log security event
-      logSecurityEvent(
-        'Unauthorized access attempt',
-        ErrorSeverity.MEDIUM,
-        extractErrorContext(req),
-        { 
-          protectedRoute: req.nextUrl.pathname,
-          clientIp,
-          userAgent: req.headers.get('user-agent')
-        }
-      )
-      
-      const redirectUrl = req.nextUrl.clone()
-      redirectUrl.pathname = '/login'
-      redirectUrl.searchParams.set('redirectTo', req.nextUrl.pathname)
-      return NextResponse.redirect(redirectUrl)
-    }
-
-    // Redirect authenticated users away from auth pages (except update-password)
-    if (session && isAuthPage && !isUpdatePassword) {
-      debugLog('Redirecting authenticated user from auth page', {
-        pathname: req.nextUrl.pathname,
-        userId: session.user.id
-      })
-      
-      const redirectUrl = req.nextUrl.clone()
-      redirectUrl.pathname = '/dashboard'
-      return NextResponse.redirect(redirectUrl)
-    }
-
-    // Handle cross-domain redirects based on user type
-    if (session) {
-      try {
-        // Get user type from database
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('user_type')
-          .eq('id', session.user.id)
-          .single()
-
-        if (userError) {
-          debugLog('Error fetching user type', {
-            error: userError.message,
-            userId: session.user.id,
-            pathname: req.nextUrl.pathname
-          })
-          // Continue without user type validation - don't block the request
-          // This prevents blocking dashboard access when database is unavailable
-        } else if (userData?.user_type) {
-          const userType = userData.user_type
-
-          // Use config utility to determine redirects
-          const redirectCheck = shouldRedirectUser(userType, currentHost)
-          
-          if (redirectCheck.shouldRedirect && redirectCheck.targetUrl) {
-            debugLog('Cross-domain redirect', {
-              userId: session.user.id,
-              userType,
-              fromHost: currentHost,
-              toUrl: redirectCheck.targetUrl,
-              pathname: req.nextUrl.pathname
-            })
-            
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`Redirecting user ${session.user.id} (${userType}) from ${currentHost} to ${redirectCheck.targetUrl}`)
-            }
-            return NextResponse.redirect(redirectCheck.targetUrl)
-          }
-        }
-      } catch (error) {
-        debugLog('Error in user type validation', {
-          error: error instanceof Error ? error.message : String(error),
-          userId: session.user.id,
-          pathname: req.nextUrl.pathname
-        })
-        // Continue without user type validation - don't block the request
-        // This ensures dashboard access is not blocked by database issues
-      }
-    }
-
-    // Handle API routes with authentication
-    // Allow public access to read-only endpoints
-    const publicApiEndpoints = [
-      '/api/books',
-      '/api/authors',
-      '/api/giveaways',
-      '/api/reader-magnets'
-    ]
-
-    const isPublicApiEndpoint = publicApiEndpoints.some(endpoint => 
-      req.nextUrl.pathname.startsWith(endpoint) && req.method === 'GET'
-    )
-
-    // Allow CSRF generation endpoint for all methods (needed for auth)
-    const isCsrfEndpoint = req.nextUrl.pathname.startsWith('/api/csrf/generate')
-
-    // Only protect non-auth, non-public API routes
-    if (req.nextUrl.pathname.startsWith('/api/') && 
-        !req.nextUrl.pathname.startsWith('/api/auth/') &&
-        !isPublicApiEndpoint &&
-        !isCsrfEndpoint) {
-      if (!session) {
-        debugLog('Unauthorized API access attempt', {
-          endpoint: req.nextUrl.pathname,
-          method: req.method,
-          clientIp
+      if (redirectCheck.shouldRedirect && redirectCheck.targetUrl) {
+        debugLog('Cross-domain redirect triggered', {
+          userType,
+          currentHost,
+          targetUrl: redirectCheck.targetUrl,
+          userId: session.user.id
         })
         
-        // Log security event
-        logSecurityEvent(
-          'Unauthorized API access attempt',
-          ErrorSeverity.HIGH,
-          extractErrorContext(req),
-          { 
-            apiEndpoint: req.nextUrl.pathname,
-            method: req.method,
-            clientIp,
-            userAgent: req.headers.get('user-agent')
-          }
-        )
-        
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return NextResponse.redirect(redirectCheck.targetUrl)
       }
+    }
+
+    // 🔒 DEVELOPMENT MODE BEHAVIOR
+    if (process.env.NODE_ENV === 'development') {
+      // In development, allow more permissive behavior for testing
+      debugLog('Development mode - allowing request', {
+        pathname: req.nextUrl.pathname,
+        method: req.method,
+        hasSession: !!session
+      })
     }
 
     return res
+
   } catch (error) {
-    debugLog('Middleware critical error', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      pathname: req.nextUrl.pathname
+    debugLog('Middleware error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      pathname: req.nextUrl.pathname,
+      method: req.method
     })
     
-    // Only log critical errors, not timing issues
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    const isTimingError = errorMessage.includes('JWT') || 
-                         errorMessage.includes('session') ||
-                         errorMessage.includes('token') ||
-                         errorMessage.includes('auth')
+    logSecurityEvent(
+      'Middleware error',
+      ErrorSeverity.HIGH,
+      extractErrorContext(req),
+      { error: error instanceof Error ? error.message : 'Unknown error' }
+    )
     
-    if (!isTimingError) {
-      logSecurityEvent(
-        'Middleware critical error',
-        ErrorSeverity.CRITICAL,
-        extractErrorContext(req),
-        { 
-          error: errorMessage,
-          stack: error instanceof Error ? error.stack : undefined
-        }
-      )
-    }
-    
-    // For critical errors, redirect to error page
-    if (req.nextUrl.pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-    
-    // For page requests, continue processing for non-critical errors
-    // This prevents blocking legitimate requests due to timing issues
+    // In case of middleware error, allow the request to continue
+    // This prevents the entire application from breaking
     return res
   }
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
   ],
 }

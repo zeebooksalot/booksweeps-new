@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { useCsrf } from '@/hooks/useCsrf'
 
 interface ApiResponse<T> {
   data: T | null
@@ -9,6 +10,7 @@ interface ApiResponse<T> {
 
 export function useApi<T>() {
   const { user } = useAuth()
+  const { fetchWithCsrf, isLoading: csrfLoading } = useCsrf()
   const [state, setState] = useState<ApiResponse<T>>({
     data: null,
     loading: false,
@@ -19,8 +21,8 @@ export function useApi<T>() {
     setState(prev => ({ ...prev, loading: true, error: null }))
     
     try {
-      // Use regular fetch for all requests since CSRF is disabled
-      const response = await fetch(url, options)
+      // Use CSRF-protected fetch for all requests
+      const response = await fetchWithCsrf(url, options)
       const data = await response.json()
       
       if (!response.ok) {
@@ -34,7 +36,11 @@ export function useApi<T>() {
       setState({ data: null, loading: false, error: errorMessage })
       throw error
     }
-  }, [])
+  }, [fetchWithCsrf])
 
-  return { ...state, fetchData }
+  return { 
+    ...state, 
+    fetchData,
+    loading: state.loading || csrfLoading 
+  }
 } 

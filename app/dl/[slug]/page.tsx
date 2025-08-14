@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-// Remove CSRF import
+import { useCsrf } from '@/hooks/useCsrf'
 import { 
   Download,
   BookOpen,
@@ -59,7 +59,6 @@ interface ReaderMagnet {
 // - download_count: calculated from reader_deliveries table
 
 export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: string }> }) {
-  // Remove CSRF hook
   const [magnet, setMagnet] = useState<ReaderMagnet | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -72,6 +71,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
   const [slug, setSlug] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
   const [isMobileView, setIsMobileView] = useState(false)
+  const { fetchWithCsrf } = useCsrf()
 
   useEffect(() => {
     const initParams = async () => {
@@ -162,7 +162,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
 
         // If API fails, show error instead of fallback data
         setError('Reader magnet not found or unavailable')
-      } catch (err) {
+      } catch {
         setError('Failed to load reader magnet')
       } finally {
         setIsLoading(false)
@@ -177,8 +177,8 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
     setIsSubmitting(true)
     
     try {
-      // Call the download API with regular fetch (CSRF disabled)
-      const response = await fetch('/api/reader-magnets/downloads', {
+      // Call the download API with CSRF protection
+      const response = await fetchWithCsrf('/api/reader-magnets/downloads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -200,9 +200,8 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
       setIsSubmitted(true)
       setDownloadUrl(data.download_url || null)
       setAccessToken(data.access_token || null)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to submit form'
-      setError(errorMessage)
+    } catch {
+      setError('Failed to submit form')
     } finally {
       setIsSubmitting(false)
     }

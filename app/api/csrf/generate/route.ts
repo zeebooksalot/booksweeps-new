@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { generateCsrfToken } from '@/lib/csrf'
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const res = NextResponse.next()
-    const supabase = createMiddlewareClient({ req: request, res })
+    // Create authenticated client using SSR-compatible client
+    const supabase = createRouteHandlerClient({ cookies })
 
     // Get user session (but don't require it)
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()

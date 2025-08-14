@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { MessageCircle, Star, Tag } from "lucide-react"
+import { MessageCircle, Star } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { FeedItem } from "@/types"
 import { FEED_DISPLAY, FEED_TEXT, FEED_CONFIG } from "@/constants/feed"

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useApi } from "./use-api"
 import { useAuth } from "@/components/auth/AuthProvider"
+import { useCsrf } from '@/hooks/useCsrf'
 import { 
   BookItem, 
   AuthorItem, 
@@ -29,7 +30,7 @@ export function useHomePage() {
   
   // Auth
   const { user } = useAuth()
-  // Remove CSRF hook
+  const { fetchWithCsrf } = useCsrf()
   
   // API hooks
   const booksApi = useApi<{ data: ApiBook[]; pagination: unknown }>()
@@ -233,7 +234,7 @@ export function useHomePage() {
       }
       
       // Send vote to API with regular fetch (CSRF disabled)
-      const response = await fetch('/api/votes', {
+      const response = await fetchWithCsrf('/api/votes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -263,7 +264,7 @@ export function useHomePage() {
       console.error('Error submitting vote:', error)
       // You could show a toast notification here
     }
-  }, [allData, user])
+  }, [allData, user, fetchWithCsrf])
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {

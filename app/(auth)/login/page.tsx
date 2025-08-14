@@ -20,14 +20,14 @@ export default function LoginPage() {
   const [showAuthorChoice, setShowAuthorChoice] = useState(false)
   const [hasRedirected, setHasRedirected] = useState(false)
   
-  const { signIn, user, userType, loading: authLoading } = useAuth()
+  const { signIn, user, loading: authLoading } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo') || '/dashboard'
   
   // Use shared system health hook
-  const { healthStatus, isHealthy, isUnhealthy } = useSystemHealth()
+  const { isUnhealthy } = useSystemHealth()
 
   // Fix the auth state check to prevent multiple redirects
   useEffect(() => {

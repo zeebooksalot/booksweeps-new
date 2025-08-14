@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
@@ -159,7 +160,7 @@ export async function DELETE(request: NextRequest) {
 }
 
 async function updateVoteCounts(
-  supabase: any,
+  supabase: SupabaseClient,
   book_id: string | null, 
   pen_name_id: string | null, 
   oldVoteType: string | null, 

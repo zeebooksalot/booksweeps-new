@@ -61,6 +61,14 @@ export function validateCsrfToken(token: string | null, userId: string | null): 
 }
 
 /**
+ * Validate CSRF token from request headers
+ */
+export function validateCsrfFromRequest(request: Request, userId: string | null): boolean {
+  const csrfToken = request.headers.get('X-CSRF-Token')
+  return validateCsrfToken(csrfToken, userId)
+}
+
+/**
  * Constant-time string comparison to prevent timing attacks
  */
 function constantTimeCompare(a: string, b: string): boolean {
