@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error creating user profile:', err)
       // Don't throw - profile creation is not critical for login
     }
-  }, [])
+  }, [supabase])
 
   // Create user settings
   const createUserSettings = useCallback(async (userId: string) => {
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Error creating user settings:', err)
     }
-  }, [])
+  }, [supabase])
 
   // Load user profile - moved inside useEffect to avoid dependency issues
   const loadUserProfileInternal = useCallback(async (userId: string) => {
@@ -133,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setProfileLoading(false)
     }
-  }, [user?.email, createUserProfile])
+  }, [user?.email, createUserProfile, supabase])
 
   // Load user settings - moved inside useEffect to avoid dependency issues
   const loadUserSettingsInternal = useCallback(async (userId: string) => {
@@ -162,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Error loading user settings:', err)
     }
-  }, [createUserSettings])
+  }, [createUserSettings, supabase])
 
   // Update profile
   const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
@@ -188,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error updating profile:', err)
       throw err
     }
-  }, [user, loadUserProfileInternal])
+  }, [user, loadUserProfileInternal, supabase])
 
   // Update settings
   const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {
@@ -211,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error updating settings:', err)
       throw err
     }
-  }, [user, loadUserSettingsInternal])
+  }, [user, loadUserSettingsInternal, supabase])
 
   // Simple sign in
   const signIn = useCallback(async (email: string, password: string) => {
@@ -288,7 +288,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(message)
       throw err
     }
-  }, [user, sessionEstablished, loading, profileLoading, debug])
+  }, [user, sessionEstablished, loading, profileLoading, debug, supabase])
 
   // Simple sign up
   const signUp = useCallback(async (email: string, password: string) => {
@@ -313,7 +313,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(message)
       throw err
     }
-  }, [createUserProfile])
+  }, [createUserProfile, supabase])
 
   // Simple sign out
   const signOut = useCallback(async () => {
@@ -421,7 +421,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [user, sessionEstablished, router, debug])
+  }, [user, sessionEstablished, router, debug, supabase])
 
   // Clear error
   const clearError = useCallback(() => {
@@ -565,7 +565,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isInitializedRef.current = false
       initializationInProgressRef.current = false
     }
-  }, []) // FIXED: No dependencies to prevent re-runs
+  }, [supabase, user?.id, sessionEstablished, loading, debug, loadUserProfileInternal, loadUserSettingsInternal])
 
   const contextValue: AuthContextType = {
     user,

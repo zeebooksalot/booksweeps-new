@@ -8,18 +8,20 @@ A modern book discovery and voting platform built with Next.js 14, TypeScript, a
 - **Voting System**: Vote on books and pen names
 - **Reader Magnets**: Secure download system with rate limiting
 - **Giveaway Campaigns**: Complete campaign management system
+- **SSR-Compatible Authentication**: Robust auth system with cookie + localStorage support
 - **Cross-Domain Authentication**: Seamless auth across subdomains
 - **Responsive Design**: Mobile-first approach with beautiful UI
 - **Real-time Updates**: Powered by Supabase
 - **Type Safety**: Full TypeScript implementation
 - **Modern UI**: Built with shadcn/ui components
-- **Enterprise Security**: Rate limiting, validation, duplicate prevention
+- **Enterprise Security**: Rate limiting, validation, duplicate prevention, comprehensive input sanitization
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: Next.js 14, React 19, TypeScript
 - **Styling**: Tailwind CSS, shadcn/ui
 - **Backend**: Supabase (PostgreSQL, Auth, Storage)
+- **Authentication**: Supabase Auth with SSR-compatible clients
 - **Deployment**: Netlify
 - **State Management**: React hooks
 - **Icons**: Lucide React
@@ -59,6 +61,18 @@ A modern book discovery and voting platform built with Next.js 14, TypeScript, a
    ```
 3. **Set up environment variables** with your Supabase credentials
 
+## 🔒 Security Features
+
+The platform includes comprehensive security measures:
+
+- **SSR-Compatible Authentication**: Cookie + localStorage session management
+- **Input Validation**: Comprehensive validation with XSS, SQL injection, and path traversal detection
+- **Rate Limiting**: Multi-layer rate limiting for API endpoints and downloads
+- **File Security**: File type validation, content analysis, and secure download URLs
+- **Security Headers**: CSP, HSTS, X-Frame-Options, and other security headers
+- **Row Level Security**: Database-level access control with RLS policies
+- **Error Handling**: Sanitized error responses and comprehensive logging
+
 ## 🚀 Deployment
 
 ### Netlify Deployment
@@ -97,7 +111,7 @@ A modern book discovery and voting platform built with Next.js 14, TypeScript, a
    - Netlify CLI: `netlify deploy --prod`
    - Or upload the `.next` folder to your hosting provider
 
-## 📁 Project Structure
+## �� Project Structure
 
 ```
 booksweeps-new/
