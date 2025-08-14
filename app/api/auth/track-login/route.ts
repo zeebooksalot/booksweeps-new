@@ -6,8 +6,8 @@ import { getReferringURL } from '@/lib/referring-url'
 export async function POST(request: NextRequest) {
   try {
     const { email, success, loginPageUrl } = await request.json()
-    const ipAddress = getClientIP()
-    const referringUrl = getReferringURL()
+    const ipAddress = await getClientIP()
+    const referringUrl = await getReferringURL()
 
     if (!email) {
       return NextResponse.json(
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const email = searchParams.get('email')
-    const ipAddress = getClientIP()
+    const ipAddress = await getClientIP()
 
     if (!email) {
       return NextResponse.json(

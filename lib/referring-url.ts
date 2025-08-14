@@ -1,8 +1,8 @@
 import { headers } from 'next/headers'
 
-export function getReferringURL(): string | undefined {
+export async function getReferringURL(): Promise<string | undefined> {
   try {
-    const headersList = headers()
+    const headersList = await headers()
     
     // Check various headers for referring URL
     const referer = headersList.get('referer')

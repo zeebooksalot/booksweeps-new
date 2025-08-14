@@ -1,8 +1,8 @@
 import { headers } from 'next/headers'
 
-export function getClientIP(): string {
+export async function getClientIP(): Promise<string> {
   try {
-    const headersList = headers()
+    const headersList = await headers()
     
     // Check various headers for IP address (in order of preference)
     const forwardedFor = headersList.get('x-forwarded-for')
