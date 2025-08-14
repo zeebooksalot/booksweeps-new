@@ -92,10 +92,10 @@ export async function middleware(req: NextRequest) {
   let cspHeader: string
   if (isDevelopment) {
     // Development CSP with nonce for testing
-    cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co ws://localhost:* wss://localhost:*; frame-ancestors 'none';`
+    cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co https://yomnitxefrkuvnbnbhut.supabase.co/auth/v1/* ws://localhost:* wss://localhost:*; frame-ancestors 'none';`
   } else {
-    // Production CSP - simplified without nonce to avoid conflicts with Next.js inline scripts
-    cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co; frame-ancestors 'none';`
+    // Production CSP - fixed to allow Supabase auth endpoints
+    cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co https://yomnitxefrkuvnbnbhut.supabase.co/auth/v1/*; frame-ancestors 'none';`
   }
   
   res.headers.set('Content-Security-Policy', cspHeader)
