@@ -106,7 +106,7 @@ export function useSystemHealth() {
     
     setPendingCheck(healthCheckPromise)
     return await healthCheckPromise
-  }, [healthCache, pendingCheck])
+  }, [healthCache])
 
   // Get health status
   const getHealthStatus = useCallback(() => {
