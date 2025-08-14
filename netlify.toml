@@ -15,13 +15,6 @@
   NEXT_PUBLIC_READER_URL = "https://read.booksweeps.com"
   NEXT_PUBLIC_AUTHOR_URL = "https://app.booksweeps.com"
 
-# Ensure manifest.json is served as static file
-[[redirects]]
-  from = "/manifest.json"
-  to = "/manifest.json"
-  status = 200
-  force = true
-
 # Security headers for dynamic pages (exclude static files)
 [[headers]]
   for = "/*"

@@ -123,9 +123,6 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
         <link rel="icon" href="/favicon.ico" />
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#f97316" />
-        <meta name="msapplication-TileColor" content="#f97316" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <ErrorBoundary>
