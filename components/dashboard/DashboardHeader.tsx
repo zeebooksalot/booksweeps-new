@@ -12,6 +12,7 @@ interface DashboardHeaderProps {
     avatar_url?: string | null
     display_name?: string | null
     favorite_genres: string[]
+    user_type?: string
   }
   stats: {
     totalDownloads: number
@@ -22,23 +23,28 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ user, userProfile, stats }: DashboardHeaderProps) {
+  // Handle fallback profile gracefully
+  const displayName = userProfile.display_name || user.email?.split('@')[0] || 'User'
+  const userType = userProfile.user_type || 'reader'
+  const hasFavoriteGenres = userProfile.favorite_genres && userProfile.favorite_genres.length > 0
+
   return (
     <div className="mb-8">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-start gap-6">
           <Image
             src={userProfile.avatar_url || "/placeholder.svg?height=64&width=64"}
-            alt={userProfile.display_name || user.email || "User"}
+            alt={displayName}
             width={80}
             height={80}
             className="rounded-full"
           />
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-              Welcome back, {userProfile.display_name || user.email}!
+              Welcome back, {displayName}!
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              {userProfile.favorite_genres.length > 0 
+              {hasFavoriteGenres 
                 ? `You love ${userProfile.favorite_genres.join(", ")} books`
                 : "Start exploring books to get personalized recommendations"
               }
@@ -82,9 +88,14 @@ export function DashboardHeader({ user, userProfile, stats }: DashboardHeaderPro
                 <Settings className="h-4 w-4 mr-2" />
                 Settings
               </Button>
-              {userProfile.favorite_genres.length === 0 && (
+              {!hasFavoriteGenres && (
                 <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
                   Complete your profile
+                </Badge>
+              )}
+              {userType && (
+                <Badge variant="outline" className="capitalize">
+                  {userType}
                 </Badge>
               )}
             </div>

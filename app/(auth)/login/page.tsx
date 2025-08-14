@@ -1,70 +1,103 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/components/auth/AuthProvider'
-import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { useToast } from '@/components/ui/use-toast'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from '@/components/auth/AuthProvider'
+import { useToast } from '@/hooks/use-toast'
 import { AuthorChoiceModal } from '@/components/auth/AuthorChoiceModal'
-import { User } from '@supabase/supabase-js'
+import { useSystemHealth } from '@/hooks/useSystemHealth'
+import { AUTH_TIMING } from '@/constants/auth'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [checkingUserType, setCheckingUserType] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [showAuthorChoice, setShowAuthorChoice] = useState(false)
-  const [authorUser, setAuthorUser] = useState<User | null>(null)
   const [loginInProgress, setLoginInProgress] = useState(false)
+  const [checkingUserType, setCheckingUserType] = useState(false)
+  const [showAuthorChoice, setShowAuthorChoice] = useState(false)
+  const [hasRedirected, setHasRedirected] = useState(false)
   
   const { signIn, user, userType, loading: authLoading, sessionEstablished } = useAuth()
+  const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { toast } = useToast()
   const redirectTo = searchParams.get('redirectTo') || '/dashboard'
+  
+  // Use shared system health hook
+  const { healthStatus, isHealthy, isUnhealthy } = useSystemHealth()
 
-  // Handle user type checking after successful login
+  // SIMPLIFIED: Only check for basic auth success
   useEffect(() => {
-    if (user && userType && !authLoading && !showAuthorChoice && loginInProgress && sessionEstablished) {
+    console.log('Login effect triggered:', {
+      user: !!user,
+      authLoading,
+      showAuthorChoice,
+      loginInProgress,
+      sessionEstablished,
+      hasRedirected,
+      healthStatus
+    })
+    
+    // Changed condition: Remove loginInProgress requirement since it gets set to false
+    if (user && !authLoading && !showAuthorChoice && sessionEstablished && !hasRedirected) {
       setCheckingUserType(true)
-      setLoginInProgress(false) // Reset login progress flag
+      setHasRedirected(true) // Prevent multiple redirects
       
-      // If user is author type, show choice modal
-      if (userType === 'author') {
-        setAuthorUser(user)
-        setShowAuthorChoice(true)
-        setCheckingUserType(false)
-        return
+      // SIMPLIFIED: Go directly to dashboard, profile will load there
+      console.log('Login successful, redirecting to dashboard')
+      console.log('Redirect target:', redirectTo)
+      
+      // Use router.push for client-side navigation (no page refresh)
+      try {
+        console.log('Using router.push for redirect')
+        router.push(redirectTo)
+      } catch (error) {
+        console.error('Router navigation failed:', error)
+        
+        // Fallback to window.location only if router fails
+        try {
+          console.log('Falling back to window.location')
+          window.location.href = redirectTo
+        } catch (locationError) {
+          console.error('Window location redirect failed:', locationError)
+        }
       }
-
-      // For reader and both types, proceed normally
-      toast({ title: 'Signed in', description: 'Welcome back!' })
-      router.push(redirectTo)
-      setCheckingUserType(false)
     }
-  }, [user, userType, authLoading, showAuthorChoice, loginInProgress, sessionEstablished, toast, router, redirectTo])
+  }, [user, authLoading, showAuthorChoice, sessionEstablished, hasRedirected, router, redirectTo, healthStatus])
 
-  // Fallback timeout for login progress - prevents stuck state
+  // Fallback timeout for login progress - using shared timing constant
   useEffect(() => {
     if (loginInProgress) {
       const timeout = setTimeout(() => {
         console.warn('Login timeout - resetting progress state')
         setLoginInProgress(false)
         setLoading(false)
-      }, 5000) // 5 second timeout as fallback
-      
+        setHasRedirected(false) // Reset redirect flag
+        
+        // Check system health before showing timeout message
+        const healthMessage = isUnhealthy 
+          ? 'System is currently experiencing issues. Please try again later.'
+          : 'Please try again. If the problem persists, contact support.'
+        
+        toast({ 
+          title: 'Login timeout', 
+          description: healthMessage, 
+          variant: 'destructive' 
+        })
+      }, AUTH_TIMING.LOGIN_TIMEOUT)
       return () => clearTimeout(timeout)
     }
-  }, [loginInProgress])
+  }, [loginInProgress, toast, isUnhealthy])
 
-  // Handle auth errors and provide retry option
+  // Auto-clear errors after timeout - using shared timing constant
   useEffect(() => {
     if (errorMessage && !loading) {
-      // Clear error after 5 seconds to prevent stuck state
+      // Clear error after timeout to prevent stuck state
       const timeout = setTimeout(() => {
         setErrorMessage(null)
-      }, 5000)
+      }, AUTH_TIMING.ERROR_AUTO_CLEAR)
       
       return () => clearTimeout(timeout)
     }
@@ -78,10 +111,22 @@ export default function LoginPage() {
       return
     }
     
+    // Check system health before attempting login
+    if (isUnhealthy) {
+      setErrorMessage('System is currently experiencing issues. Please try again later.')
+      toast({ 
+        title: 'System Unavailable', 
+        description: 'Please try again when the system is healthy.', 
+        variant: 'destructive' 
+      })
+      return
+    }
+    
     const loginStartTime = performance.now()
     setLoading(true)
     setErrorMessage(null)
     setLoginInProgress(true) // Set flag to indicate login is in progress
+    setHasRedirected(false) // Reset redirect flag
     
     // Client-side validation
     if (!email.trim()) {
@@ -122,7 +167,23 @@ export default function LoginPage() {
       
     } catch (error) {
       console.error('Login error:', error)
-      const message = (error as Error).message || 'Login failed'
+      let message = 'Login failed'
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('Invalid login credentials')) {
+          message = 'Invalid email or password. Please check your credentials and try again.'
+        } else if (error.message.includes('Email not confirmed')) {
+          message = 'Please verify your email address before signing in.'
+        } else if (error.message.includes('Too many requests')) {
+          message = 'Too many login attempts. Please wait a moment and try again.'
+        } else if (error.message.includes('Failed to fetch')) {
+          message = 'Network error. Please check your connection and try again.'
+        } else {
+          message = error.message
+        }
+      }
+      
       setErrorMessage(message)
       setLoginInProgress(false) // Reset flag on error
       toast({ title: 'Sign in failed', description: message, variant: 'destructive' })
@@ -133,7 +194,6 @@ export default function LoginPage() {
 
   const handleAuthorChoiceClose = () => {
     setShowAuthorChoice(false)
-    setAuthorUser(null)
   }
 
   return (
@@ -145,6 +205,15 @@ export default function LoginPage() {
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Welcome back</h1>
               <p className="mt-2 text-14 text-gray-600 dark:text-gray-400">Sign in to continue</p>
             </div>
+
+            {/* System Health Indicator */}
+            {isUnhealthy && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-700 dark:text-red-300">
+                  ⚠️ System is currently experiencing issues. Some features may be limited.
+                </p>
+              </div>
+            )}
 
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
@@ -178,7 +247,12 @@ export default function LoginPage() {
               </div>
 
               {errorMessage && (
-                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200" role="alert" aria-live="polite">{errorMessage}</div>
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200" role="alert" aria-live="polite">
+                  {errorMessage}
+                  <div className="mt-1 text-xs text-red-600">
+                    This error will clear automatically in {Math.ceil(AUTH_TIMING.ERROR_AUTO_CLEAR / 1000)} seconds.
+                  </div>
+                </div>
               )}
 
               <div className="flex items-center justify-between text-14">
@@ -187,7 +261,7 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={loading || authLoading}
+                disabled={loading || authLoading || isUnhealthy}
                 className="inline-flex items-center justify-center h-11 w-full rounded-full bg-orange-500 text-white text-14 font-semibold hover:bg-orange-600 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
                 aria-describedby={errorMessage ? "error-message" : undefined}
               >
@@ -203,12 +277,12 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Author Choice Modal */}
-      {authorUser && (
+      {/* Author Choice Modal - simplified */}
+      {showAuthorChoice && user && (
         <AuthorChoiceModal
           isOpen={showAuthorChoice}
           onClose={handleAuthorChoiceClose}
-          user={authorUser}
+          user={user}
           redirectTo={redirectTo}
         />
       )}

@@ -221,6 +221,7 @@ export async function middleware(req: NextRequest) {
         if (userError) {
           console.error('Error fetching user type:', userError)
           // Continue without user type validation - don't block the request
+          // This prevents blocking dashboard access when database is unavailable
         } else if (userData?.user_type) {
           const userType = userData.user_type
 
@@ -237,6 +238,7 @@ export async function middleware(req: NextRequest) {
       } catch (error) {
         console.error('Error in user type validation:', error)
         // Continue without user type validation - don't block the request
+        // This ensures dashboard access is not blocked by database issues
       }
     }
 

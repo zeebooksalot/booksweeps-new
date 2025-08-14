@@ -48,6 +48,7 @@ export interface AuthContextType {
   userSettings: UserSettings | null
   userType: string | null
   loading: boolean
+  profileLoading: boolean
   error: string | null
   sessionEstablished: boolean
   signIn: (email: string, password: string) => Promise<void>
@@ -56,6 +57,7 @@ export interface AuthContextType {
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>
   updateSettings: (updates: Partial<UserSettings>) => Promise<void>
   refreshUserProfile: () => Promise<void>
+  loadUserProfile: () => Promise<void>
   clearError: () => void
 }
 

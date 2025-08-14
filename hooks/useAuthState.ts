@@ -1,27 +1,31 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { UserProfile, UserSettings } from '@/types/auth'
 import { DEFAULT_USER_SETTINGS } from '@/constants/auth'
 import { handleAuthError, retryWithBackoff, isResourceExhaustionError } from '@/lib/auth-utils'
 
 export function useAuthState() {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<any>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sessionEstablished, setSessionEstablished] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(false)
 
   // Fetch user profile from database with retry logic
   const fetchUserProfile = useCallback(async (userId: string) => {
-    if (!supabase) return null
+    if (!supabase) {
+      throw new Error('Database connection not available')
+    }
 
     try {
       return await retryWithBackoff(async () => {
-        if (!supabase) return null
+        if (!supabase) {
+          throw new Error('Database connection not available')
+        }
         
         const { data, error } = await supabase
           .from('users')
@@ -30,9 +34,14 @@ export function useAuthState() {
           .single()
 
         if (error) {
+          if (error.code === 'PGRST116' || error.message.includes('No rows found')) {
+            console.log('User profile not found, will create one')
+            return null
+          }
+          
           const authError = handleAuthError(error, 'fetching user profile')
           console.error(authError.message)
-          return null
+          throw new Error(authError.message)
         }
 
         return data as UserProfile
@@ -41,12 +50,53 @@ export function useAuthState() {
       const authError = handleAuthError(error, 'fetching user profile')
       console.error(authError.message)
       
-      // Set error state for resource exhaustion
       if (isResourceExhaustionError(error)) {
-        setError('Unable to load profile due to system resources. Please refresh the page.')
+        throw new Error('Unable to load profile due to system resources. Please refresh the page.')
       }
       
-      return null
+      throw error
+    }
+  }, [])
+
+  // Create user profile if it doesn't exist
+  const createUserProfile = useCallback(async (userId: string, email: string) => {
+    if (!supabase) {
+      throw new Error('Database connection not available')
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          email: email,
+          user_type: 'reader',
+          favorite_genres: [],
+          reading_preferences: {
+            email_notifications: true,
+            marketing_emails: true,
+            giveaway_reminders: true,
+            weekly_reports: false,
+            theme: 'auto',
+            language: 'en',
+            timezone: 'UTC',
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error creating user profile:', error)
+        throw new Error('Failed to create user profile')
+      }
+
+      console.log('User profile created successfully')
+      return data as UserProfile
+    } catch (error) {
+      console.error('Error creating user profile:', error)
+      throw error
     }
   }, [])
 
@@ -75,30 +125,63 @@ export function useAuthState() {
     } catch (error) {
       const authError = handleAuthError(error, 'fetching user settings')
       console.error(authError.message)
-      
-      // Set error state for resource exhaustion
-      if (isResourceExhaustionError(error)) {
-        setError('Unable to load settings due to system resources. Using default settings.')
-      }
-      
       return DEFAULT_USER_SETTINGS
     }
   }, [])
 
-  // Refresh user profile with error handling
-  const refreshUserProfile = useCallback(async () => {
+  // Load user profile and settings (called separately from login)
+  const loadUserProfile = useCallback(async () => {
     if (!user) return
-
-    setError(null) // Clear previous errors
     
-    const profile = await fetchUserProfile(user.id)
-    const settings = await fetchUserSettings(user.id)
+    setProfileLoading(true)
+    setError(null)
+    
+    try {
+      let profile = await fetchUserProfile(user.id)
+      
+      if (!profile && user.email) {
+        console.log('Creating user profile for:', user.email)
+        profile = await createUserProfile(user.id, user.email)
+      }
+      
+      if (!profile) {
+        console.warn('Could not fetch or create user profile, using defaults')
+        profile = {
+          id: user.id,
+          email: user.email || '',
+          user_type: 'reader',
+          favorite_genres: [],
+          reading_preferences: {
+            email_notifications: true,
+            marketing_emails: true,
+            giveaway_reminders: true,
+            weekly_reports: false,
+            theme: 'auto',
+            language: 'en',
+            timezone: 'UTC',
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as UserProfile
+      }
+      
+      const settings = await fetchUserSettings(user.id)
 
-    setUserProfile(profile)
-    setUserSettings(settings)
-  }, [user, fetchUserProfile, fetchUserSettings])
+      setUserProfile(profile)
+      setUserSettings(settings)
+    } catch (error) {
+      console.error('Error loading user profile:', error)
+      // Set error state so components can handle it
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load user profile'
+      setError(errorMessage)
+      // Re-throw the error so calling components can catch it
+      throw error
+    } finally {
+      setProfileLoading(false)
+    }
+  }, [user, fetchUserProfile, fetchUserSettings, createUserProfile])
 
-  // Initialize auth state
+  // Initialize auth state (SIMPLIFIED - no profile fetching)
   useEffect(() => {
     const getSession = async () => {
       if (!supabase) return
@@ -106,10 +189,8 @@ export function useAuthState() {
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
-        // Handle session errors gracefully
         if (sessionError) {
           console.warn('Session error during initialization:', sessionError)
-          // Don't set error state for timing-related issues
           const isTimingError = sessionError.message.includes('JWT') || 
                                sessionError.message.includes('session') ||
                                sessionError.message.includes('token')
@@ -120,16 +201,12 @@ export function useAuthState() {
         } else {
           setUser(session?.user ?? null)
           setSessionEstablished(!!session?.user)
-          
-          if (session?.user) {
-            await refreshUserProfile()
-          }
+          // NO PROFILE FETCHING HERE - simplified login
         }
       } catch (error) {
         const authError = handleAuthError(error, 'initializing auth state')
         console.error(authError.message)
         
-        // Only set error for non-timing issues
         const isTimingError = authError.message.includes('JWT') || 
                              authError.message.includes('session') ||
                              authError.message.includes('token')
@@ -144,14 +221,13 @@ export function useAuthState() {
 
     getSession()
 
-    // Listen for auth changes
+    // Listen for auth changes (SIMPLIFIED)
     if (!supabase) return
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change:', event, session?.user?.id)
         
-        // Track performance for login events
         if (event === 'SIGNED_IN' && session?.user) {
           const sessionEstablishTime = performance.now()
           console.log(`Session established for user ${session.user.id} in ${sessionEstablishTime.toFixed(2)}ms`)
@@ -159,34 +235,35 @@ export function useAuthState() {
         
         setUser(session?.user ?? null)
         setSessionEstablished(!!session?.user)
-        setError(null) // Clear errors on auth change
+        setError(null)
         
-        if (session?.user) {
-          await refreshUserProfile()
-        } else {
+        // Clear profile data on sign out
+        if (!session?.user) {
           setUserProfile(null)
           setUserSettings(null)
         }
+        // NO PROFILE FETCHING ON SIGN IN - simplified
         
         setLoading(false)
       }
     )
 
     return () => subscription.unsubscribe()
-  }, [refreshUserProfile])
+  }, [])
 
   return {
     user,
     userProfile,
     userSettings,
     loading,
+    profileLoading,
     error,
     sessionEstablished,
     setUser,
     setUserProfile,
     setUserSettings,
     setError,
-    refreshUserProfile,
+    loadUserProfile, // New function to load profile separately
     clearError: () => setError(null),
   }
 }

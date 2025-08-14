@@ -115,3 +115,11 @@ export const AUTH_ERROR_MESSAGES = {
   networkError: 'Network error. Please check your connection.',
   unknownError: 'An unexpected error occurred. Please try again.',
 } as const
+
+// Shared timing constants for consistency across auth and dashboard
+export const AUTH_TIMING = {
+  LOGIN_TIMEOUT: 10000, // 10 seconds - matches dashboard profile loading timeout
+  ERROR_AUTO_CLEAR: 30000, // 30 seconds - matches dashboard error clearing
+  HEALTH_CHECK_CACHE: 5 * 60 * 1000, // 5 minutes - matches dashboard health check cache
+  SESSION_ESTABLISHMENT_TIMEOUT: 15000, // 15 seconds for session establishment
+} as const

@@ -17,9 +17,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userProfile,
     userSettings,
     loading,
+    profileLoading,
     error,
     sessionEstablished,
-    refreshUserProfile,
+    loadUserProfile,
     clearError,
   } = useAuthState()
 
@@ -36,13 +37,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return
     await updateProfileBase(user.id, updates)
-    await refreshUserProfile()
+    await loadUserProfile()
   }
 
   const updateSettings = async (updates: Partial<UserSettings>) => {
     if (!user) return
     await updateSettingsBase(user.id, updates)
-    await refreshUserProfile()
+    await loadUserProfile()
   }
 
   const contextValue: AuthContextType = {
@@ -51,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userSettings,
     userType: userProfile?.user_type || null,
     loading,
+    profileLoading,
     error,
     sessionEstablished,
     signIn,
@@ -58,7 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     updateProfile,
     updateSettings,
-    refreshUserProfile,
+    refreshUserProfile: loadUserProfile,
+    loadUserProfile,
     clearError,
   }
 
