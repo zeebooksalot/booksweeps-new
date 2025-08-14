@@ -5,6 +5,8 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/use-toast'
+import { validateEmail, validatePassword, detectMaliciousInput } from '@/lib/validation'
+import { PasswordStrength } from '@/components/ui/password-strength'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -20,8 +22,16 @@ export default function SignupPage() {
     e.preventDefault()
     setErrorMessage(null)
     
-    if (password.length < 8) {
-      setErrorMessage('Password must be at least 8 characters long')
+    // Comprehensive input validation
+    const emailValidation = validateEmail(email)
+    if (!emailValidation.valid) {
+      setErrorMessage(emailValidation.errors[0])
+      return
+    }
+    
+    const passwordValidation = validatePassword(password, email)
+    if (!passwordValidation.valid) {
+      setErrorMessage(passwordValidation.errors[0])
       return
     }
 
@@ -30,11 +40,24 @@ export default function SignupPage() {
       return
     }
     
+    // Security check for malicious input
+    const emailThreats = detectMaliciousInput(email)
+    const passwordThreats = detectMaliciousInput(password, true) // Allow special characters in passwords
+    
+    if (emailThreats.malicious || passwordThreats.malicious) {
+      console.warn('Malicious input detected during signup:', { 
+        email: emailThreats.threats, 
+        password: passwordThreats.threats 
+      })
+      setErrorMessage('Invalid input detected. Please check your information.')
+      return
+    }
+    
     setLoading(true)
     
     try {
-      // Sign up with reader as default user type
-      await signUp(email, password, { user_type: 'reader' })
+      // Sign up with reader as default user type using sanitized input
+      await signUp(emailValidation.sanitized!, passwordValidation.sanitized!, { user_type: 'reader' })
       toast({ title: 'Account created', description: 'Welcome to BookSweeps!' })
       router.push('/dashboard')
     } catch (error) {
@@ -92,9 +115,11 @@ export default function SignupPage() {
                 aria-describedby={errorMessage ? "error-message" : "password-requirements"}
                 aria-invalid={!!errorMessage}
               />
-              <div id="password-requirements" className="text-xs text-gray-500 mt-1">
-                Password must be at least 8 characters long
-              </div>
+              <PasswordStrength 
+                password={password} 
+                email={email} 
+                className="mt-2"
+              />
             </div>
 
             <div>

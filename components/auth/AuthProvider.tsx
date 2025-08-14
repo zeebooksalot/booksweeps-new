@@ -200,14 +200,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabase) {
       throw new Error('Supabase client not initialized')
     }
+    
     try {
       setError(null)
+      
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password
       })
       
-      if (signInError) throw signInError
+      if (signInError) {
+        console.error('Supabase sign in error details:', {
+          message: signInError.message,
+          status: signInError.status,
+          name: signInError.name
+        })
+        throw signInError
+      }
       
       // Check email verification
       if (!data.user?.email_confirmed_at) {

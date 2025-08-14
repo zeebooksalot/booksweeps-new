@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast'
 import { AuthorChoiceModal } from '@/components/auth/AuthorChoiceModal'
 import { useSystemHealth } from '@/hooks/useSystemHealth'
 import { AUTH_TIMING } from '@/constants/auth'
+import { validateEmail, validatePassword, detectMaliciousInput } from '@/lib/validation'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -101,33 +102,46 @@ export default function LoginPage() {
     setLoginInProgress(true) // Set flag to indicate login is in progress
     setHasRedirected(false) // Reset redirect flag
     
-    // Client-side validation
-    if (!email.trim()) {
-      setErrorMessage('Email is required')
+    // Comprehensive input validation
+    const emailValidation = validateEmail(email)
+    if (!emailValidation.valid) {
+      setErrorMessage(emailValidation.errors[0])
       setLoading(false)
       setLoginInProgress(false)
       return
     }
     
-    if (!password.trim()) {
-      setErrorMessage('Password is required')
+    const passwordValidation = validatePassword(password, email)
+    if (!passwordValidation.valid) {
+      setErrorMessage(passwordValidation.errors[0])
       setLoading(false)
       setLoginInProgress(false)
       return
     }
     
-    // Basic email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email.trim())) {
-      setErrorMessage('Please enter a valid email address')
+    // Security check for malicious input
+    const emailThreats = detectMaliciousInput(email)
+    const passwordThreats = detectMaliciousInput(password, true) // Allow special characters in passwords
+    
+    if (emailThreats.malicious || passwordThreats.malicious) {
+      console.warn('Malicious input detected:', { email: emailThreats.threats, password: passwordThreats.threats })
+      setErrorMessage('Invalid input detected. Please check your credentials.')
       setLoading(false)
       setLoginInProgress(false)
       return
     }
     
     try {
-      // Sign in the user
-      await signIn(email.trim(), password)
+      // Remove debug logs
+      // console.log('Login validation results:', {
+      //   emailValid: emailValidation.valid,
+      //   emailSanitized: emailValidation.sanitized,
+      //   passwordValid: passwordValidation.valid,
+      //   passwordLength: passwordValidation.sanitized?.length
+      // })
+      
+      // Sign in the user with sanitized input
+      await signIn(emailValidation.sanitized!, passwordValidation.sanitized!)
       
       // The auth state change will trigger the redirect via useEffect
       

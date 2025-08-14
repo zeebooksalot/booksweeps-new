@@ -22,7 +22,6 @@ import { UserProfile } from "@/types/auth"
 const MAX_RETRY_ATTEMPTS = 3
 
 export default function DashboardPageRefactored() {
-  console.log('Dashboard page rendering...') // Add this debug log
   
   const { user, userProfile, profileLoading, loadUserProfile } = useAuth()
   const { 
@@ -126,10 +125,8 @@ export default function DashboardPageRefactored() {
 
   // Load profile data after dashboard renders
   useEffect(() => {
-    console.log('Dashboard useEffect - user:', !!user, 'userProfile:', !!userProfile, 'profileLoading:', profileLoading)
     
     if (user && !userProfile && !profileLoading && !isLoadingProfile) {
-      console.log('Loading user profile for dashboard...')
       setIsLoadingProfile(true)
       loadUserProfile().finally(() => {
         setIsLoadingProfile(false)
@@ -176,23 +173,8 @@ export default function DashboardPageRefactored() {
     DASHBOARD_CONFIG.searchDebounceDelay
   )
 
-  console.log('Dashboard render state:', {
-    user: !!user,
-    userProfile: !!userProfile,
-    isAuthLoading,
-    isProfileLoading,
-    isDataLoading,
-    profileError,
-    hasTimedOut,
-    retryCount,
-    shouldShowLoading,
-    shouldBlockUI,
-    healthStatus
-  })
-
   // Show loading state while auth is loading (blocking)
   if (shouldBlockUI()) {
-    console.log('Dashboard: Showing blocking auth loading state')
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="flex items-center gap-3">
@@ -205,7 +187,6 @@ export default function DashboardPageRefactored() {
 
   // Show error state if not authenticated
   if (!user) {
-    console.log('Dashboard: No user, showing auth required')
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <ErrorState
@@ -220,15 +201,6 @@ export default function DashboardPageRefactored() {
   // Use fallback profile if userProfile is not available
   const effectiveProfile = userProfile || getFallbackProfile()
   const isUsingFallback = !userProfile
-
-  console.log('Dashboard: Rendering dashboard with profile:', {
-    hasUserProfile: !!userProfile,
-    isUsingFallback,
-    profileError,
-    hasTimedOut,
-    retryCount,
-    healthStatus
-  })
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

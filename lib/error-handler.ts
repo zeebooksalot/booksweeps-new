@@ -1,5 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ValidationError, SecurityError } from './validation'
+
+// Simple error classes for backward compatibility
+export class ValidationError extends Error {
+  public readonly issues?: Array<{
+    field: string
+    message: string
+    code: string
+  }>
+
+  constructor(message: string, issues?: Array<{ field: string; message: string; code: string }>) {
+    super(message)
+    this.name = 'ValidationError'
+    this.issues = issues
+  }
+}
+
+export class SecurityError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SecurityError'
+  }
+}
 
 // Error types for categorization
 export enum ErrorType {

@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server'
 import { shouldRedirectUser, getPlatformHosts } from '@/lib/config'
 // Remove CSRF imports since CSRF is disabled
 import { logSecurityEvent, ErrorSeverity, extractErrorContext } from '@/lib/error-handler'
+import { detectMaliciousInput } from '@/lib/validation'
 
 // Generate nonce for CSP using Web Crypto API
 function generateNonce(): string {
@@ -108,34 +109,32 @@ export async function middleware(req: NextRequest) {
                     req.headers.get('cf-connecting-ip') || 
                     'unknown'
     
-    // Check for suspicious patterns
-    const suspiciousPatterns = [
-      /\.\.\//, // Directory traversal
-      /<script/i, // Script injection
-      /javascript:/i, // JavaScript protocol
-      /data:text\/html/i, // Data URLs
-    ]
-    
-    const requestUrl = req.nextUrl.toString()
-    const hasSuspiciousPattern = suspiciousPatterns.some(pattern => pattern.test(requestUrl))
-    
-    if (hasSuspiciousPattern) {
-      // Log security event
-      logSecurityEvent(
-        'Suspicious request pattern detected',
-        ErrorSeverity.HIGH,
-        extractErrorContext(req),
-        { 
-          suspiciousUrl: requestUrl,
-          clientIp,
-          userAgent: req.headers.get('user-agent')
-        }
-      )
+    // Enhanced security check using validation library (only for non-API routes)
+    if (!req.nextUrl.pathname.startsWith('/api/')) {
+      const requestUrl = req.nextUrl.toString()
       
-      return NextResponse.json(
-        { error: 'Invalid request' }, 
-        { status: 400 }
-      )
+      // Check URL for malicious content (skip user agent to avoid false positives)
+      const urlThreats = detectMaliciousInput(requestUrl)
+      
+      if (urlThreats.malicious) {
+        // Log security event
+        logSecurityEvent(
+          'Malicious input detected in request',
+          ErrorSeverity.HIGH,
+          extractErrorContext(req),
+          { 
+            suspiciousUrl: requestUrl,
+            urlThreats: urlThreats.threats,
+            clientIp,
+            userAgent: req.headers.get('user-agent')
+          }
+        )
+        
+        return NextResponse.json(
+          { error: 'Invalid request' }, 
+          { status: 400 }
+        )
+      }
     }
 
     // Protected routes
