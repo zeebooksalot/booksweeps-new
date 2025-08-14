@@ -105,13 +105,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Check if Supabase client is available
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
+    // Create authenticated client
+    const supabase = createRouteHandlerClient({ cookies })
 
     const { searchParams } = new URL(request.url)
     const user_id = searchParams.get('user_id')
@@ -152,7 +147,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Decrement vote counts
-    await updateVoteCounts(book_id, pen_name_id, existingVote.vote_type, null)
+    await updateVoteCounts(supabase, book_id, pen_name_id, existingVote.vote_type, null)
 
     return NextResponse.json({ message: 'Vote removed successfully' })
   } catch (error) {
@@ -164,6 +159,7 @@ export async function DELETE(request: NextRequest) {
 }
 
 async function updateVoteCounts(
+  supabase: any,
   book_id: string | null, 
   pen_name_id: string | null, 
   oldVoteType: string | null, 

@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from './supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { PaginationState } from '@/types'
 
-// Check if Supabase client is available
+// Check if Supabase client is available for API routes
 export function checkSupabaseConnection() {
-  if (!supabase) {
+  try {
+    const supabase = createRouteHandlerClient({ cookies })
+    return { supabase }
+  } catch (error) {
     return {
       error: NextResponse.json(
         { error: 'Database connection not available' },
@@ -12,7 +16,6 @@ export function checkSupabaseConnection() {
       )
     }
   }
-  return { supabase }
 }
 
 // Create standardized API response
@@ -99,15 +102,30 @@ export function applySorting(query: any, sortBy: string) { // eslint-disable-lin
       return query.order('upvotes_count', { ascending: false })
         .order('created_at', { ascending: false })
     case 'newest':
+      return query.order('created_at', { ascending: false })
+    case 'oldest':
+      return query.order('created_at', { ascending: true })
+    case 'title':
+      return query.order('title', { ascending: true })
+    case 'author':
+      return query.order('author', { ascending: true })
     default:
       return query.order('created_at', { ascending: false })
   }
 }
 
 // Apply pagination to Supabase query
-export function applyPagination(query: any, page: number, limit: number) { // eslint-disable-line @typescript-eslint/no-explicit-any
-  const offset = (page - 1) * limit
-  return query.range(offset, offset + limit - 1)
+export async function applyPagination(
+  query: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  page: number,
+  limit: number
+) {
+  const start = (page - 1) * limit
+  const end = start + limit - 1
+
+  const { data, error, count } = await query.range(start, end)
+
+  return { data, error, count }
 }
 
 // Validate request body
@@ -126,11 +144,11 @@ export function handleDatabaseError(error: any) { // eslint-disable-line @typesc
 }
 
 // Create success response
-export function createSuccessResponse<T>(data: T, status: number = 200) {
-  return NextResponse.json({ 
-    success: true, 
-    data 
-  }, { status })
+export function createSuccessResponse<T>(
+  data: T,
+  status: number = 200
+) {
+  return NextResponse.json(data, { status })
 }
 
 // Parse and validate request body
@@ -149,18 +167,57 @@ export async function checkAuthentication(_request: NextRequest) {
   return true
 }
 
-// Rate limiting helper
-export function createRateLimitResponse(retryAfter: number) {
-  return NextResponse.json(
-    { 
-      error: 'Too many requests. Please try again later.',
-      retryAfter: Math.ceil(retryAfter / 1000)
-    },
-    { 
-      status: 429,
-      headers: {
-        'Retry-After': Math.ceil(retryAfter / 1000).toString()
-      }
-    }
-  )
+// Rate limiting utilities
+export function createRateLimitIdentifier(
+  type: 'ip' | 'user',
+  identifier: string,
+  action: string
+) {
+  return `${type}:${identifier}:${action}`
+}
+
+// Get client IP from request headers
+export function getClientIP(request: NextRequest): string {
+  return request.headers.get('x-forwarded-for') || 
+         request.headers.get('x-real-ip') || 
+         request.headers.get('cf-connecting-ip') || 
+         'unknown'
+}
+
+// Validate and sanitize input
+export function validateInput(input: string, maxLength: number = 1000): string {
+  if (!input || typeof input !== 'string') {
+    throw new Error('Invalid input')
+  }
+  
+  const sanitized = input.trim().substring(0, maxLength)
+  
+  if (sanitized.length === 0) {
+    throw new Error('Input cannot be empty')
+  }
+  
+  return sanitized
+}
+
+// Check if user has permission to access resource
+export function checkUserPermission(
+  resourceUserId: string,
+  currentUserId: string
+): boolean {
+  return resourceUserId === currentUserId
+}
+
+// Format error message for client
+export function formatErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  return 'An unexpected error occurred'
+}
+
+// Validate pagination parameters
+export function validatePagination(page: number, limit: number) {
+  const validPage = Math.max(1, page)
+  const validLimit = Math.min(Math.max(1, limit), 100) // Max 100 items per page
+  return { page: validPage, limit: validLimit }
 }

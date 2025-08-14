@@ -1,11 +1,11 @@
 'use client'
 
-import { useUserType } from '@/hooks/useUserType'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { useEffect, useState } from 'react'
 import { shouldRedirectUser, getPlatformHosts } from '@/lib/config'
 
 export function PlatformRedirect() {
-  const { userType, loading } = useUserType()
+  const { user, userType, loading } = useAuth()
   const [showSuggestion, setShowSuggestion] = useState(false)
 
   useEffect(() => {
