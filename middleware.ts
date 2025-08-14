@@ -32,11 +32,13 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
   const supabase = createMiddlewareClient({ req, res })
 
-  // Generate nonce for CSP
+  // Generate nonce for CSP (development only)
   const nonce = generateNonce()
   
-  // Add nonce to response headers for CSP
-  res.headers.set('X-CSP-Nonce', nonce)
+  // Add nonce to response headers for CSP (development only)
+  if (process.env.NODE_ENV === 'development') {
+    res.headers.set('X-CSP-Nonce', nonce)
+  }
   
   // 🔒 CRITICAL SECURITY HEADERS
   res.headers.set('X-Content-Type-Options', 'nosniff')
@@ -50,16 +52,16 @@ export async function middleware(req: NextRequest) {
     res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
   }
   
-  // Update CSP header with nonce - more permissive in development
+  // Update CSP header - simplified for production compatibility
   const isDevelopment = process.env.NODE_ENV === 'development'
   
   let cspHeader: string
   if (isDevelopment) {
-    // More permissive CSP for development (allows hot reloading, etc.)
+    // Development CSP with nonce for testing
     cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co ws://localhost:* wss://localhost:*; frame-ancestors 'none';`
   } else {
-    // Production CSP - allows unsafe-eval and unsafe-inline for Next.js
-    cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co; frame-ancestors 'none';`
+    // Production CSP - simplified without nonce to avoid conflicts with Next.js inline scripts
+    cspHeader = `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://yomnitxefrkuvnbnbhut.supabase.co; frame-ancestors 'none';`
   }
   
   res.headers.set('Content-Security-Policy', cspHeader)
