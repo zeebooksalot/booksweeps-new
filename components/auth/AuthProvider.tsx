@@ -322,29 +322,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       debug.log('Starting Supabase sign out...')
       
-      // Sign out from Supabase FIRST (before clearing local state) with timeout
-      const signOutPromise = supabase.auth.signOut()
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sign out timeout')), 5000)
-      )
-      
-      const { error } = await Promise.race([signOutPromise, timeoutPromise]) as { error: AuthError | null }
-      
-      if (error) {
-        debug.logSignOutError(error, user?.id)
-        debug.log('Supabase sign out failed, but continuing with local cleanup')
-        // Don't throw error, just log it since we've already cleared local state
-      } else {
-        debug.log('Successfully signed out from Supabase')
-      }
-      
-      // Clear local state AFTER Supabase sign out
+      // Clear local state FIRST to prevent UI issues
       setUser(null)
       setUserProfile(null)
       setUserSettings(null)
       setSessionEstablished(false)
       
       debug.log('Local state cleared')
+      
+      // Then attempt Supabase sign out with shorter timeout
+      const signOutPromise = supabase.auth.signOut()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Sign out timeout')), 3000) // Reduced from 5000ms
+      )
+      
+      try {
+        const { error } = await Promise.race([signOutPromise, timeoutPromise]) as { error: AuthError | null }
+        
+        if (error) {
+          debug.logSignOutError(error, user?.id)
+          debug.log('Supabase sign out failed, but continuing with cleanup')
+        } else {
+          debug.log('Successfully signed out from Supabase')
+        }
+      } catch (timeoutError) {
+        debug.log('Sign out timed out, continuing with cleanup', { error: timeoutError })
+      }
       
       // Force clear any remaining session data
       if (typeof window !== 'undefined') {
@@ -380,7 +383,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             debug.log('Both router and window.location failed', { error: locationError })
           }
         }
-        return // Exit early since we're redirecting
       }
       
       debug.log('Sign out process completed')
@@ -433,9 +435,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
+    let isInitialized = false
+    let subscription: { unsubscribe: () => void } | null = null
+
     const initializeAuth = async () => {
-      if (!supabase) {
-        debug.log('ERROR: Supabase client not initialized in initializeAuth')
+      if (!supabase || isInitialized) {
+        debug.log('ERROR: Supabase client not initialized or already initialized')
         setLoading(false)
         return
       }
@@ -475,11 +480,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    initializeAuth()
-
     // Listen for auth changes
     debug.log('Setting up auth state change listener...')
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         debug.log('=== AUTH STATE CHANGE ===')
         debug.log('Auth state change event:', {
@@ -521,11 +524,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     )
 
+    subscription = authSubscription
+    isInitialized = true
+
+    // Initialize auth after setting up the listener
+    initializeAuth()
+
     return () => {
       debug.log('Cleaning up auth state change listener')
-      subscription.unsubscribe()
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+      isInitialized = false
     }
-  }, [loadUserProfile, loadUserSettings, debug])
+  }, [loadUserProfile, loadUserSettings, debug]) // Remove user and sessionEstablished from dependencies
 
   const contextValue: AuthContextType = {
     user,

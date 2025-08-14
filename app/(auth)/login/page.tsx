@@ -29,7 +29,7 @@ export default function LoginPage() {
   // Use shared system health hook
   const { healthStatus, isHealthy, isUnhealthy } = useSystemHealth()
 
-  // Simplified session establishment check
+  // Fix the auth state check to prevent multiple redirects
   useEffect(() => {
     console.log('=== LOGIN PAGE AUTH STATE CHECK ===')
     console.log('Auth state check triggered:', {
@@ -43,7 +43,7 @@ export default function LoginPage() {
       redirectTo
     })
 
-    // Only redirect if user is authenticated and login was successful
+    // Only redirect if user is authenticated, not loading, and login was successful
     if (user && !authLoading && !showAuthorChoice && !hasRedirected && loginInProgress) {
       console.log('Redirect conditions met - initiating redirect')
       // Set flags immediately to prevent multiple redirects
