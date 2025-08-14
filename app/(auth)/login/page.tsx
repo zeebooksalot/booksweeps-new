@@ -232,6 +232,12 @@ export default function LoginPage() {
     setShowAuthorChoice(false)
   }
 
+  const handleAuthorChoice = (userType: 'reader' | 'author' | 'both') => {
+    console.log('User type chosen:', userType)
+    // Handle the choice - redirect to appropriate page
+    router.push(redirectTo)
+  }
+
   return (
     <>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
@@ -313,13 +319,12 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Author Choice Modal - simplified */}
-      {showAuthorChoice && user && (
+      {/* Author Choice Modal */}
+      {showAuthorChoice && (
         <AuthorChoiceModal
           isOpen={showAuthorChoice}
           onClose={handleAuthorChoiceClose}
-          user={user}
-          redirectTo={redirectTo}
+          onChoice={handleAuthorChoice}
         />
       )}
     </>
