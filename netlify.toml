@@ -15,6 +15,13 @@
   NEXT_PUBLIC_READER_URL = "https://read.booksweeps.com"
   NEXT_PUBLIC_AUTHOR_URL = "https://app.booksweeps.com"
 
+# Ensure manifest.json is served as static file
+[[redirects]]
+  from = "/manifest.json"
+  to = "/manifest.json"
+  status = 200
+  force = true
+
 [[headers]]
   for = "/*"
   [headers.values]
@@ -30,4 +37,11 @@
   [headers.values]
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, x-csrf-token" 
+    Access-Control-Allow-Headers = "Content-Type, Authorization, x-csrf-token"
+
+# Ensure static files are served correctly
+[[headers]]
+  for = "*.json"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Content-Type = "application/json" 
