@@ -6,25 +6,47 @@ import { Mail, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useAuth } from "@/components/auth/AuthProvider"
+import { useRouter } from "next/navigation"
+import { createAuthDebugLogger, debugNavigation } from "@/lib/debug-utils"
 
-
-
-interface DropdownItem {
-  label: string
-  href: string
-}
 
 export function MobileMenu() {
   const { user, signOut } = useAuth()
+  const router = useRouter()
+
+  // Use the new debug utilities
+  const debug = createAuthDebugLogger('MobileMenu')
 
   // Handle sign out with proper error handling
   const handleSignOut = useCallback(async () => {
     try {
+      debug.log('MobileMenu: Starting sign out...')
       await signOut()
+      // The signOut function will handle the redirect to homepage
     } catch (error) {
-      console.error("Sign out failed:", error)
+      debug.logSignOutError(error, user?.id)
+      
+      // Force redirect to homepage even if sign out fails
+      if (typeof window !== 'undefined') {
+        debug.log('MobileMenu: Forcing redirect after sign out failure')
+        const navigation = debugNavigation('/', 'router')
+        try {
+          router.push('/')
+          navigation.success()
+        } catch (routerError) {
+          navigation.failure(routerError)
+          debug.log('MobileMenu: Router fallback failed, using window.location', { routerError })
+          const fallbackNavigation = debugNavigation('/', 'window.location')
+          try {
+            window.location.replace('/')
+            fallbackNavigation.success()
+          } catch (locationError) {
+            fallbackNavigation.failure(locationError)
+          }
+        }
+      }
     }
-  }, [signOut])
+  }, [signOut, router, debug, user])
 
   // Memoized navigation items to prevent unnecessary re-renders
   const navigationItems = useMemo(() => [

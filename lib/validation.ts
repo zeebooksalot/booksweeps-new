@@ -1,8 +1,6 @@
 // Comprehensive input validation and sanitization library
 // Security-focused validation for authentication and user data
 
-import { ValidationError, SecurityError } from './error-handler'
-
 export interface ValidationResult {
   valid: boolean
   errors: string[]
@@ -12,6 +10,21 @@ export interface ValidationResult {
 export interface PasswordValidationResult extends ValidationResult {
   strength: 'weak' | 'medium' | 'strong' | 'very-strong'
   score: number // 0-100
+}
+
+// Error classes for validation
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ValidationError'
+  }
+}
+
+export class SecurityError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SecurityError'
+  }
 }
 
 // Common validation patterns
@@ -43,16 +56,14 @@ const COMMON_PASSWORDS = new Set([
   'angel', 'jennifer', 'hannah', 'computer', 'summer', 'jordan', 'football'
 ])
 
-// XSS patterns to detect
+// Security patterns for input validation
 const XSS_PATTERNS = [
   /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
   /javascript:/gi,
   /on\w+\s*=/gi,
   /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi,
   /<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi,
-  /<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi,
-  /<link\b[^<]*(?:(?!<\/link>)<[^<]*)*<\/link>/gi,
-  /<meta\b[^<]*(?:(?!<\/meta>)<[^<]*)*<\/meta>/gi
+  /<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi
 ]
 
 // SQL injection patterns to detect (more specific to avoid false positives)
@@ -142,7 +153,6 @@ export function validatePassword(password: string, email?: string): PasswordVali
     return { valid: false, errors, strength: 'weak', score: 0 }
   }
   
-  // For password, only trim - don't sanitize/escape characters
   const sanitized = password.trim()
   
   if (sanitized.length === 0) {
@@ -377,39 +387,39 @@ export function validateText(text: string, options: {
 /**
  * Validate form data object
  */
-export function validateFormData(data: Record<string, any>, schema: Record<string, any>): {
+export function validateFormData(data: Record<string, unknown>, schema: Record<string, unknown>): {
   valid: boolean
   errors: Record<string, string[]>
-  sanitized: Record<string, any>
+  sanitized: Record<string, unknown>
 } {
   const errors: Record<string, string[]> = {}
-  const sanitized: Record<string, any> = {}
+  const sanitized: Record<string, unknown> = {}
   let isValid = true
   
   for (const [field, value] of Object.entries(data)) {
-    const fieldSchema = schema[field]
+    const fieldSchema = schema[field] as { type: string; options?: { minLength?: number; maxLength?: number; required?: boolean; allowHtml?: boolean } }
     if (!fieldSchema) continue
     
     let result: ValidationResult
     
     switch (fieldSchema.type) {
       case 'email':
-        result = validateEmail(value)
+        result = validateEmail(value as string)
         break
       case 'password':
-        result = validatePassword(value, data.email)
+        result = validatePassword(value as string, typeof data.email === 'string' ? data.email : undefined)
         break
       case 'displayName':
-        result = validateDisplayName(value)
+        result = validateDisplayName(value as string)
         break
       case 'url':
-        result = validateUrl(value)
+        result = validateUrl(value as string)
         break
       case 'text':
-        result = validateText(value, fieldSchema.options)
+        result = validateText(value as string, fieldSchema.options as { minLength?: number; maxLength?: number; required?: boolean; allowHtml?: boolean } || {})
         break
       default:
-        result = { valid: true, errors: [], sanitized: value }
+        result = { valid: true, errors: [], sanitized: typeof value === 'string' ? value : String(value) }
     }
     
     if (!result.valid) {
@@ -510,7 +520,7 @@ export function getPasswordStrengthColor(strength: 'weak' | 'medium' | 'strong' 
 }
 
 // Backward compatibility exports
-export { ValidationError, SecurityError } from './error-handler'
+export { z } from 'zod'
 
 /**
  * Validate UUID format

@@ -1,20 +1,28 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
-import { UserProfile, UserSettings, AuthContextType } from '@/types/auth'
-import { ResourceError } from '@/components/ui/resource-error'
+import type React from "react"
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { supabase } from "@/lib/supabase"
+import { UserProfile, UserSettings, AuthContextType } from "@/types/auth"
+import { ResourceError } from "@/components/ui/resource-error"
+import { useRouter } from "next/navigation"
+import { createAuthDebugLogger, debugStorageClearing, debugNavigation } from "@/lib/debug-utils"
+import { User } from "@supabase/supabase-js"
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [profileLoading, setProfileLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sessionEstablished, setSessionEstablished] = useState(false)
+  const router = useRouter()
+
+  // Use the new debug utilities
+  const debug = createAuthDebugLogger('AuthProvider')
 
   // Create user profile
   const createUserProfile = useCallback(async (userId: string, email: string) => {
@@ -233,7 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   // Simple sign up
-  const signUp = useCallback(async (email: string, password: string, userData?: Partial<UserProfile>) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     if (!supabase) {
       throw new Error('Supabase client not initialized')
     }
@@ -265,7 +273,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null)
       
-      console.log('Starting sign out process...')
+      debug.logSignOut(user?.id, undefined, {
+        hasUser: !!user,
+        userEmail: user?.email,
+        sessionEstablished
+      })
       
       // Clear local state immediately to prevent UI issues
       setUser(null)
@@ -273,33 +285,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserSettings(null)
       setSessionEstablished(false)
       
+      debug.log('Local state cleared')
+      
       // Sign out from Supabase (this will clear localStorage and cookies)
       const { error } = await supabase.auth.signOut()
       
       if (error) {
-        console.warn('Supabase sign out error:', error)
+        debug.logSignOutError(error, user?.id)
         // Don't throw error, just log it since we've already cleared local state
       } else {
-        console.log('Successfully signed out from Supabase')
+        debug.log('Successfully signed out from Supabase')
       }
       
-      // Redirect to homepage to clear any remaining session state
-      // This ensures all client-side state is completely reset
+      // Force clear any remaining session data
       if (typeof window !== 'undefined') {
-        console.log('Redirecting to homepage to clear session state...')
-        window.location.href = '/'
+        debug.log('Clearing browser storage')
+        debugStorageClearing()
+        
+        debug.log('Redirecting to homepage using router')
+        
+        // Use Next.js router for more controlled navigation
+        const navigation = debugNavigation('/', 'router')
+        try {
+          router.push('/')
+          navigation.success()
+        } catch (routerError) {
+          navigation.failure(routerError)
+          debug.log('Router navigation failed, falling back to window.location', {
+            error: routerError
+          })
+          // Fallback to window.location if router fails
+          const fallbackNavigation = debugNavigation('/', 'window.location')
+          try {
+            window.location.replace('/')
+            fallbackNavigation.success()
+          } catch (locationError) {
+            fallbackNavigation.failure(locationError)
+          }
+        }
         return // Exit early since we're redirecting
       }
       
-      console.log('Sign out process completed')
+      debug.log('Sign out process completed')
       
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Sign out failed'
       setError(message)
-      console.error('Sign out error:', err)
-      // Don't throw error, just log it since we've already cleared local state
+      debug.logSignOutError(err, user?.id)
+      
+      // Ensure redirect happens even if there's an error
+      if (typeof window !== 'undefined') {
+        debug.log('Forcing redirect after error')
+        const navigation = debugNavigation('/', 'router')
+        try {
+          router.push('/')
+          navigation.success()
+        } catch (routerError) {
+          navigation.failure(routerError)
+          debug.log('Router fallback failed, using window.location', { routerError })
+          const fallbackNavigation = debugNavigation('/', 'window.location')
+          try {
+            window.location.replace('/')
+            fallbackNavigation.success()
+          } catch (locationError) {
+            fallbackNavigation.failure(locationError)
+          }
+        }
+      }
     }
-  }, [])
+  }, [user, sessionEstablished, router, debug])
 
   // Clear error
   const clearError = useCallback(() => {

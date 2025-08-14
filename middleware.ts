@@ -6,6 +6,25 @@ import { shouldRedirectUser, getPlatformHosts } from '@/lib/config'
 import { logSecurityEvent, ErrorSeverity, extractErrorContext } from '@/lib/error-handler'
 import { detectMaliciousInput } from '@/lib/validation'
 
+// Production debugging helper for middleware
+const debugLog = (message: string, data?: any) => {
+  const isProduction = process.env.NODE_ENV === 'production'
+  const timestamp = new Date().toISOString()
+  const logData = {
+    timestamp,
+    message,
+    data,
+    environment: process.env.NODE_ENV,
+    component: 'middleware'
+  }
+  
+  if (isProduction) {
+    console.log(`[MIDDLEWARE DEBUG ${timestamp}]`, logData)
+  } else {
+    console.log(`[Middleware] ${message}`, data || '')
+  }
+}
+
 // Generate nonce for CSP using Web Crypto API
 function generateNonce(): string {
   const array = new Uint8Array(16)
@@ -31,6 +50,21 @@ type SecurityEventType =
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
   const supabase = createMiddlewareClient({ req, res })
+
+  // Debug logging for auth-related requests
+  const isAuthRelated = req.nextUrl.pathname.includes('/auth') || 
+                       req.nextUrl.pathname.includes('/login') || 
+                       req.nextUrl.pathname.includes('/signup') ||
+                       req.nextUrl.pathname.includes('/dashboard')
+  
+  if (isAuthRelated) {
+    debugLog('Processing auth-related request', {
+      pathname: req.nextUrl.pathname,
+      method: req.method,
+      hostname: req.nextUrl.hostname,
+      userAgent: req.headers.get('user-agent')
+    })
+  }
 
   // Generate nonce for CSP (development only)
   const nonce = generateNonce()
@@ -80,19 +114,26 @@ export async function middleware(req: NextRequest) {
       error: sessionError,
     } = await supabase.auth.getSession()
 
-    // Debug logging in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Middleware session check:', {
+    // Enhanced debug logging for session issues
+    if (isAuthRelated || sessionError) {
+      debugLog('Session check result', {
         pathname: req.nextUrl.pathname,
         hasSession: !!session,
         sessionError: sessionError?.message,
-        userId: session?.user?.id
+        userId: session?.user?.id,
+        sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+        currentTime: new Date().toISOString()
       })
     }
 
     // Handle session errors more gracefully
     if (sessionError) {
-      console.error('Session error in middleware:', sessionError)
+      debugLog('Session error in middleware', {
+        error: sessionError.message,
+        status: sessionError.status,
+        name: sessionError.name,
+        pathname: req.nextUrl.pathname
+      })
       
       // Only log as security event if it's not a timing-related issue
       // JWT and session timing errors are common during login and shouldn't be treated as security threats
@@ -188,6 +229,12 @@ export async function middleware(req: NextRequest) {
 
     // Handle authentication for protected routes
     if (isProtectedRoute && !session) {
+      debugLog('Unauthorized access to protected route', {
+        pathname: req.nextUrl.pathname,
+        hasSession: !!session,
+        clientIp
+      })
+      
       // In development, be more permissive and let client-side auth handle it
       if (process.env.NODE_ENV === 'development') {
         console.log('Development mode: Allowing access to protected route without session, letting client handle auth')
@@ -214,6 +261,11 @@ export async function middleware(req: NextRequest) {
 
     // Redirect authenticated users away from auth pages (except update-password)
     if (session && isAuthPage && !isUpdatePassword) {
+      debugLog('Redirecting authenticated user from auth page', {
+        pathname: req.nextUrl.pathname,
+        userId: session.user.id
+      })
+      
       const redirectUrl = req.nextUrl.clone()
       redirectUrl.pathname = '/dashboard'
       return NextResponse.redirect(redirectUrl)
@@ -230,7 +282,11 @@ export async function middleware(req: NextRequest) {
           .single()
 
         if (userError) {
-          console.error('Error fetching user type:', userError)
+          debugLog('Error fetching user type', {
+            error: userError.message,
+            userId: session.user.id,
+            pathname: req.nextUrl.pathname
+          })
           // Continue without user type validation - don't block the request
           // This prevents blocking dashboard access when database is unavailable
         } else if (userData?.user_type) {
@@ -240,6 +296,14 @@ export async function middleware(req: NextRequest) {
           const redirectCheck = shouldRedirectUser(userType, currentHost)
           
           if (redirectCheck.shouldRedirect && redirectCheck.targetUrl) {
+            debugLog('Cross-domain redirect', {
+              userId: session.user.id,
+              userType,
+              fromHost: currentHost,
+              toUrl: redirectCheck.targetUrl,
+              pathname: req.nextUrl.pathname
+            })
+            
             if (process.env.NODE_ENV === 'development') {
               console.log(`Redirecting user ${session.user.id} (${userType}) from ${currentHost} to ${redirectCheck.targetUrl}`)
             }
@@ -247,7 +311,11 @@ export async function middleware(req: NextRequest) {
           }
         }
       } catch (error) {
-        console.error('Error in user type validation:', error)
+        debugLog('Error in user type validation', {
+          error: error instanceof Error ? error.message : String(error),
+          userId: session.user.id,
+          pathname: req.nextUrl.pathname
+        })
         // Continue without user type validation - don't block the request
         // This ensures dashboard access is not blocked by database issues
       }
@@ -275,6 +343,12 @@ export async function middleware(req: NextRequest) {
         !isPublicApiEndpoint &&
         !isCsrfEndpoint) {
       if (!session) {
+        debugLog('Unauthorized API access attempt', {
+          endpoint: req.nextUrl.pathname,
+          method: req.method,
+          clientIp
+        })
+        
         // Log security event
         logSecurityEvent(
           'Unauthorized API access attempt',
@@ -294,7 +368,11 @@ export async function middleware(req: NextRequest) {
 
     return res
   } catch (error) {
-    console.error('Middleware error:', error)
+    debugLog('Middleware critical error', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      pathname: req.nextUrl.pathname
+    })
     
     // Only log critical errors, not timing issues
     const errorMessage = error instanceof Error ? error.message : String(error)

@@ -6,12 +6,6 @@ import { ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 
-
-interface DropdownItem {
-  label: string
-  href: string
-}
-
 interface NavigationProps {
   className?: string
 }
