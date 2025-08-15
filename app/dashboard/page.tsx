@@ -18,7 +18,7 @@ import { UserProfile } from "@/types/auth"
 
 export default function DashboardPageRefactored() {
   
-  const { user, userProfile, profileLoading } = useAuth()
+  const { user, userProfile, profileLoading, loading: authLoading } = useAuth()
   const { 
     isAuthLoading, 
     isProfileLoading, 
@@ -86,7 +86,7 @@ export default function DashboardPageRefactored() {
   const effectiveProfile = userProfile || fallbackProfile
 
   // Show loading state while auth is loading (blocking)
-  if (shouldBlockUI()) {
+  if (shouldBlockUI() || authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="flex items-center gap-3">
@@ -97,8 +97,8 @@ export default function DashboardPageRefactored() {
     )
   }
 
-  // Show error state if not authenticated
-  if (!user) {
+  // Show error state if not authenticated (only after auth has finished loading)
+  if (!user && !authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <ErrorState
@@ -122,7 +122,7 @@ export default function DashboardPageRefactored() {
       <div className="max-w-7xl mx-auto px-4 py-8 pt-20">
         {/* Dashboard Header */}
         <DashboardHeader 
-          user={user}
+          user={user!}
           userProfile={effectiveProfile}
           stats={stats}
         />
