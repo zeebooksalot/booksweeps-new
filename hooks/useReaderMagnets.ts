@@ -87,9 +87,9 @@ export function useReaderMagnets({ onFiltersChange }: UseReaderMagnetsProps = {}
       author: magnet.books.author,
       description: magnet.description,
       cover: magnet.books.cover_image_url || '/placeholder.jpg',
-      votes: Math.floor(Math.random() * 100) + 10, // Mock votes for demo
-      comments: Math.floor(Math.random() * 20) + 1, // Mock comments for demo
-      rating: Math.floor(Math.random() * 2) + 4, // Mock rating 4-5 stars
+      votes: magnet.votes || 0, // Use real vote count from API
+      comments: magnet.comments || 0, // Use real comment count from API
+      rating: magnet.rating || 4.5, // Use real rating from API
       genres: [magnet.books.genre],
       hasGiveaway: false,
       publishDate: new Date(magnet.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),

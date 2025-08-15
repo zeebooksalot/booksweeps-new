@@ -19,6 +19,10 @@ export interface ReaderMagnet {
     bio: string
     website?: string
   }
+  // Add real data fields
+  votes?: number
+  comments?: number
+  rating?: number
 }
 
 export interface ReaderMagnetFilters {

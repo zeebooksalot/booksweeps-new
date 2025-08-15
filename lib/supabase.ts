@@ -76,6 +76,7 @@ export interface Database {
           series_order: number | null
           upvotes_count: number
           downvotes_count: number
+          comments_count: number
         }
         Insert: {
           id?: string
@@ -100,6 +101,7 @@ export interface Database {
           series_order?: number | null
           upvotes_count?: number
           downvotes_count?: number
+          comments_count?: number
         }
         Update: {
           id?: string
@@ -124,6 +126,7 @@ export interface Database {
           series_order?: number | null
           upvotes_count?: number
           downvotes_count?: number
+          comments_count?: number
         }
       }
       campaigns: {
@@ -386,6 +389,32 @@ export interface Database {
           updated_at?: string
         }
       }
+      comments: {
+        Row: {
+          id: string
+          user_id: string
+          book_id: string
+          content: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          book_id: string
+          content: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          book_id?: string
+          content?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
   }
 }
@@ -401,6 +430,7 @@ export interface BookWithVotes {
   genre: string | null
   upvotes_count: number
   downvotes_count: number
+  comments_count: number
   // ... other fields
 }
 

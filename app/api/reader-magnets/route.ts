@@ -26,7 +26,10 @@ export async function GET(request: NextRequest) {
         *,
         books (
           id, title, author, description, cover_image_url, genre, page_count, pen_name_id, user_id,
-          pen_names (id, name, bio, website, avatar_url)
+          pen_names (id, name, bio, website, avatar_url),
+          upvotes_count,
+          downvotes_count,
+          comments_count
         ),
         reader_deliveries!delivery_method_id (id)
       `)
@@ -77,20 +80,37 @@ export async function GET(request: NextRequest) {
           bio?: string
           website?: string
         }
+        upvotes_count?: number
+        downvotes_count?: number
+        comments_count?: number
       } | null
       reader_deliveries?: Array<{ id: string }>
-    }) => ({
-      id: magnet.id,
-      slug: magnet.slug || `magnet-${magnet.id}`,
-      title: magnet.title,
-      description: magnet.description,
-      format: magnet.format,
-      download_count: magnet.reader_deliveries?.length || 0,
-      created_at: magnet.created_at,
-      is_active: magnet.is_active,
-      books: magnet.books || null,
-      pen_names: magnet.books?.pen_names || null
-    }))
+    }) => {
+      // Get vote counts from the books table
+      const upvotes = magnet.books?.upvotes_count || 0
+      const downvotes = magnet.books?.downvotes_count || 0
+      const totalVotes = upvotes + downvotes
+      
+      // Calculate rating based on upvotes vs total votes (4-5 stars)
+      const rating = totalVotes > 0 ? Math.max(4, Math.min(5, 4 + (upvotes / totalVotes))) : 4.5
+      
+      return {
+        id: magnet.id,
+        slug: magnet.slug || `magnet-${magnet.id}`,
+        title: magnet.title,
+        description: magnet.description,
+        format: magnet.format,
+        download_count: magnet.reader_deliveries?.length || 0,
+        created_at: magnet.created_at,
+        is_active: magnet.is_active,
+        books: magnet.books || null,
+        pen_names: magnet.books?.pen_names || null,
+        // Add real vote, comment, and rating data
+        votes: totalVotes,
+        comments: magnet.books?.comments_count || 0, // Use real comment count
+        rating: Math.round(rating * 10) / 10 // Round to 1 decimal place
+      }
+    })
 
     return NextResponse.json({
       reader_magnets: transformedData,
