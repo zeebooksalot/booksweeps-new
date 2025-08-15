@@ -21,7 +21,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { FilterControls } from "@/components/FilterControls"
 import { useHomePage } from "@/hooks/useHomePage"
 import { useSimpleDebouncedSearch } from "@/hooks/use-debounced-search"
-import { FeedItem } from "@/types"
+import { FeedItem, BookItem } from "@/types"
 import { UI_CONFIG } from "@/constants"
 
 // Throttle utility function
@@ -219,6 +219,7 @@ export default function BookSweepsHomepage() {
                               onVote={handleVote}
                               onSwipeLeft={handleSwipeLeft}
                               onSwipeRight={handleSwipeRight}
+                              downloadSlug={item.type === 'book' ? (item as BookItem).downloadSlug || undefined : undefined}
                             />
                           ))
                         ) : (
@@ -247,6 +248,7 @@ export default function BookSweepsHomepage() {
                               onVote={handleVote}
                               onSwipeLeft={handleSwipeLeft}
                               onSwipeRight={handleSwipeRight}
+                              downloadSlug={item.type === 'book' ? (item as BookItem).downloadSlug || undefined : undefined}
                             />
                           ))
                         ) : (

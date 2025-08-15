@@ -8,7 +8,8 @@ import {
   ApiBook, 
   ApiAuthor, 
   FilterState,
-  FeedItem 
+  FeedItem,
+  BookDeliveryMethod
 } from "@/types"
 import { 
   DEFAULT_FILTER_STATE, 
@@ -60,7 +61,11 @@ export function useHomePage() {
     publishDate: book.published_date 
       ? new Date(book.published_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) 
       : "Unknown",
-    rank
+    rank,
+    // Add download slug if there's an active ebook delivery method
+    downloadSlug: book.book_delivery_methods?.find((dm: BookDeliveryMethod) => 
+      dm.is_active && dm.delivery_method === 'ebook'
+    )?.slug || null
   }), [])
 
   const mapAuthorFromApi = useCallback((author: ApiAuthor, rank: number): AuthorItem => ({
@@ -91,11 +96,27 @@ export function useHomePage() {
         fetchAuthorsRef.current(`/api/authors?sortBy=${filters.sortBy}&limit=${API_CONFIG.defaultLimit}`)
       ])
       
+      // Debug: Log the raw API responses
+      console.log(' Books API Response:', booksResponse)
+      if (booksResponse.data && booksResponse.data.length > 0) {
+        console.log('🔍 Sample book:', booksResponse.data[0])
+        console.log('🔍 Sample book delivery methods:', booksResponse.data[0].book_delivery_methods)
+      }
+      
       // Map the data with proper null checks and error handling
       const mappedBooks = Array.isArray(booksResponse.data) 
-        ? booksResponse.data.map((book: ApiBook, index: number) => 
-            mapBookFromApi(book, index + 1)
-          )
+        ? booksResponse.data.map((book: ApiBook, index: number) => {
+            const mappedBook = mapBookFromApi(book, index + 1)
+            // Debug: Log books with delivery methods
+            if (book.book_delivery_methods && book.book_delivery_methods.length > 0) {
+              console.log(' Book with delivery methods:', {
+                title: book.title,
+                deliveryMethods: book.book_delivery_methods,
+                downloadSlug: mappedBook.downloadSlug
+              })
+            }
+            return mappedBook
+          })
         : []
       const mappedAuthors = Array.isArray(authorsResponse.data)
         ? authorsResponse.data.map((author: ApiAuthor, index: number) => 

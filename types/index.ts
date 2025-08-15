@@ -18,6 +18,15 @@ export interface BookItem extends BaseItem {
   genres: string[]
   hasGiveaway: boolean
   publishDate: string
+  downloadSlug?: string | null
+}
+
+export interface BookDeliveryMethod {
+  id: string
+  slug: string
+  format: string
+  delivery_method: string
+  is_active: boolean
 }
 
 export interface ApiBook {
@@ -32,6 +41,7 @@ export interface ApiBook {
   genre?: string
   has_giveaway?: boolean
   published_date?: string
+  book_delivery_methods?: BookDeliveryMethod[]
 }
 
 // Author types
