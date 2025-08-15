@@ -18,7 +18,7 @@ import { UserProfile } from "@/types/auth"
 
 export default function DashboardPageRefactored() {
   
-  const { user, userProfile, profileLoading, loading: authLoading, sessionEstablished } = useAuth()
+  const { user, userProfile, profileLoading } = useAuth()
   const { 
     isAuthLoading, 
     isProfileLoading, 
@@ -85,20 +85,20 @@ export default function DashboardPageRefactored() {
   const fallbackProfile = useMemo(() => getFallbackProfile(), [user?.id, user?.email])
   const effectiveProfile = userProfile || fallbackProfile
 
-  // Show brief loading state during auth initialization or if session not yet established
-  if (authLoading || (!sessionEstablished && !user)) {
+  // Show loading state while auth is loading (blocking)
+  if (shouldBlockUI()) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="flex items-center gap-3">
           <LoadingSpinner size="lg" />
-          <span className="text-gray-600 dark:text-gray-400">Loading...</span>
+          <span className="text-gray-600 dark:text-gray-400">{getLoadingMessage()}</span>
         </div>
       </div>
     )
   }
 
-  // Show error state if not authenticated (only after auth has finished loading and no session established)
-  if (!user && sessionEstablished === false) {
+  // Show error state if not authenticated
+  if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <ErrorState
@@ -108,11 +108,6 @@ export default function DashboardPageRefactored() {
         />
       </div>
     )
-  }
-
-  // Type guard: ensure user exists before rendering dashboard content
-  if (!user) {
-    return null
   }
 
   return (

@@ -123,26 +123,6 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
         <link rel="icon" href="/favicon.ico" />
-        {/* CSS-only dark mode to prevent white flash */}
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            /* Default to dark mode to prevent white flash */
-            html { background-color: #111827; }
-            body { background-color: #111827; }
-            
-            /* Light mode styles */
-            @media (prefers-color-scheme: light) {
-              html { background-color: #f9fafb; }
-              body { background-color: #f9fafb; }
-            }
-            
-            /* Dark mode styles */
-            @media (prefers-color-scheme: dark) {
-              html { background-color: #111827; }
-              body { background-color: #111827; }
-            }
-          `
-        }} />
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <ErrorBoundary>
