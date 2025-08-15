@@ -6,7 +6,8 @@ export const DASHBOARD_CONFIG = {
   defaultTab: 'overview' as const,
   searchDebounceDelay: 300,
   itemsPerPage: 10,
-  refreshInterval: 30000, // 30 seconds
+  refreshInterval: 60000, // 1 minute (increased from 30 seconds)
+  minRefreshInterval: 2000, // 2 seconds minimum between refreshes
 } as const
 
 // Tab configuration

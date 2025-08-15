@@ -13,14 +13,12 @@ import { DashboardContent } from "@/components/dashboard/DashboardContent"
 import { useDashboard } from "@/hooks/useDashboard"
 import { useAuth } from "@/components/auth/AuthProvider"
 import { useDashboardLoading } from "@/hooks/useDashboardLoading"
-import { useSystemHealth } from "@/hooks/useSystemHealth"
 import { DASHBOARD_CONFIG } from "@/constants/dashboard"
-import { AUTH_TIMING } from "@/constants/auth"
 import { UserProfile } from "@/types/auth"
 
 export default function DashboardPageRefactored() {
   
-  const { user, userProfile, profileLoading } = useAuth()
+  const { user, userProfile, profileLoading, loading: authLoading, sessionEstablished } = useAuth()
   const { 
     isAuthLoading, 
     isProfileLoading, 
@@ -31,13 +29,6 @@ export default function DashboardPageRefactored() {
     setDataLoading 
   } = useDashboardLoading()
   
-  // Use shared system health hook
-  const { healthStatus, isHealthy, isUnhealthy, refreshHealth } = useSystemHealth()
-  
-  // Add error recovery state
-  const [profileError, setProfileError] = useState<string | null>(null)
-  const [hasTimedOut, setHasTimedOut] = useState(false)
-
   // Create fallback profile for when userProfile is not available
   const getFallbackProfile = (): UserProfile => ({
     id: user?.id || '',
@@ -62,34 +53,6 @@ export default function DashboardPageRefactored() {
     updated_at: new Date().toISOString(),
   })
 
-  // Auto-clear errors after timeout - using shared timing constant
-  useEffect(() => {
-    if (profileError) {
-      const timeout = setTimeout(() => {
-        setProfileError(null)
-      }, AUTH_TIMING.ERROR_AUTO_CLEAR)
-      
-      return () => clearTimeout(timeout)
-    }
-  }, [profileError])
-
-  // REMOVED: Dashboard should NOT try to load profile - that's AuthProvider's job
-  // Just monitor profile loading state for timeout detection
-  useEffect(() => {
-    if (profileLoading) {
-      const timeout = setTimeout(() => {
-        console.warn('Profile loading timed out')
-        setHasTimedOut(true)
-        setProfileError('Profile loading timed out. You can still use the dashboard.')
-      }, AUTH_TIMING.LOGIN_TIMEOUT) // Using same timeout as login
-      
-      return () => clearTimeout(timeout)
-    } else {
-      // Clear timeout state when profile loading completes
-      setHasTimedOut(false)
-    }
-  }, [profileLoading])
-
   // Use the custom hook for all dashboard logic
   const {
     downloads,
@@ -97,10 +60,12 @@ export default function DashboardPageRefactored() {
     readingList,
     stats,
     isLoadingData,
+    isRefreshing,
     dataError,
     isMobileView,
     filters,
     updateFilters,
+    refreshData,
     handleTabChange,
     loading
   } = useDashboard()
@@ -119,22 +84,21 @@ export default function DashboardPageRefactored() {
   // Memoize fallback profile
   const fallbackProfile = useMemo(() => getFallbackProfile(), [user?.id, user?.email])
   const effectiveProfile = userProfile || fallbackProfile
-  const isUsingFallback = !userProfile
 
-  // Show loading state while auth is loading (blocking)
-  if (shouldBlockUI()) {
+  // Show brief loading state during auth initialization or if session not yet established
+  if (authLoading || (!sessionEstablished && !user)) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="flex items-center gap-3">
           <LoadingSpinner size="lg" />
-          <span className="text-gray-600 dark:text-gray-400">{getLoadingMessage()}</span>
+          <span className="text-gray-600 dark:text-gray-400">Loading...</span>
         </div>
       </div>
     )
   }
 
-  // Show error state if not authenticated
-  if (!user) {
+  // Show error state if not authenticated (only after auth has finished loading and no session established)
+  if (!user && sessionEstablished === false) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <ErrorState
@@ -144,6 +108,11 @@ export default function DashboardPageRefactored() {
         />
       </div>
     )
+  }
+
+  // Type guard: ensure user exists before rendering dashboard content
+  if (!user) {
+    return null
   }
 
   return (
@@ -156,33 +125,6 @@ export default function DashboardPageRefactored() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8 pt-20">
-        {/* Show warning if using fallback profile */}
-        {isUsingFallback && !profileLoading && (
-          <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-            <p className="text-sm text-yellow-700 dark:text-yellow-300">
-              Using temporary profile. Some features may be limited.
-            </p>
-          </div>
-        )}
-        
-        {/* Show profile error if it timed out */}
-        {profileError && (
-          <div className="mb-6">
-            <ErrorState
-              title="Profile Loading Issue"
-              message={profileError}
-              variant="compact"
-            />
-            {isUnhealthy && (
-              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-700 dark:text-red-300">
-                  ⚠️ System is currently experiencing issues. Some features may be limited.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Dashboard Header */}
         <DashboardHeader 
           user={user}

@@ -332,6 +332,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
+        debug.log('Getting initial session...')
+        
+        // Wrap getSession in a timeout (reduced from 5s to 1s for faster loading)
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session fetch timeout')), 1000)
+        )
+        
+        const result = await Promise.race([
+          sessionPromise,
+          timeoutPromise
+        ]).catch(err => {
+          debug.log('Session fetch failed or timed out:', err)
+          return { data: { session: null }, error: err }
+        })
+        
+        const { data: { session } } = result as { data: { session: { user?: User } | null } }
+        
+        if (!mountedRef.current) return
+        
+        debug.log('Initial session result:', {
+          hasSession: !!session,
+          userId: session?.user?.id
+        })
+        
+        setUser(session?.user ?? null)
+        setSessionEstablished(!!session?.user)
+        
+        // Load profile and settings if user exists
+        if (session?.user) {
+          debug.log('Loading profile and settings for existing session...')
+          
+          // Wrap profile loading in timeout too (reduced from 5s to 1s)
+          const profilePromise = Promise.all([
+            loadUserProfileInternal(session.user.id, session.user.email),
+            loadUserSettingsInternal(session.user.id)
+          ])
+          
+          const profileTimeout = new Promise<void>((resolve) => 
+            setTimeout(() => {
+              debug.log('Profile loading timed out, continuing anyway')
+              resolve()
+            }, 1000)
+          )
+          
+          await Promise.race([profilePromise, profileTimeout])
+        }
+        
         debug.log('Initial auth setup complete')
       } catch (err) {
         debug.log('Error in auth initialization:', err)
@@ -358,13 +406,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null)
         setSessionEstablished(!!session?.user)
         
-        // Handle different auth events - make profile loading non-blocking
+        // Handle different auth events with timeout protection (reduced from 5s to 1s)
         if (event === 'SIGNED_IN' && session?.user) {
-          // Load profile and settings in background - don't wait for completion
-          Promise.all([
+          const profilePromise = Promise.all([
             loadUserProfileInternal(session.user.id, session.user.email),
             loadUserSettingsInternal(session.user.id)
-          ]).catch(error => {
+          ])
+          
+          const timeout = new Promise<void>((resolve) => 
+            setTimeout(() => {
+              debug.log('Profile loading in auth state change timed out')
+              resolve()
+            }, 1000)
+          )
+          
+          await Promise.race([profilePromise, timeout]).catch(error => {
             debug.log('Error loading profile/settings on sign in:', error)
           })
         } else if (event === 'SIGNED_OUT') {
