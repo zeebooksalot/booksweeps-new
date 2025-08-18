@@ -172,7 +172,8 @@ export async function middleware(req: NextRequest) {
     const isCsrfExemptRoute = req.nextUrl.pathname === '/api/csrf/generate' || 
                              req.nextUrl.pathname.includes('/auth/') ||
                              req.nextUrl.pathname.includes('/login') ||
-                             req.nextUrl.pathname.includes('/signup')
+                             req.nextUrl.pathname.includes('/signup') ||
+                             req.nextUrl.pathname === '/api/reader-magnets/downloads'  // Add this line
     
     if (isStateChangingOperation && isApiRoute && !isCsrfExemptRoute) {
       const isValidCsrf = validateCsrfFromRequest(req, userId)
