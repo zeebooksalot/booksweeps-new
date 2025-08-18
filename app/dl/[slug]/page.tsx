@@ -72,6 +72,8 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
   const [searchQuery, setSearchQuery] = useState("")
   const [isMobileView, setIsMobileView] = useState(false)
   const { fetchWithCsrf } = useCsrf()
+  const [isOpeningReader, setIsOpeningReader] = useState(false)
+  const [readerError, setReaderError] = useState<string | null>(null)
 
   useEffect(() => {
     const initParams = async () => {
@@ -204,6 +206,30 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
       setError('Failed to submit form')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleOpenReader = async () => {
+    if (!accessToken) return
+    
+    setIsOpeningReader(true)
+    setReaderError(null)
+    
+    try {
+      // Use environment variable directly for client-side safety
+      const readerUrl = process.env.NEXT_PUBLIC_READER_URL || 'https://read.booksweeps.com'
+      const fullUrl = `${readerUrl}/library?token=${encodeURIComponent(accessToken)}`
+      const newWindow = window.open(fullUrl, '_blank')
+      
+      // Check if popup was blocked
+      if (!newWindow) {
+        setReaderError('Popup blocked. Please allow popups for this site and try again.')
+      }
+    } catch (error) {
+      setReaderError('Failed to open reader. Please try again.')
+      console.error('Error opening reader:', error)
+    } finally {
+      setIsOpeningReader(false)
     }
   }
 
@@ -375,19 +401,33 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                         
                         {accessToken && (
                           <Button
-                            onClick={() => {
-                              // Redirect to reader with access token
-                              const readerUrl = `https://read.booksweeps.com/library?token=${encodeURIComponent(accessToken)}`
-                              window.open(readerUrl, '_blank')
-                            }}
-                            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                            onClick={handleOpenReader}
+                            disabled={isOpeningReader}
+                            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white disabled:opacity-50"
                             size="lg"
                           >
-                            <BookOpen className="h-5 w-5 mr-2" />
-                            Read in Browser
+                            {isOpeningReader ? (
+                              <>
+                                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                                Opening Reader...
+                              </>
+                            ) : (
+                              <>
+                                <BookOpen className="h-5 w-5 mr-2" />
+                                Read in Browser
+                              </>
+                            )}
                           </Button>
                         )}
                         
+                        {readerError && (
+                          <div className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                            <p className="text-sm text-red-800 dark:text-red-200">
+                              {readerError}
+                            </p>
+                          </div>
+                        )}
+
                         <p className="text-xs text-gray-500">
                           You&apos;ll also receive updates about new releases and exclusive content.
                         </p>

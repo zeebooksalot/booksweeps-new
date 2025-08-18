@@ -1404,3 +1404,12 @@ if (isMobile) {
 - **Areas for Improvement**: React.memo on more components, virtual scrolling, intersection observer
 
 The download system is **functionally complete** but needs the database migrations and email system for full production deployment. Performance optimizations are well-implemented with room for additional enhancements.
+
+## ✅ Completed Tasks
+
+### Technical Fixes
+- ✅ **Fixed Next.js 15 cookies compatibility** in reader magnets download API
+  - **Issue**: Older Supabase auth helpers incompatible with Next.js 15 async cookies
+  - **Solution**: Switched to service role client for public endpoints
+  - **File**: `app/api/reader-magnets/downloads/route.ts`
+  - **Status**: Resolved - no more runtime errors

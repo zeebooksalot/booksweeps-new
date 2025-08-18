@@ -80,6 +80,8 @@ CREATE TABLE reader_deliveries (
 - **Purpose**: Process book downloads and generate access tokens
 - **Response**: Includes `access_token` field
 - **Security**: Rate limiting, validation, CSRF protection
+- **Authentication**: Service role client (bypasses RLS for public access)
+- **Compatibility**: Fixed for Next.js 15 cookies compatibility
 
 **Token Validation API** (`/api/reader/validate-token`)
 - **Method**: POST
