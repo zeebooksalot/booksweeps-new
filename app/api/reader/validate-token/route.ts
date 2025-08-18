@@ -70,43 +70,48 @@ export async function POST(request: NextRequest) {
 
     const delivery = validationResult.token!
     
-    // Get book information for the delivery
-// Single optimized query with proper joins
-const { data: bookData, error: bookError } = await supabase
-  .from('reader_deliveries')
-  .select(`
-    id,
-    delivery_method_id,
-    reader_email,
-    reader_name,
-    delivered_at,
-    download_count,
-    last_download_at,
-    book_delivery_methods!inner (
-      id,
-      title,
-      description,
-      format,
-      book_id,
-      books!inner (
-        id,
-        title,
-        author,
-        cover_image_url,
-        genre,
-        page_count,
-        book_files (
-          id,
-          file_path,
-          file_name,
-          mime_type
-        )
+    // Get book information for the delivery using separate queries
+    // First, get the delivery record
+    const { data: deliveryData, error: deliveryError } = await supabase
+      .from('reader_deliveries')
+      .select('*')
+      .eq('id', delivery.id)
+      .single()
+      
+    if (deliveryError || !deliveryData) {
+      console.error(`[${requestId}] ❌ Failed to fetch delivery data:`, deliveryError)
+      const response = NextResponse.json(
+        { error: 'Failed to fetch delivery information' },
+        { status: 500 }
       )
-    )
-  `)
-  .eq('id', delivery.id)
-  .single()
-  
+      response.headers.set('Access-Control-Allow-Origin', 'https://read.booksweeps.com')
+      return response
+    }
+
+    // Get the delivery method
+    const { data: deliveryMethodData, error: deliveryMethodError } = await supabase
+      .from('book_delivery_methods')
+      .select('*')
+      .eq('id', deliveryData.delivery_method_id)
+      .single()
+
+    if (deliveryMethodError || !deliveryMethodData) {
+      console.error(`[${requestId}] ❌ Failed to fetch delivery method:`, deliveryMethodError)
+      const response = NextResponse.json(
+        { error: 'Failed to fetch delivery method information' },
+        { status: 500 }
+      )
+      response.headers.set('Access-Control-Allow-Origin', 'https://read.booksweeps.com')
+      return response
+    }
+
+    // Get the book
+    const { data: bookData, error: bookError } = await supabase
+      .from('books')
+      .select('*')
+      .eq('id', deliveryMethodData.book_id)
+      .single()
+
     if (bookError || !bookData) {
       console.error(`[${requestId}] ❌ Failed to fetch book data:`, bookError)
       const response = NextResponse.json(
@@ -117,44 +122,65 @@ const { data: bookData, error: bookError } = await supabase
       return response
     }
 
+    // Get the book files
+    const { data: bookFilesData, error: bookFilesError } = await supabase
+      .from('book_files')
+      .select('*')
+      .eq('book_id', bookData.id)
+
+    if (bookFilesError) {
+      console.error(`[${requestId}] ❌ Failed to fetch book files:`, bookFilesError)
+      // Don't fail the request if files can't be fetched, just log it
+    }
+
+    // Debug logging to understand the data structure
+    console.log(`[${requestId}] 🔍 Book data structure:`, {
+      deliveryId: deliveryData.id,
+      deliveryMethodId: deliveryData.delivery_method_id,
+      deliveryMethodTitle: deliveryMethodData.title,
+      bookTitle: bookData.title,
+      bookFilesCount: bookFilesData?.length || 0
+    })
+
     // Update token usage
     const { updateTokenUsage } = await import('@/lib/access-token')
     await updateTokenUsage(delivery.id)
 
     const responseTime = Date.now() - startTime
     
-    const deliveryMethod = bookData.book_delivery_methods?.[0]
-    const book = deliveryMethod?.books?.[0]
-    
     console.log(`[${requestId}] ✅ Token validation successful`, {
       responseTime: `${responseTime}ms`,
       deliveryId: delivery.id,
-      bookTitle: book?.title
+      bookTitle: bookData.title,
+      deliveryMethodTitle: deliveryMethodData.title,
+      hasBook: !!bookData,
+      hasDeliveryMethod: !!deliveryMethodData,
+      bookFilesCount: bookFilesData?.length || 0
     })
 
     const response = NextResponse.json({
       success: true,
       delivery: {
-        id: bookData.id,
-        email: bookData.reader_email,
-        name: bookData.reader_name || '',
-        delivered_at: bookData.delivered_at || null,
-        download_count: bookData.download_count || 0
+        id: deliveryData.id,
+        email: deliveryData.reader_email,
+        name: deliveryData.reader_name || '',
+        delivered_at: deliveryData.delivered_at || null,
+        download_count: deliveryData.download_count || 0
       },
       book: {
-        id: book?.id,
-        title: book?.title,
-        author: book?.author,
-        cover_url: book?.cover_image_url,
-        genre: book?.genre,
-        page_count: book?.page_count,
-        format: deliveryMethod?.format,
-        files: book?.book_files || []
+        id: bookData.id,
+        title: bookData.title,
+        author: bookData.author,
+        cover_url: bookData.cover_image_url,
+        genre: bookData.genre,
+        page_count: bookData.page_count,
+        format: deliveryMethodData.format,
+        files: bookFilesData || []
       },
       delivery_method: {
-        id: deliveryMethod?.id,
-        title: deliveryMethod?.title,
-        description: deliveryMethod?.description
+        id: deliveryMethodData.id,
+        title: deliveryMethodData.title,
+        description: deliveryMethodData.description
       }
     })
 
