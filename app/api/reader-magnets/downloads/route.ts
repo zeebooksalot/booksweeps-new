@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateAccessToken } from '@/lib/access-token'
 
+// Validation helpers
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  return uuidRegex.test(uuid)
+}
+
+function sanitizeName(name: string): string {
+  // Remove any potentially dangerous characters, limit length
+  return name.trim().replace(/[<>\"'&]/g, '').substring(0, 100)
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Create service role client for public access
@@ -16,6 +32,14 @@ export async function GET(request: NextRequest) {
     if (!delivery_method_id) {
       return NextResponse.json(
         { error: 'Delivery method ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate delivery_method_id format
+    if (!isValidUUID(delivery_method_id)) {
+      return NextResponse.json(
+        { error: 'Invalid delivery method ID format' },
         { status: 400 }
       )
     }
@@ -70,21 +94,110 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const body = await request.json()
-    const { delivery_method_id, email, name } = body
-
-    if (!delivery_method_id || !email) {
+    // Check request body size before parsing
+    const contentLength = request.headers.get('content-length')
+    if (contentLength && parseInt(contentLength) > 1024) { // 1KB limit for this endpoint
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Request body too large' },
+        { status: 413 }
+      )
+    }
+
+    // Parse request body with error handling
+    let body
+    try {
+      body = await request.json()
+    } catch (parseError) {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
         { status: 400 }
       )
     }
 
-    // Get client IP and user agent
-    const ip_address = request.headers.get('x-forwarded-for') || 
-                      request.headers.get('x-real-ip') || 
-                      request.headers.get('cf-connecting-ip') || 
-                      'unknown'
+    const { delivery_method_id, email, name } = body
+
+    // Input validation
+    if (!delivery_method_id || !email) {
+      return NextResponse.json(
+        { error: 'Missing required fields: delivery_method_id and email are required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate delivery_method_id format
+    if (!isValidUUID(delivery_method_id)) {
+      return NextResponse.json(
+        { error: 'Invalid delivery method ID format' },
+        { status: 400 }
+      )
+    }
+
+    // Validate email format and length
+    if (typeof email !== 'string') {
+      return NextResponse.json(
+        { error: 'Email must be a string' },
+        { status: 400 }
+      )
+    }
+
+    if (email.length > 254) {
+      return NextResponse.json(
+        { error: 'Email address too long' },
+        { status: 400 }
+      )
+    }
+
+    if (!isValidEmail(email)) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
+        { status: 400 }
+      )
+    }
+
+    // Sanitize and validate name (optional field)
+    let sanitizedName = null
+    if (name) {
+      if (typeof name !== 'string') {
+        return NextResponse.json(
+          { error: 'Name must be a string' },
+          { status: 400 }
+        )
+      }
+      
+      sanitizedName = sanitizeName(name)
+      
+      if (sanitizedName.length === 0) {
+        return NextResponse.json(
+          { error: 'Name cannot be empty after sanitization' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Get client IP and user agent with better handling
+    const forwardedFor = request.headers.get('x-forwarded-for')
+    const realIp = request.headers.get('x-real-ip')
+    const cfIp = request.headers.get('cf-connecting-ip')
+    
+    // Extract first IP from forwarded-for header (handles multiple IPs)
+    let ip_address = '127.0.0.1' // Default to localhost instead of 'unknown'
+    if (forwardedFor) {
+      const firstIp = forwardedFor.split(',')[0].trim()
+      if (firstIp && firstIp !== 'unknown') {
+        ip_address = firstIp
+      }
+    } else if (realIp) {
+      ip_address = realIp
+    } else if (cfIp) {
+      ip_address = cfIp
+    }
+    
+    // Validate IP format (basic check) and fallback to localhost if invalid
+    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+    if (!ipRegex.test(ip_address)) {
+      ip_address = '127.0.0.1'
+    }
+    
     const user_agent = request.headers.get('user-agent') || 'unknown'
 
     // First, check if this email has already downloaded this delivery method
@@ -143,7 +256,7 @@ export async function POST(request: NextRequest) {
         .insert({
           delivery_method_id,
           reader_email: email,
-          reader_name: name,
+          reader_name: sanitizedName,
           ip_address,
           user_agent,
           status: 'delivered',
