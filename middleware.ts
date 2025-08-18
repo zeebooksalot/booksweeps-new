@@ -173,7 +173,8 @@ export async function middleware(req: NextRequest) {
                              req.nextUrl.pathname.includes('/auth/') ||
                              req.nextUrl.pathname.includes('/login') ||
                              req.nextUrl.pathname.includes('/signup') ||
-                             req.nextUrl.pathname === '/api/reader-magnets/downloads'  // Add this line
+                             req.nextUrl.pathname === '/api/reader-magnets/downloads' ||
+                             req.nextUrl.pathname === '/api/reader/validate-token'
     
     if (isStateChangingOperation && isApiRoute && !isCsrfExemptRoute) {
       const isValidCsrf = validateCsrfFromRequest(req, userId)
