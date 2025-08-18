@@ -107,7 +107,22 @@ export async function POST(request: NextRequest) {
       // Reuse existing access token or generate new one
       accessToken = existingDelivery.access_token
       if (!accessToken) {
-        accessToken = await generateAccessToken(existingDelivery.id, 24)
+        // Generate token manually since we're using service role client
+        accessToken = crypto.randomUUID()
+        const expiresAt = new Date()
+        expiresAt.setHours(expiresAt.getHours() + 24)
+
+        const { error: tokenError } = await supabase
+          .from('reader_deliveries')
+          .update({
+            access_token: accessToken,
+            expires_at: expiresAt.toISOString()
+          })
+          .eq('id', existingDelivery.id)
+
+        if (tokenError) {
+          console.error('Error generating access token:', tokenError)
+        }
       }
 
       const { error: updateError } = await supabase
@@ -145,8 +160,22 @@ export async function POST(request: NextRequest) {
 
       deliveryId = newDelivery.id
       
-      // Generate access token for new delivery
-      accessToken = await generateAccessToken(newDelivery.id, 24)
+      // Generate access token manually
+      accessToken = crypto.randomUUID()
+      const expiresAt = new Date()
+      expiresAt.setHours(expiresAt.getHours() + 24)
+
+      const { error: tokenError } = await supabase
+        .from('reader_deliveries')
+        .update({
+          access_token: accessToken,
+          expires_at: expiresAt.toISOString()
+        })
+        .eq('id', newDelivery.id)
+
+      if (tokenError) {
+        console.error('Error generating access token:', tokenError)
+      }
     }
 
     // Get book file information for download
