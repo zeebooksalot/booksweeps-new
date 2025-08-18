@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
 import { generateAccessToken } from '@/lib/access-token'
 
 export async function GET(request: NextRequest) {
   try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
+    // Create service role client for public access
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
     const { searchParams } = new URL(request.url)
     const delivery_method_id = searchParams.get('delivery_method_id')
@@ -63,8 +64,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
+    // Create service role client for public access
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
     const body = await request.json()
     const { delivery_method_id, email, name } = body
@@ -109,7 +113,7 @@ export async function POST(request: NextRequest) {
       const { error: updateError } = await supabase
         .from('reader_deliveries')
         .update({
-          download_count: existingDelivery.download_count + 1,
+          download_count: (existingDelivery.download_count || 0) + 1,
           last_download_at: new Date().toISOString()
         })
         .eq('id', existingDelivery.id)
@@ -229,20 +233,28 @@ export async function POST(request: NextRequest) {
 
     console.log('Signed URL created successfully:', signedUrl.signedUrl)
 
-    // Log the download for analytics
-    const { error: logError } = await supabase
-      .from('reader_download_logs')
-      .insert({
-        delivery_id: deliveryId,
-        file_id: bookFile.id,
-        ip_address,
-        user_agent,
-        download_size: bookFile.file_size || 0,
-        status: 'success'
-      })
+    // Log the download for analytics - simplified to avoid column conflicts
+    try {
+      const { error: logError } = await supabase
+        .from('reader_download_logs')
+        .insert({
+          delivery_id: deliveryId,
+          file_id: bookFile.id,
+          ip_address,
+          user_agent,
+          download_size: bookFile.file_size || 0,
+          status: 'success',
+          downloaded_at: new Date().toISOString()
+        })
 
-    if (logError) {
-      console.error('Error logging download:', logError)
+      if (logError) {
+        console.error('Error logging download:', logError)
+        // Don't fail the request if logging fails
+      } else {
+        console.log('Download logged successfully')
+      }
+    } catch (logException) {
+      console.error('Exception logging download:', logException)
       // Don't fail the request if logging fails
     }
 
@@ -252,7 +264,7 @@ export async function POST(request: NextRequest) {
       access_token: accessToken,
       message: 'Download link generated successfully',
       is_redownload: isRedownload,
-      download_count: existingDelivery ? existingDelivery.download_count + 1 : 1,
+      download_count: existingDelivery ? (existingDelivery.download_count || 0) + 1 : 1,
       book: {
         title: book.title,
         author: book.author,
