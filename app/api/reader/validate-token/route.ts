@@ -71,40 +71,42 @@ export async function POST(request: NextRequest) {
     const delivery = validationResult.token!
     
     // Get book information for the delivery
-    const { data: bookData, error: bookError } = await supabase
-      .from('reader_deliveries')
-      .select(`
+// Single optimized query with proper joins
+const { data: bookData, error: bookError } = await supabase
+  .from('reader_deliveries')
+  .select(`
+    id,
+    delivery_method_id,
+    reader_email,
+    reader_name,
+    delivered_at,
+    download_count,
+    last_download_at,
+    book_delivery_methods!inner (
+      id,
+      title,
+      description,
+      format,
+      book_id,
+      books!inner (
         id,
-        delivery_method_id,
-        reader_email,
-        reader_name,
-        delivered_at,
-        download_count,
-        last_download_at,
-        book_delivery_methods (
+        title,
+        author,
+        cover_image_url,
+        genre,
+        page_count,
+        book_files (
           id,
-          title,
-          description,
-          format,
-          books (
-            id,
-            title,
-            author,
-            cover_image_url,
-            genre,
-            page_count,
-            book_files (
-              id,
-              file_path,
-              file_name,
-              mime_type
-            )
-          )
+          file_path,
+          file_name,
+          mime_type
         )
-      `)
-      .eq('id', delivery.id)
-      .single()
-
+      )
+    )
+  `)
+  .eq('id', delivery.id)
+  .single()
+  
     if (bookError || !bookData) {
       console.error(`[${requestId}] ❌ Failed to fetch book data:`, bookError)
       const response = NextResponse.json(
