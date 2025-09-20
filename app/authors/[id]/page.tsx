@@ -6,12 +6,13 @@ import { generateSEOMeta, generateStructuredData } from '@/lib/seo';
 import { PublicAuthor } from '@/types/author';
 
 interface AuthorPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function generateMetadata({ params }: AuthorPageProps): Promise<Metadata> {
   try {
-    const author = await getAuthorData(params.id);
+    const { id } = await params;
+    const author = await getAuthorData(id);
     const seo = generateSEOMeta({
       title: `${author.name} - Author Profile`,
       description: author.bio || `Discover books and campaigns by ${author.name}`,
@@ -35,7 +36,8 @@ export async function generateMetadata({ params }: AuthorPageProps): Promise<Met
 
 export default async function AuthorPage({ params }: AuthorPageProps) {
   try {
-    const author = await getAuthorData(params.id);
+    const { id } = await params;
+    const author = await getAuthorData(id);
     const structuredData = generateStructuredData(author);
 
     return (
