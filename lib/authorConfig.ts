@@ -7,13 +7,8 @@ export const AUTHOR_CONFIG = {
   // Known author IDs - these should be real author IDs from the author platform
   // In production, this could be fetched from a separate endpoint or database
   KNOWN_AUTHOR_IDS: [
-    // Add real author IDs here as they become available
-    // For now, we'll use placeholder IDs that should be replaced with real ones
-    'author-1',
-    'author-2', 
-    'author-3',
-    'author-4',
-    'author-5'
+    // Add real author IDs here when they become available from the author platform
+    // Leave empty until real author IDs are provided - no mock data
   ],
   
   // Cache settings

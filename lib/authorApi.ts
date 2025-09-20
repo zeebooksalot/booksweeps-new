@@ -11,8 +11,8 @@ export async function getAuthorData(authorId: string): Promise<PublicAuthor> {
     return cached.data;
   }
 
-  // Fetch from the real author platform API
-  const response = await fetch(`${AUTHOR_CONFIG.API_BASE_URL}/${authorId}`, {
+  // Fetch from the local API
+  const response = await fetch(`/api/authors/${authorId}`, {
     headers: {
       'Content-Type': 'application/json',
     },
@@ -30,7 +30,8 @@ export async function getAuthorData(authorId: string): Promise<PublicAuthor> {
     throw new Error(`Failed to fetch author data: ${response.status}`);
   }
 
-  const data = await response.json();
+  const result = await response.json();
+  const data = result.author; // Extract author from the response
   
   // Cache the result
   cache.set(authorId, { data, timestamp: Date.now() });

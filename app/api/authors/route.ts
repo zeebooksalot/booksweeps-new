@@ -1,125 +1,145 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { PublicAuthor } from '@/types/author';
-import { AUTHOR_CONFIG, getAllAuthorIds } from '@/lib/authorConfig';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { PublicAuthor } from '@/types/author'
 
-// Function to fetch all authors from the real API
-async function fetchAllAuthors(): Promise<PublicAuthor[]> {
-  const knownAuthorIds = getAllAuthorIds();
-  
-  if (knownAuthorIds.length === 0) {
-    throw new Error('No author IDs configured. Please add author IDs to lib/authorConfig.ts');
+// Helper function to map pen_name data to PublicAuthor interface
+function mapPenNameToPublicAuthor(penNameData: any): PublicAuthor {
+  return {
+    id: penNameData.id,
+    name: penNameData.name,
+    bio: penNameData.bio,
+    genre: penNameData.genre,
+    website: penNameData.website,
+    avatar_url: penNameData.avatar_url,
+    social_links: penNameData.social_links || {},
+    created_at: penNameData.created_at,
+    followers: penNameData.followers || 0, // We'll calculate this from votes
+    books: penNameData.books?.map((book: any) => ({
+      id: book.id,
+      title: book.title,
+      author: book.author || penNameData.name,
+      description: book.description,
+      cover_image_url: book.cover_image_url,
+      page_count: book.page_count,
+      language: book.language || 'English',
+      created_at: book.created_at
+    })) || [],
+    campaigns: penNameData.campaigns?.map((campaign: any) => ({
+      id: campaign.id,
+      title: campaign.title,
+      description: campaign.description,
+      start_date: campaign.start_date,
+      end_date: campaign.end_date,
+      status: campaign.status,
+      created_at: campaign.created_at
+    })) || []
   }
-  
-  const authorPromises = knownAuthorIds.map(async (id) => {
-    const response = await fetch(`${AUTHOR_CONFIG.API_BASE_URL}/${id}`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      if (response.status === 404) {
-        console.warn(`Author ${id} not found`);
-        return null;
-      }
-      throw new Error(`Failed to fetch author ${id}: ${response.status} ${response.statusText}`);
-    }
-    
-    return await response.json();
-  });
-  
-  const authors = await Promise.all(authorPromises);
-  const validAuthors = authors.filter((author): author is PublicAuthor => author !== null);
-  
-  if (validAuthors.length === 0) {
-    throw new Error('No valid authors found. Please check your author IDs and API connectivity.');
-  }
-  
-  return validAuthors;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '12');
-    const search = searchParams.get('search') || '';
-    const genre = searchParams.get('genre') || '';
-    const sortBy = searchParams.get('sortBy') || 'popularity';
+    // For public access, use service role client to bypass RLS
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
-    // Fetch authors from real API only
-    const authors = await fetchAllAuthors();
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '12')
+    const search = searchParams.get('search')
+    const genre = searchParams.get('genre')
+    const sortBy = searchParams.get('sortBy') || 'popularity'
 
-    // Filter authors
-    let filteredAuthors = authors.filter(author => {
-      const matchesSearch = !search || 
-        author.name.toLowerCase().includes(search.toLowerCase()) ||
-        author.bio?.toLowerCase().includes(search.toLowerCase());
-      const matchesGenre = !genre || genre === 'all' || author.genre === genre;
-      return matchesSearch && matchesGenre;
-    });
+    console.log('Fetching pen_names with service role...')
+    
+    // Build query with joins to books and campaigns
+    let query = supabase
+      .from('pen_names')
+      .select(`
+        *,
+        books!books_pen_name_id_fkey (
+          id, title, author, description, cover_image_url, genre, page_count, language, created_at, status
+        ),
+        campaigns!campaigns_pen_name_id_fkey (
+          id, title, description, start_date, end_date, status, created_at
+        )
+      `, { count: 'exact' })
 
-    // Sort authors
-    filteredAuthors.sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'books':
-          return b.books.length - a.books.length;
-        case 'recent':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case 'popularity':
-        default:
-          return (b.followers || 0) - (a.followers || 0);
-      }
-    });
+    // Only show active pen names
+    query = query.eq('status', 'active')
+    
+    // Only show active books
+    query = query.eq('books.status', 'active')
 
-    // Paginate
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedAuthors = filteredAuthors.slice(startIndex, endIndex);
+    // Apply search filter
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,bio.ilike.%${search}%`)
+    }
 
-    const response = {
-      authors: paginatedAuthors,
+    // Apply genre filter
+    if (genre && genre !== 'all') {
+      query = query.eq('genre', genre)
+    }
+
+    // Apply sorting
+    switch (sortBy) {
+      case 'name':
+        query = query.order('name', { ascending: true })
+        break
+      case 'books':
+        // Sort by number of books (we'll handle this in post-processing for now)
+        query = query.order('created_at', { ascending: false })
+        break
+      case 'recent':
+        query = query.order('created_at', { ascending: false })
+        break
+      case 'popularity':
+      default:
+        // Sort by upvotes count (we'll calculate followers from votes later)
+        query = query.order('upvotes_count', { ascending: false })
+        break
+    }
+
+    // Apply pagination
+    const offset = (page - 1) * limit
+    const { data, error, count } = await query.range(offset, offset + limit - 1)
+
+    if (error) {
+      console.error('Database error:', error)
+      return NextResponse.json({ error: 'Database operation failed' }, { status: 500 })
+    }
+
+    console.log('Pen names query result:', { 
+      dataCount: data?.length || 0, 
+      totalCount: count || 0 
+    })
+
+    // Map the data to PublicAuthor interface
+    const authors = (data || []).map(mapPenNameToPublicAuthor)
+
+    // Handle sorting that requires post-processing
+    let sortedAuthors = authors
+    if (sortBy === 'books') {
+      sortedAuthors = authors.sort((a, b) => b.books.length - a.books.length)
+    }
+
+    return NextResponse.json({
+      authors: sortedAuthors,
       pagination: {
         page,
         limit,
-        total: filteredAuthors.length,
-        totalPages: Math.ceil(filteredAuthors.length / limit),
-        hasNext: endIndex < filteredAuthors.length,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limit),
+        hasNext: (offset + limit) < (count || 0),
         hasPrev: page > 1
       }
-    };
-
-    return NextResponse.json(response);
+    })
   } catch (error) {
-    console.error('Error fetching authors:', error);
-    
-    // Return specific error messages based on the error type
-    if (error instanceof Error) {
-      if (error.message.includes('No author IDs configured')) {
-        return NextResponse.json(
-          { error: 'Author configuration error. Please contact support.' },
-          { status: 500 }
-        );
-      }
-      if (error.message.includes('No valid authors found')) {
-        return NextResponse.json(
-          { error: 'No authors available. Please try again later.' },
-          { status: 503 }
-        );
-      }
-      if (error.message.includes('Failed to fetch author')) {
-        return NextResponse.json(
-          { error: 'Author platform temporarily unavailable. Please try again later.' },
-          { status: 503 }
-        );
-      }
-    }
-    
+    console.error('Error fetching authors:', error)
     return NextResponse.json(
       { error: 'Failed to fetch authors. Please try again later.' },
       { status: 500 }
-    );
+    )
   }
 }
