@@ -25,8 +25,9 @@ export function Navigation({ className = "" }: NavigationProps) {
     },
     {
       label: "Authors",
-      href: "#",
+      href: "/authors",
       dropdownItems: [
+        { label: "All Authors", href: "/authors" },
         { label: "Featured Authors", href: "#" },
         { label: "New Authors", href: "#" },
         { label: "Author Interviews", href: "#" }
