@@ -5,14 +5,21 @@ import { AUTHOR_CONFIG } from '@/lib/authorConfig';
 const cache = new Map<string, { data: PublicAuthor; timestamp: number }>();
 
 export async function getAuthorData(authorSlug: string): Promise<PublicAuthor> {
-  // Check cache first
-  const cached = cache.get(authorSlug);
-  if (cached && Date.now() - cached.timestamp < AUTHOR_CONFIG.CACHE_DURATION) {
-    return cached.data;
+  // Check cache first (only for client-side)
+  if (typeof window !== 'undefined') {
+    const cached = cache.get(authorSlug);
+    if (cached && Date.now() - cached.timestamp < AUTHOR_CONFIG.CACHE_DURATION) {
+      return cached.data;
+    }
   }
 
+  // Determine the base URL for the API call
+  const baseUrl = typeof window !== 'undefined' 
+    ? '' // Client-side: use relative URL
+    : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'; // Server-side: use absolute URL
+
   // Fetch from the local API
-  const response = await fetch(`/api/authors/${authorSlug}`, {
+  const response = await fetch(`${baseUrl}/api/authors/${authorSlug}`, {
     headers: {
       'Content-Type': 'application/json',
     },
@@ -33,8 +40,10 @@ export async function getAuthorData(authorSlug: string): Promise<PublicAuthor> {
   const result = await response.json();
   const data = result.author; // Extract author from the response
   
-  // Cache the result
-  cache.set(authorSlug, { data, timestamp: Date.now() });
+  // Cache the result (only for client-side)
+  if (typeof window !== 'undefined') {
+    cache.set(authorSlug, { data, timestamp: Date.now() });
+  }
   
   return data;
 }
