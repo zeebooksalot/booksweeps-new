@@ -50,20 +50,20 @@ export function GiveawayCard({ giveaway, onEnter, isMobileView }: GiveawayCardPr
       <div className={GIVEAWAY_STYLES.card}>
         <div className="flex items-start gap-4">
           {/* Book Cover */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
             <Image
               src={giveaway.book.cover_image_url}
               alt={giveaway.book.title}
               width={64}
               height={80}
-              className="rounded-md"
+              className="rounded-lg shadow-md group-hover:shadow-lg transition-shadow duration-300"
             />
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 line-clamp-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors duration-300">
                 {giveaway.title}
               </h3>
               {getStatusBadge()}
@@ -116,7 +116,7 @@ export function GiveawayCard({ giveaway, onEnter, isMobileView }: GiveawayCardPr
             {/* Enter Button */}
             <Button
               onClick={() => onEnter(giveaway.id)}
-              className="w-full"
+              className="w-full group-hover:bg-orange-600 group-hover:scale-105 transition-all duration-300"
               size="sm"
             >
               Enter Giveaway
@@ -132,13 +132,13 @@ export function GiveawayCard({ giveaway, onEnter, isMobileView }: GiveawayCardPr
     <div className={GIVEAWAY_STYLES.card}>
       <div className="flex items-start gap-6">
         {/* Book Cover */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
           <Image
             src={giveaway.book.cover_image_url}
             alt={giveaway.book.title}
             width={80}
             height={100}
-            className="rounded-md"
+            className="rounded-lg shadow-md group-hover:shadow-lg transition-shadow duration-300"
           />
         </div>
 
@@ -146,7 +146,7 @@ export function GiveawayCard({ giveaway, onEnter, isMobileView }: GiveawayCardPr
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-4 mb-3">
             <div className="flex-1">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors duration-300">
                 {giveaway.title}
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-3">
@@ -200,6 +200,7 @@ export function GiveawayCard({ giveaway, onEnter, isMobileView }: GiveawayCardPr
             <Button
               onClick={() => onEnter(giveaway.id)}
               size="sm"
+              className="group-hover:bg-orange-600 group-hover:scale-105 transition-all duration-300"
             >
               Enter Giveaway
             </Button>

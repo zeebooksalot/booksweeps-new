@@ -80,15 +80,15 @@ export const GIVEAWAY_TEXT = {
 export const GIVEAWAY_STYLES = {
   container: 'min-h-screen bg-gray-50 dark:bg-gray-900',
   mainContent: 'max-w-7xl mx-auto px-4 py-8',
-  card: 'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-shadow',
+  card: 'bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer group',
   filterPanel: 'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6',
   emptyState: 'flex items-center justify-center min-h-[60vh]',
   loadingState: 'min-h-screen bg-gradient-to-br from-blue-50 to-purple-50',
   badge: {
-    featured: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white',
-    active: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200',
-    endingSoon: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200',
-    ended: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+    featured: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg',
+    active: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 shadow-sm',
+    endingSoon: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 shadow-sm',
+    ended: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm'
   }
 }
 

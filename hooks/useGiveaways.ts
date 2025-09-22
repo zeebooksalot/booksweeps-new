@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Giveaway, ApiCampaign, GiveawayFilters } from "@/types/giveaways"
 import { GIVEAWAY_CONFIG, MOCK_GIVEAWAYS } from "@/constants/giveaways"
-import { useApi } from "@/hooks/use-api"
 
 interface UseGiveawaysProps {
   onFiltersChange?: (filters: GiveawayFilters) => void
@@ -17,8 +16,6 @@ export function useGiveaways({ onFiltersChange }: UseGiveawaysProps = {}) {
   const [filters, setFilters] = useState<GiveawayFilters>(GIVEAWAY_CONFIG.defaultFilters)
   const [sortBy, setSortBy] = useState(GIVEAWAY_CONFIG.defaultSortBy)
   
-  const campaignsApi = useApi<{ campaigns: ApiCampaign[]; pagination: unknown }>()
-
   // Check for mobile view
   useEffect(() => {
     const checkMobileView = () => {
@@ -36,14 +33,19 @@ export function useGiveaways({ onFiltersChange }: UseGiveawaysProps = {}) {
     setError(null)
     
     try {
-      const response = await campaignsApi.fetchData(`/api/campaigns?status=active&featured=${filters.featured}&limit=20`)
+      const response = await fetch(`/api/campaigns?status=active&featured=${filters.featured}&limit=20`)
+      const data = await response.json()
       
-      if (response.campaigns.length === 0) {
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch campaigns')
+      }
+      
+      if (data.campaigns.length === 0) {
         // Fallback to mock data
         setGiveaways(MOCK_GIVEAWAYS as unknown as Giveaway[])
       } else {
         // Map API data to Giveaway interface
-        const mappedGiveaways = response.campaigns.map((campaign: ApiCampaign) => ({
+        const mappedGiveaways = data.campaigns.map((campaign: ApiCampaign) => ({
           id: campaign.id,
           title: campaign.title,
           description: campaign.description || "",
@@ -83,7 +85,7 @@ export function useGiveaways({ onFiltersChange }: UseGiveawaysProps = {}) {
     } finally {
       setIsLoading(false)
     }
-  }, [filters.featured, campaignsApi])
+  }, [filters.featured])
 
   // Utility functions
   const getTimeRemaining = useCallback((endDate: string) => {
@@ -192,7 +194,7 @@ export function useGiveaways({ onFiltersChange }: UseGiveawaysProps = {}) {
   // Effects
   useEffect(() => {
     fetchGiveaways()
-  }, [fetchGiveaways])
+  }, [filters.featured])
 
   return {
     // State
