@@ -10,7 +10,7 @@ This document outlines the implementation of public author pages for the BookSwe
 ```
 app/
 ├── authors/
-│   ├── [id]/
+│   ├── [id]/                     # Note: [id] parameter now accepts slugs
 │   │   └── page.tsx              # Dynamic author profile page
 │   └── not-found.tsx             # 404 page for authors
 ├── sitemap-authors.xml/
@@ -36,8 +36,8 @@ types/
 ### 🔧 Features Implemented
 
 #### ✅ Core Functionality
-- **Dynamic Author Pages**: `/authors/[id]` with ISR (Incremental Static Regeneration)
-- **API Integration**: CORS-enabled API client with caching
+- **Dynamic Author Pages**: `/authors/[slug]` with ISR (Incremental Static Regeneration)
+- **Database Integration**: Direct Supabase queries with service role client
 - **Error Handling**: 404 pages, error boundaries, graceful degradation
 - **Performance**: Image optimization, lazy loading, caching
 
@@ -64,8 +64,8 @@ types/
 Create a `.env.local` file with the following variables:
 
 ```env
-# Author API Configuration
-NEXT_PUBLIC_AUTHOR_API_URL=https://app.booksweeps.com/functions/v1/public-author
+# Base URL for local development
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
 # Google Analytics
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
@@ -80,14 +80,15 @@ YANDEX_VERIFICATION_CODE=your_yandex_verification_code
 YAHOO_VERIFICATION_CODE=your_yahoo_verification_code
 ```
 
-## 🔗 API Integration
+## 🔗 Database Integration
 
-The implementation integrates with the author platform API:
+The implementation uses direct Supabase integration:
 
-- **Endpoint**: `https://app.booksweeps.com/functions/v1/public-author/{id}`
-- **CORS**: Configured for cross-domain access
+- **Database**: Direct queries to `pen_names`, `books`, and `campaigns` tables
+- **Service Role**: Uses service role client to bypass RLS for public access
 - **Caching**: 1-hour revalidation with client-side caching
-- **Error Handling**: Graceful handling of 404s and rate limits
+- **Error Handling**: Graceful handling of 404s and database errors
+- **URLs**: Slug-based URLs for SEO-friendly author pages
 
 ## 📊 SEO Features
 
@@ -134,7 +135,7 @@ Main container component that orchestrates all sections:
 ## 🚀 Deployment Notes
 
 ### Next.js Configuration
-- Added image domains for `app.booksweeps.com` and `staging.booksweeps.com`
+- Added image domains for `staging.booksweeps.com` and `app.booksweeps.com` (for future avatar images)
 - Configured for Netlify deployment
 - ISR with 1-hour revalidation
 

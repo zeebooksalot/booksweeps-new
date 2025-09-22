@@ -1,5 +1,6 @@
 export interface PublicAuthor {
   id: string;
+  slug: string;
   name: string;
   bio?: string;
   genre?: string;

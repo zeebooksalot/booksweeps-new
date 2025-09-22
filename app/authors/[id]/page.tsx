@@ -11,13 +11,13 @@ interface AuthorPageProps {
 
 export async function generateMetadata({ params }: AuthorPageProps): Promise<Metadata> {
   try {
-    const { id } = await params;
-    const author = await getAuthorData(id);
+    const { id: slug } = await params;
+    const author = await getAuthorData(slug);
     const seo = generateSEOMeta({
       title: `${author.name} - Author Profile`,
       description: author.bio || `Discover books and campaigns by ${author.name}`,
       image: author.avatar_url,
-      url: `https://staging.booksweeps.com/authors/${author.id}`,
+      url: `https://staging.booksweeps.com/authors/${author.slug}`,
     });
 
     return {
@@ -36,8 +36,8 @@ export async function generateMetadata({ params }: AuthorPageProps): Promise<Met
 
 export default async function AuthorPage({ params }: AuthorPageProps) {
   try {
-    const { id } = await params;
-    const author = await getAuthorData(id);
+    const { id: slug } = await params;
+    const author = await getAuthorData(slug);
     const structuredData = generateStructuredData(author);
 
     return (

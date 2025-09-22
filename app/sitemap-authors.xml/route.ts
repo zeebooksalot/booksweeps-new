@@ -3,11 +3,11 @@ import { generateAuthorSitemap } from '@/lib/seo';
 
 export async function GET() {
   try {
-    // In a real implementation, you'd fetch all author IDs from your API
+    // In a real implementation, you'd fetch all author slugs from your API
     // For now, we'll use an empty array as a placeholder
-    const authorIds: string[] = [];
+    const authorSlugs: string[] = [];
     
-    const sitemap = generateAuthorSitemap(authorIds);
+    const sitemap = generateAuthorSitemap(authorSlugs);
     
     return new NextResponse(sitemap, {
       headers: {

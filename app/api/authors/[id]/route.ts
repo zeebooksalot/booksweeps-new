@@ -8,6 +8,7 @@ import { PublicAuthor } from '@/types/author'
 function mapPenNameToPublicAuthor(penNameData: any): PublicAuthor {
   return {
     id: penNameData.id,
+    slug: penNameData.slug,
     name: penNameData.name,
     bio: penNameData.bio,
     genre: penNameData.genre,
@@ -49,7 +50,7 @@ export async function GET(
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { id } = await params
+    const { id: slug } = await params
     const { data, error } = await supabase
       .from('pen_names')
       .select(`
@@ -61,7 +62,7 @@ export async function GET(
           id, title, description, start_date, end_date, status, created_at
         )
       `)
-      .eq('id', id)
+      .eq('slug', slug)
       .eq('status', 'active')
       .single()
 
@@ -94,7 +95,7 @@ export async function PUT(
     // Create authenticated client
     const supabase = createRouteHandlerClient({ cookies })
 
-    const { id } = await params
+    const { id: slug } = await params
     const body = await request.json()
     const { name, bio, website, social_links, avatar_url, genre } = body
 
@@ -109,7 +110,7 @@ export async function PUT(
         genre,
         updated_at: new Date().toISOString()
       })
-      .eq('id', id)
+      .eq('slug', slug)
       .select()
       .single()
 

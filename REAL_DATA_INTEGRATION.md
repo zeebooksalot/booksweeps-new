@@ -1,8 +1,8 @@
-# Real Data Integration Guide
+# Local Development Setup Guide
 
 ## 🎯 Overview
 
-This guide explains how to integrate the staging site with real author data from the author platform API.
+This guide explains how to set up the BookSweeps staging site for local development. The system now uses direct Supabase integration for author data.
 
 ## 🔧 Configuration
 
@@ -11,45 +11,42 @@ This guide explains how to integrate the staging site with real author data from
 Create a `.env.local` file with the following variables:
 
 ```env
-# Author Platform API
-NEXT_PUBLIC_AUTHOR_API_URL=https://app.booksweeps.com/functions/v1/public-author
-
 # Base URL for local development
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
 # Google Analytics
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
+
+# Google Search Console Verification
+GOOGLE_VERIFICATION_CODE=your_google_verification_code
+
+# Yandex Verification
+YANDEX_VERIFICATION_CODE=your_yandex_verification_code
+
+# Yahoo Verification
+YAHOO_VERIFICATION_CODE=your_yahoo_verification_code
 ```
 
-### 2. Author Configuration
+### 2. Database Integration
 
-Update `lib/authorConfig.ts` with real author IDs:
-
-```typescript
-export const AUTHOR_CONFIG = {
-  // ... other config
-  KNOWN_AUTHOR_IDS: [
-    'real-author-id-1',
-    'real-author-id-2',
-    'real-author-id-3',
-    // Add more real author IDs here
-  ],
-};
-```
+The system automatically connects to Supabase using the existing configuration:
+- Author data is fetched directly from the `pen_names` table
+- Books and campaigns are joined from their respective tables
+- No external API configuration needed
 
 ## 🧪 Testing the Integration
 
-### 1. Test the Author Platform API
+### 1. Test the Local API
 
-Run the test script to verify the API connection:
+Run the test script to verify the local API connection:
 
 ```bash
 npx tsx scripts/test-author-api.ts
 ```
 
 This will:
-- Test each author ID against the real API
-- Verify the staging site API endpoint
+- Test the authors list API endpoint
+- Test individual author API endpoints with slug-based URLs
 - Show success/failure for each test
 
 ### 2. Test Individual Author Pages
@@ -60,15 +57,17 @@ This will:
    ```
 
 2. Visit individual author pages:
-   - `http://localhost:3000/authors/real-author-id-1`
-   - `http://localhost:3000/authors/real-author-id-2`
-   - etc.
+   - `http://localhost:3000/authors/clarissa-bright`
+   - `http://localhost:3000/authors/jane-austen`
+   - `http://localhost:3000/authors/franz-kafka`
+   - `http://localhost:3000/authors/bob-brink`
 
 3. Verify that:
    - Author data loads correctly
    - Books and campaigns display
    - Social links work
    - SEO meta tags are generated
+   - URLs use slug-based format
 
 ### 3. Test Author Directory
 
@@ -79,27 +78,29 @@ This will:
    - Filtering by genre works
    - Sorting works
    - Pagination works (if needed)
+   - Links use slug-based URLs
 
 ## 🔄 Data Flow
 
 ```
-Author Platform (app.booksweeps.com)
-    ↓ (CORS-enabled API)
+Supabase Database (pen_names, books, campaigns tables)
+    ↓ (Direct queries with joins)
 Staging Site API (/api/authors)
     ↓ (Processes and filters data)
 Author Directory (/authors)
-    ↓ (Individual author links)
-Author Profile Pages (/authors/[id])
+    ↓ (Individual author links with slugs)
+Author Profile Pages (/authors/[slug])
 ```
 
 ## 🛠️ Implementation Details
 
-### API Integration
+### Database Integration
 
-The system uses a two-tier approach:
+The system uses direct Supabase integration:
 
-1. **Direct API calls** for individual author pages
-2. **Staging site API** for the author directory (with caching and filtering)
+1. **Service role client** for public API access (bypasses RLS)
+2. **Direct database queries** with joins to books and campaigns tables
+3. **Slug-based URLs** for SEO-friendly author pages
 
 ### Caching Strategy
 

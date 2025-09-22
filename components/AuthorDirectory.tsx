@@ -207,7 +207,7 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
           {paginatedAuthors.map((author) => (
             <Link
               key={author.id}
-              href={`/authors/${author.id}`}
+              href={`/authors/${author.slug}`}
               className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border hover:shadow-md transition-shadow"
             >
               <div className="flex items-start space-x-4 mb-4">

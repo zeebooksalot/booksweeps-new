@@ -33,7 +33,7 @@ export function generateStructuredData(author: PublicAuthor) {
     '@type': 'Person',
     name: author.name,
     description: author.bio,
-    url: `https://staging.booksweeps.com/authors/${author.id}`,
+    url: `https://staging.booksweeps.com/authors/${author.slug}`,
     image: author.avatar_url,
     sameAs: Object.values(author.social_links || {}).filter(Boolean),
     knowsAbout: author.genre,
@@ -42,14 +42,14 @@ export function generateStructuredData(author: PublicAuthor) {
 }
 
 // Sitemap generation for author pages
-export function generateAuthorSitemap(authorIds: string[]) {
+export function generateAuthorSitemap(authorSlugs: string[]) {
   const baseUrl = 'https://staging.booksweeps.com';
   
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  ${authorIds.map(id => `
+  ${authorSlugs.map(slug => `
   <url>
-    <loc>${baseUrl}/authors/${id}</loc>
+    <loc>${baseUrl}/authors/${slug}</loc>
     <lastmod>${new Date().toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

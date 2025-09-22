@@ -6,6 +6,7 @@ import { PublicAuthor } from '@/types/author'
 function mapPenNameToPublicAuthor(penNameData: any): PublicAuthor {
   return {
     id: penNameData.id,
+    slug: penNameData.slug,
     name: penNameData.name,
     bio: penNameData.bio,
     genre: penNameData.genre,
