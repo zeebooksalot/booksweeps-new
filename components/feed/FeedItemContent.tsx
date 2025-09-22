@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { MessageCircle, Star } from "lucide-react"
+import { MessageCircle, Star, Calendar } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { FeedItem } from "@/types"
 import { FEED_DISPLAY, FEED_TEXT, FEED_CONFIG } from "@/constants/feed"
@@ -17,9 +17,13 @@ export function FeedItemContent({
   isMobile = false, 
   showFullGenres = false 
 }: FeedItemContentProps) {
-  const imageSizes = isMobile ? FEED_DISPLAY.imageSizes : {
+  const imageSizes = isMobile ? {
+    ...FEED_DISPLAY.imageSizes,
+    giveaway: FEED_DISPLAY.imageSizes.book, // Use book size for giveaways
+  } : {
     book: FEED_DISPLAY.imageSizes.bookDesktop,
     author: FEED_DISPLAY.imageSizes.authorDesktop,
+    giveaway: FEED_DISPLAY.imageSizes.bookDesktop, // Use book size for giveaways
   }
   
   const badgeSize = isMobile ? FEED_DISPLAY.badgeSizes.mobile : FEED_DISPLAY.badgeSizes.desktop
@@ -40,11 +44,11 @@ export function FeedItemContent({
       {/* Book/Author Image */}
       <div className="flex-shrink-0">
         <Image
-          src={item.type === "book" ? item.cover : item.avatar}
-          alt={item.type === "book" ? item.title : item.name}
-          width={imageSizes[item.type].width}
-          height={imageSizes[item.type].height}
-          className={`${item.type === "book" ? "rounded-xl" : "rounded-full"} shadow-sm`}
+          src={item.type === "book" ? item.cover : item.type === "author" ? item.avatar : item.bookCover}
+          alt={item.type === "book" ? item.title : item.type === "author" ? item.name : item.title}
+          width={imageSizes[item.type]?.width || imageSizes.book.width}
+          height={imageSizes[item.type]?.height || imageSizes.book.height}
+          className={`${item.type === "book" || item.type === "giveaway" ? "rounded-xl" : "rounded-full"} shadow-sm`}
         />
       </div>
 
@@ -53,21 +57,23 @@ export function FeedItemContent({
         <h3 className={`font-semibold text-gray-900 dark:text-gray-100 mb-1 ${
           isMobile ? "text-18 line-clamp-2" : "text-18 group-hover:sm:text-orange-500 transition-all duration-300"
         }`}>
-          {item.type === "book" ? item.title : item.name}
+          {item.type === "book" ? item.title : item.type === "author" ? item.name : item.title}
         </h3>
         
         <p className="text-16 text-gray-600 dark:text-gray-400 mb-2">
           {item.type === "book" 
             ? `by ${item.author}` 
-            : isMobile 
+            : item.type === "author"
+            ? isMobile 
               ? `${item.books} ${FEED_TEXT.stats.books} • ${item.followers.toLocaleString()} ${FEED_TEXT.stats.followers}`
               : item.bio
+            : `by ${item.authorName} • ${item.entryCount} entries`
           }
         </p>
         
         {isMobile && (
           <p className="text-14 text-gray-600 dark:text-gray-400 mb-3 line-clamp-3">
-            {item.type === "book" ? item.description : item.bio}
+            {item.type === "book" ? item.description : item.type === "author" ? item.bio : item.description}
           </p>
         )}
 
@@ -83,12 +89,19 @@ export function FeedItemContent({
                 {genre}
               </Badge>
             ))
-          ) : (
+          ) : item.type === "author" ? (
             <Badge
               variant="secondary"
               className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
             >
               Author
+            </Badge>
+          ) : (
+            <Badge
+              variant="secondary"
+              className="bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400"
+            >
+              Giveaway
             </Badge>
           )}
         </div>
@@ -97,14 +110,22 @@ export function FeedItemContent({
         {isMobile ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 text-14 text-gray-600 dark:text-gray-400">
-              <span className="flex items-center gap-1">
-                <MessageCircle className="h-4 w-4" />
-                {item.type === "book" ? item.comments : "0"}
-              </span>
+              {item.type === "book" && (
+                <span className="flex items-center gap-1">
+                  <MessageCircle className="h-4 w-4" />
+                  {item.comments}
+                </span>
+              )}
               {item.type === "book" && (
                 <span className="flex items-center gap-1">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                   {item.rating}
+                </span>
+              )}
+              {item.type === "giveaway" && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  Ends {new Date(item.endDate).toLocaleDateString()}
                 </span>
               )}
             </div>
@@ -128,6 +149,17 @@ export function FeedItemContent({
                 <span>{item.books} {FEED_TEXT.stats.books}</span>
                 <span>{item.followers.toLocaleString()} {FEED_TEXT.stats.followers}</span>
                 <span>{FEED_TEXT.stats.joined} {item.joinedDate}</span>
+              </div>
+            )}
+            {item.type === "giveaway" && (
+              <div className="flex items-center gap-4 text-14 text-gray-600 dark:text-gray-400">
+                <span>{item.entryCount} entries</span>
+                <span>Ends {new Date(item.endDate).toLocaleDateString()}</span>
+                {item.isFeatured && (
+                  <Badge variant="secondary" className="bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400">
+                    Featured
+                  </Badge>
+                )}
               </div>
             )}
           </>

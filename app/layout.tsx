@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/components/auth/AuthProvider"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Toaster } from "@/components/ui/toaster"
+import { Footer } from "@/components/Footer"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -130,6 +131,7 @@ export default function RootLayout({
           <AuthProvider>
             <ThemeProvider defaultTheme="system">
               {children}
+              <Footer />
               <Toaster />
             </ThemeProvider>
           </AuthProvider>

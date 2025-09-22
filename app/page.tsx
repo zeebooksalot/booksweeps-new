@@ -136,8 +136,8 @@ export default function BookSweepsHomepage() {
 
         {/* Main Content */}
         <div className="pt-20 pb-20 md:pb-8">
-          <div className="mx-0 md:mx-4 my-4 md:my-8 flex flex-col justify-center gap-8 md:flex-row">
-            <main className="md:max-w-[900px] w-full">
+          <div className="mx-0 md:mx-4 my-4 md:my-8 flex flex-col justify-center">
+            <main className="max-w-4xl mx-auto w-full">
               {/* Welcome Banner - Hidden on mobile */}
               <section 
                 className="hidden md:flex mb-6 flex-row items-center gap-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 p-4 shadow-sm mx-4 border border-orange-100 dark:border-orange-800"
@@ -314,168 +314,8 @@ export default function BookSweepsHomepage() {
               </section>
             </main>
 
-            {/* Sidebar - Desktop only */}
-            <aside 
-              className="hidden md:block w-full md:w-[280px] md:min-w-[280px]"
-              role="complementary"
-              aria-label="Trending discussions"
-            >
-              <div className="mb-8 flex flex-col gap-4">
-                <h2 className="text-18 font-semibold text-gray-900 dark:text-gray-100 transition-all duration-300 ease-in hover:text-orange-500">
-                  Trending Discussions
-                </h2>
-                <div className="flex flex-col gap-8">
-                  <div className="flex flex-col">
-                    <div className="group -mx-4 flex cursor-pointer flex-col gap-2 rounded-lg p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow-sm">
-                      <div 
-                        className="flex flex-row items-center gap-2 text-14 font-medium text-gray-600 dark:text-gray-400 group-hover:text-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded"
-                      >
-                        <Image
-                          src="/placeholder.svg?height=20&width=20"
-                          alt="Book Club"
-                          width={20}
-                          height={20}
-                          className="rounded"
-                        />
-                        r/bookclub
-                      </div>
-                      <div 
-                        className="block text-16 font-medium text-gray-900 dark:text-gray-100 leading-snug focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded"
-                      >
-                        What&apos;s your favorite book discovery method?
-                      </div>
-                      <div className="flex flex-row items-center justify-start gap-3 mt-1">
-                        <button 
-                          className="flex flex-row items-center gap-1 text-14 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:text-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded"
-                          aria-label="135 upvotes"
-                        >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 16 16"
-                            className="stroke-[1.5px] stroke-gray-600 dark:stroke-gray-400"
-                            aria-hidden="true"
-                          >
-                            <path d="M2 5.2c0-1.12 0-1.68.218-2.108a2 2 0 0 1 .874-.874C3.52 2 4.08 2 5.2 2h5.6c1.12 0 1.68 0 2.108.218a2 2 0 0 1 .874.874C14 3.52 14 4.08 14 5.2v5.6c0 1.12 0 1.68-.218 2.108a2 2 0 0 1-.874.874C12.48 14 11.92 14 10.8 14H5.2c-1.12 0-1.68 0-2.108-.218a2 2 0 0 1-.874-.874C2 12.48 2 11.92 2 10.8z"></path>
-                            <path d="M7.2 5.733a1 1 0 0 1 1.6 0l2 2.667A1 1 0 0 1 10 10H6a1 1 0 0 1-.8-1.6z"></path>
-                          </svg>
-                          135
-                        </button>
-                        <span className="text-12 text-gray-400" aria-hidden="true">•</span>
-                        <div 
-                          className="flex flex-row items-center gap-1 text-14 text-gray-600 dark:text-gray-400 hover:text-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded"
-                          aria-label="80 comments"
-                        >
-                          <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                          80
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-4">
-                    <div
-                      className="inline-block max-h-11 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-center text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                      aria-label="View all discussions"
-                    >
-                      View all
-                    </div>
-                    <div
-                      className="flex flex-row items-center justify-center gap-2 text-16 font-semibold text-gray-600 dark:text-gray-400 inline-block max-h-11 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-center transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                      aria-label="Start a new discussion thread"
-                    >
-                      <MessageCircle className="h-4 w-4" aria-hidden="true" />
-                      Start new thread
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </aside>
           </div>
 
-          {/* Footer - Desktop only */}
-          <footer 
-            className="hidden md:block bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 py-12 transition-colors"
-            role="contentinfo"
-            aria-label="Site footer"
-          >
-            <div className="container mx-auto px-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                <div>
-                  <div className="flex items-center space-x-2 mb-4">
-                    <BookOpen className="h-6 w-6 text-orange-500" aria-hidden="true" />
-                    <span className="text-lg font-bold text-gray-900 dark:text-gray-100">BookSweeps</span>
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
-                    Connecting readers with amazing books through author giveaways.
-                  </p>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">For Readers</h4>
-                  <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                    <li>
-                      <Link href="/giveaways" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded">
-                        Browse Giveaways
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/how-it-works" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded">
-                        How It Works
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/dashboard" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded">
-                        My Dashboard
-                      </Link>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">For Authors</h4>
-                  <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                    <li>
-                      <Link href="/campaigns/create" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded">
-                        Create Campaign
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/author-tools" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded">
-                        Author Tools
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/success-stories" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded">
-                        Success Stories
-                      </Link>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Support</h4>
-                  <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                    <li>
-                      <Link href="/help" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded">
-                        Help Center
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/contact" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded">
-                        Contact Us
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded">
-                        Privacy Policy
-                      </Link>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              <div className="border-t border-gray-200 dark:border-gray-700 mt-8 pt-8 text-center text-sm text-gray-600 dark:text-gray-400">
-                <p>© 2025 BookSweeps. All rights reserved. Built with ❤️ for book lovers.</p>
-              </div>
-            </div>
-          </footer>
         </div>
 
         {/* Mobile Bottom Navigation */}

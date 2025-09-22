@@ -5,8 +5,10 @@ import { useCsrf } from '@/hooks/useCsrf'
 import { 
   BookItem, 
   AuthorItem, 
+  GiveawayItem,
   ApiBook, 
   ApiAuthor, 
+  ApiCampaign,
   FilterState,
   FeedItem,
   BookDeliveryMethod
@@ -25,6 +27,7 @@ export function useHomePage() {
   // Data state
   const [booksData, setBooksData] = useState<BookItem[]>([])
   const [authorsData, setAuthorsData] = useState<AuthorItem[]>([])
+  const [giveawaysData, setGiveawaysData] = useState<GiveawayItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -36,14 +39,17 @@ export function useHomePage() {
   // API hooks
   const booksApi = useApi<{ data: ApiBook[]; pagination: unknown }>()
   const authorsApi = useApi<{ data: ApiAuthor[]; pagination: unknown }>()
+  const campaignsApi = useApi<{ data: ApiCampaign[]; pagination: unknown }>()
   
   // Store fetch functions in refs to avoid dependency issues
   const fetchBooksRef = useRef(booksApi.fetchData)
   const fetchAuthorsRef = useRef(authorsApi.fetchData)
+  const fetchCampaignsRef = useRef(campaignsApi.fetchData)
   
   // Update refs when fetch functions change
   fetchBooksRef.current = booksApi.fetchData
   fetchAuthorsRef.current = authorsApi.fetchData
+  fetchCampaignsRef.current = campaignsApi.fetchData
 
   // Data mapping functions
   const mapBookFromApi = useCallback((book: ApiBook, rank: number): BookItem => ({
@@ -84,16 +90,37 @@ export function useHomePage() {
     rank
   }), [])
 
+  // Map campaign to GiveawayItem
+  const mapCampaignToGiveawayItem = useCallback((campaign: ApiCampaign, rank: number): GiveawayItem => ({
+    id: campaign.id,
+    type: "giveaway" as const,
+    title: campaign.title,
+    description: campaign.description || "No description available",
+    bookTitle: campaign.book?.title || campaign.author_name || "Unknown Book",
+    bookAuthor: campaign.book?.author || campaign.author_name || "Unknown Author",
+    bookCover: campaign.book?.cover_image_url || campaign.book_cover_url || "/placeholder.jpg",
+    authorName: campaign.pen_names?.name || campaign.author_name || "Unknown Author",
+    authorAvatar: campaign.pen_names?.avatar_url || "/placeholder-author.jpg",
+    endDate: campaign.end_date,
+    entryCount: campaign.entry_count || 0,
+    maxEntries: campaign.max_entries || 100,
+    prizeDescription: campaign.prize_description || "Amazing prizes!",
+    isFeatured: campaign.is_featured || false,
+    votes: campaign.entry_count || 0, // Using entry count as votes for homepage
+    rank
+  }), [])
+
   // Fetch data function
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
       
-      // Fetch books and authors in parallel
-      const [booksResponse, authorsResponse] = await Promise.all([
+      // Fetch books, authors, and campaigns in parallel
+      const [booksResponse, authorsResponse, campaignsResponse] = await Promise.all([
         fetchBooksRef.current(`/api/books?sortBy=${filters.sortBy}&limit=${API_CONFIG.defaultLimit}`),
-        fetchAuthorsRef.current(`/api/authors?sortBy=${filters.sortBy}&limit=${API_CONFIG.defaultLimit}`)
+        fetchAuthorsRef.current(`/api/authors?sortBy=${filters.sortBy}&limit=${API_CONFIG.defaultLimit}`),
+        fetchCampaignsRef.current(`/api/campaigns?sortBy=${filters.sortBy}&limit=${API_CONFIG.defaultLimit}`)
       ])
       
       // Debug: Log the raw API responses
@@ -123,14 +150,21 @@ export function useHomePage() {
             mapAuthorFromApi(author, index + 1)
           )
         : []
+      const mappedGiveaways = Array.isArray(campaignsResponse.data)
+        ? campaignsResponse.data.map((campaign: ApiCampaign, index: number) => 
+            mapCampaignToGiveawayItem(campaign, index + 1)
+          )
+        : []
       
       // If no data from API, use fallback mock data
-      if (mappedBooks.length === 0 && mappedAuthors.length === 0) {
+      if (mappedBooks.length === 0 && mappedAuthors.length === 0 && mappedGiveaways.length === 0) {
         setBooksData(FALLBACK_DATA.books)
         setAuthorsData(FALLBACK_DATA.authors)
+        setGiveawaysData([]) // No fallback giveaways data
       } else {
         setBooksData(mappedBooks)
         setAuthorsData(mappedAuthors)
+        setGiveawaysData(mappedGiveaways)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch data')
@@ -138,7 +172,7 @@ export function useHomePage() {
     } finally {
       setIsLoading(false)
     }
-  }, [filters.sortBy, mapBookFromApi, mapAuthorFromApi])
+  }, [filters.sortBy, mapBookFromApi, mapAuthorFromApi, mapCampaignToGiveawayItem])
 
   // Fetch data on component mount and when sortBy changes
   useEffect(() => {
@@ -146,7 +180,7 @@ export function useHomePage() {
   }, [fetchData])
 
   // Combine all data
-  const allData = useMemo(() => [...booksData, ...authorsData], [booksData, authorsData])
+  const allData = useMemo(() => [...booksData, ...authorsData, ...giveawaysData], [booksData, authorsData, giveawaysData])
 
   // Pre-compute search indices for better performance
   const searchIndex = useMemo(() => {
@@ -155,10 +189,14 @@ export function useHomePage() {
       type: item.type,
       searchText: item.type === 'book' 
         ? `${(item as BookItem).title} ${(item as BookItem).author} ${(item as BookItem).description} ${(item as BookItem).genres.join(" ")}`.toLowerCase()
-        : `${(item as AuthorItem).name} ${(item as AuthorItem).bio}`.toLowerCase(),
+        : item.type === 'author'
+        ? `${(item as AuthorItem).name} ${(item as AuthorItem).bio}`.toLowerCase()
+        : `${(item as GiveawayItem).title} ${(item as GiveawayItem).bookTitle} ${(item as GiveawayItem).bookAuthor} ${(item as GiveawayItem).authorName} ${(item as GiveawayItem).description}`.toLowerCase(),
       parsedDate: item.type === 'book' 
         ? new Date((item as BookItem).publishDate).getTime()
-        : new Date((item as AuthorItem).joinedDate).getTime(),
+        : item.type === 'author'
+        ? new Date((item as AuthorItem).joinedDate).getTime()
+        : new Date((item as GiveawayItem).endDate).getTime(),
       item
     }))
   }, [allData])
@@ -172,7 +210,7 @@ export function useHomePage() {
         // Basic tab filtering
         if (filters.activeTab === "books" && type !== "book") return false
         if (filters.activeTab === "authors" && type !== "author") return false
-        if (filters.activeTab === "giveaways" && !item.hasGiveaway) return false
+        if (filters.activeTab === "giveaways" && type !== "giveaway") return false
         
         // Search query filtering (optimized)
         if (filters.searchQuery.trim()) {
@@ -193,9 +231,10 @@ export function useHomePage() {
           if (book.rating < filters.ratingFilter) return false
         }
         
-        // Giveaway filtering
-        if (filters.hasGiveaway !== null) {
-          if (item.hasGiveaway !== filters.hasGiveaway) return false
+        // Giveaway filtering (only applies to books and authors, not giveaway items)
+        if (filters.hasGiveaway !== null && type !== "giveaway") {
+          const bookOrAuthor = item as BookItem | AuthorItem
+          if (bookOrAuthor.hasGiveaway !== filters.hasGiveaway) return false
         }
         
         // Date range filtering (optimized with pre-computed dates)

@@ -1,7 +1,7 @@
 // Base types
 export interface BaseItem {
   id: string
-  type: 'book' | 'author'
+  type: 'book' | 'author' | 'giveaway'
   rank: number
 }
 
@@ -55,6 +55,24 @@ export interface AuthorItem extends BaseItem {
   followers: number
   joinedDate: string
   hasGiveaway?: boolean
+}
+
+// Giveaway types for homepage
+export interface GiveawayItem extends BaseItem {
+  type: 'giveaway'
+  title: string
+  description: string
+  bookTitle: string
+  bookAuthor: string
+  bookCover: string
+  authorName: string
+  authorAvatar: string
+  endDate: string
+  entryCount: number
+  maxEntries: number
+  prizeDescription: string
+  isFeatured: boolean
+  votes: number
 }
 
 export interface ApiAuthor {
@@ -207,7 +225,7 @@ export interface PaginatedResponse<T> {
 }
 
 // Feed item union type
-export type FeedItem = BookItem | AuthorItem
+export type FeedItem = BookItem | AuthorItem | GiveawayItem
 
 // Feed item display specific types
 export interface FeedItemDisplayProps {

@@ -1,6 +1,5 @@
 "use client"
 
-import { MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FeedItem } from "@/types"
 import { FEED_DISPLAY, FEED_TEXT, FEED_STATUS_COLORS } from "@/constants/feed"
@@ -27,17 +26,6 @@ export function FeedItemActions({ item, onVote, isMobile = false }: FeedItemActi
         </Button>
       )}
 
-      {/* Comment Button */}
-      <button
-        type="button"
-        className="flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 transition-all duration-300 hover:border-orange-500 hover:shadow-md"
-        style={{ width: buttonSize.width, height: buttonSize.height }}
-      >
-        <MessageCircle className="h-3.5 w-3.5 text-gray-700 dark:text-gray-300" />
-        <p className="text-12 font-semibold leading-none text-gray-700 dark:text-gray-300">
-          {item.type === "book" ? item.comments : "0"}
-        </p>
-      </button>
 
       {/* Vote Button */}
       <button

@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { PublicAuthor } from '@/types/author'
+import { ApiAuthor } from '@/types'
+
+// Helper function to convert PublicAuthor to ApiAuthor format for homepage compatibility
+function mapPublicAuthorToApiAuthor(publicAuthor: PublicAuthor): ApiAuthor {
+  return {
+    id: publicAuthor.id,
+    name: publicAuthor.name,
+    bio: publicAuthor.bio,
+    avatar_url: publicAuthor.avatar_url,
+    votes_count: publicAuthor.followers || 0, // Using followers as votes for homepage
+    books_count: publicAuthor.books.length,
+    followers_count: publicAuthor.followers || 0,
+    joined_date: publicAuthor.created_at,
+    has_giveaway: publicAuthor.campaigns.some(c => c.status === 'active')
+  }
+}
 
 // Helper function to map pen_name data to PublicAuthor interface
 function mapPenNameToPublicAuthor(penNameData: any): PublicAuthor {
@@ -125,8 +141,12 @@ export async function GET(request: NextRequest) {
       sortedAuthors = authors.sort((a, b) => b.books.length - a.books.length)
     }
 
+    // Convert to ApiAuthor format for homepage compatibility
+    const apiAuthors = sortedAuthors.map(mapPublicAuthorToApiAuthor)
+
     return NextResponse.json({
-      authors: sortedAuthors,
+      authors: sortedAuthors, // For author directory pages
+      data: apiAuthors, // For homepage compatibility
       pagination: {
         page,
         limit,
