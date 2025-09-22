@@ -2,6 +2,7 @@ import { AuthorHeader } from './AuthorHeader';
 import { AuthorBooks } from './AuthorBooks';
 import { AuthorCampaigns } from './AuthorCampaigns';
 import { AuthorSocialLinks } from './AuthorSocialLinks';
+import { AuthorGiveaways } from './AuthorGiveaways';
 import { PublicAuthor } from '@/types/author';
 
 interface AuthorProfileProps {
@@ -13,8 +14,10 @@ export function AuthorProfile({ author }: AuthorProfileProps) {
     <div className="max-w-6xl mx-auto px-4 py-8">
       <AuthorHeader author={author} />
       
-      <div className="grid gap-8 lg:grid-cols-3 mt-8">
-        <div className="lg:col-span-2 space-y-8">
+      <div className="grid gap-8 lg:grid-cols-4 mt-8">
+        <div className="lg:col-span-3 space-y-8">
+          <AuthorGiveaways author={author} />
+          
           {author.books.length > 0 && (
             <AuthorBooks books={author.books} />
           )}
