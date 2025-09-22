@@ -28,13 +28,13 @@ export function AuthorProfile({ author }: AuthorProfileProps) {
           <AuthorSocialLinks socialLinks={author.social_links} />
           
           {author.website && (
-            <div className="bg-white rounded-lg p-6 shadow-sm border">
-              <h3 className="font-semibold mb-2">Official Website</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Official Website</h3>
               <a 
                 href={author.website} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline break-all"
+                className="text-blue-600 dark:text-blue-400 hover:underline break-all"
               >
                 {author.website}
               </a>
