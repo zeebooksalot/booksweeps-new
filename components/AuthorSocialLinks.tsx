@@ -50,8 +50,8 @@ export function AuthorSocialLinks({ socialLinks }: AuthorSocialLinksProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-      <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Connect</h3>
+    <div className="bg-card rounded-xl p-8 border border-border">
+      <h3 className="font-semibold text-foreground mb-4">Connect</h3>
       
       <div className="flex flex-wrap gap-3">
         {Object.entries(socialLinks).map(([platform, url]) => {
@@ -66,10 +66,10 @@ export function AuthorSocialLinks({ socialLinks }: AuthorSocialLinksProps) {
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors"
             >
               {Icon && <Icon className="w-4 h-4" />}
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <span className="text-sm font-medium text-foreground">
                 {label}
               </span>
             </a>

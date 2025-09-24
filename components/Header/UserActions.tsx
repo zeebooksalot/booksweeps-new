@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/components/auth/AuthProvider"
 import { Button } from "@/components/ui/button"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Mail } from "lucide-react"
 import Link from "next/link"
 import { useCallback } from "react"
@@ -52,26 +53,18 @@ export function UserActions({ className = "" }: UserActionsProps) {
 
   return (
     <div className={`hidden md:flex items-center gap-3 ${className}`}>
-      <Link
-        href="/signup"
-        className="flex h-10 items-center gap-1 rounded-full border-2 border-gray-200 dark:border-gray-700 px-4 text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-        aria-label="Subscribe to newsletter"
-      >
-        <Mail className="h-4 w-4" aria-hidden="true" />
-        Subscribe
-      </Link>
       {user ? (
         <>
           <Link 
             href="/dashboard" 
-            className="inline-flex items-center justify-center h-10 px-4 rounded-full bg-orange-500 text-16 font-semibold text-white hover:bg-orange-600 transition-colors"
+          className="inline-flex items-center justify-center h-10 px-4 rounded-full bg-emerald-600 text-16 font-medium text-white hover:bg-emerald-700 transition-colors"
             aria-label="Go to dashboard"
           >
             Dashboard
           </Link>
           <Button
             variant="outline"
-            className="h-10 px-4 rounded-full border-2 border-gray-200 dark:border-gray-700 text-16 font-semibold text-gray-600 dark:text-gray-400 hover:border-orange-500"
+          className="h-10 px-4 rounded-full border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white font-medium"
             onClick={handleSignOut}
             aria-label="Sign out"
           >
@@ -79,13 +72,19 @@ export function UserActions({ className = "" }: UserActionsProps) {
           </Button>
         </>
       ) : (
-        <Link 
-          href="/login" 
-          className="inline-flex items-center justify-center h-10 px-4 rounded-full bg-orange-500 text-16 font-semibold text-white hover:bg-orange-600 transition-colors"
-          aria-label="Sign in to your account"
-        >
-          Sign in
-        </Link>
+        <>
+          <ThemeToggle />
+          <Link href="/signup" className="hidden md:block">
+            <Button variant="outline" className="rounded-md">Subscribe</Button>
+          </Link>
+          <Link 
+            href="/login" 
+            className="inline-flex items-center justify-center h-10 px-4 rounded-md bg-emerald-600 text-sm font-medium text-white hover:bg-emerald-700 transition-colors"
+            aria-label="Sign in to your account"
+          >
+            Sign in
+          </Link>
+        </>
       )}
     </div>
   )

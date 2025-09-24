@@ -30,7 +30,7 @@ export function Navigation({ className = "" }: NavigationProps) {
         <Link
           key={item.label}
           href={item.href}
-          className="text-16 font-semibold text-gray-600 dark:text-gray-400 transition-colors duration-300 hover:text-orange-500 dark:hover:text-white whitespace-nowrap"
+          className="text-16 font-medium text-muted-foreground transition-colors duration-300 hover:text-foreground whitespace-nowrap"
         >
           {item.label}
         </Link>

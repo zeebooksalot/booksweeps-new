@@ -1,65 +1,83 @@
-import Image from 'next/image';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PublicAuthor } from '@/types/author';
-import { Plus } from 'lucide-react';
+import { Plus, Users, Gift, Download } from 'lucide-react';
 
 interface AuthorHeaderProps {
   author: PublicAuthor;
 }
 
 export function AuthorHeader({ author }: AuthorHeaderProps) {
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-sm border border-gray-200 dark:border-gray-700">
+    <div className="bg-card rounded-xl p-8 border border-subtle">
       <div className="flex flex-col md:flex-row gap-6">
         <div className="flex-shrink-0">
-          <div className="relative w-32 h-32">
+          <Avatar className="w-24 h-24 bg-gradient-to-br from-primary to-accent text-foreground dark:text-primary-foreground text-2xl font-bold ring-2 ring-border/20">
             {author.avatar_url ? (
-              <Image
-                src={author.avatar_url}
+              <img 
+                src={author.avatar_url} 
                 alt={author.name}
-                fill
-                className="rounded-full object-cover"
-                priority
+                className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">
-                  {author.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                </span>
-              </div>
+              <AvatarFallback>{getInitials(author.name)}</AvatarFallback>
             )}
-          </div>
+          </Avatar>
         </div>
-        
-        <div className="flex-1">
-          <div className="flex items-center gap-4 mb-2">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              {author.name}
-            </h1>
-            <Button 
-              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-full font-semibold transition-colors"
-              onClick={() => {
-                // Mock follow functionality
-                console.log(`Following ${author.name}`);
-              }}
-            >
-              <Plus className="w-4 h-4" />
-              Follow
-            </Button>
+
+        <div className="flex-1 space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <h1 className="text-4xl font-bold text-foreground font-serif">{author.name}</h1>
+              <Button 
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6"
+                onClick={() => {
+                  // Mock follow functionality
+                  console.log(`Following ${author.name}`);
+                }}
+              >
+                <Plus className="w-4 h-4" />
+                Follow
+              </Button>
+            </div>
           </div>
-          
-          {author.genre && (
-            <Badge variant="secondary" className="mb-4 border border-gray-300 dark:border-gray-600">
-              {author.genre}
-            </Badge>
-          )}
-          
+
+
           {author.bio && (
-            <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-lg">
-              {author.bio}
-            </p>
+            <div className="prose dark:prose-invert max-w-none">
+              <p className="text-muted-foreground leading-relaxed">
+                {author.bio}
+              </p>
+            </div>
           )}
+
+          <div className="flex flex-wrap gap-6 pt-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Users className="h-4 w-4" />
+              <span>{author.followers?.toLocaleString() || '0'} followers</span>
+            </div>
+            <a href="#giveaways" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <Gift className="h-4 w-4" />
+              {(() => {
+                const count = author.campaigns?.length || 0
+                const label = count === 1 ? 'active giveaway' : 'active giveaways'
+                return <span>{count} {label}</span>
+              })()}
+            </a>
+            <a href="#free-books" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <Download className="h-4 w-4" />
+              {(() => {
+                const count = author.books?.length || 0
+                const label = count === 1 ? 'free book available' : 'free books available'
+                return <span>{count} {label}</span>
+              })()}
+            </a>
+          </div>
         </div>
       </div>
     </div>

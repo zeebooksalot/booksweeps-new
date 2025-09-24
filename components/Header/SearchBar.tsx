@@ -72,14 +72,14 @@ export function SearchBar({
           <>
             <div className="relative flex-1">
               <Search 
-                className="absolute left-3 top-3 h-4 w-4 text-gray-500 dark:text-gray-400" 
+                className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" 
                 aria-hidden="true"
               />
               <Input
                 placeholder={placeholder}
                 value={localSearchQuery}
                 onChange={handleSearchChange}
-                className="h-10 w-full rounded-full border-0 bg-gray-100 dark:bg-gray-700 pl-10 pr-12 text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none"
+                className="h-10 w-full rounded-full border-0 bg-muted pl-10 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none"
                 autoFocus
                 aria-label="Search books and authors"
                 role="searchbox"
@@ -105,7 +105,7 @@ export function SearchBar({
               className="px-2"
               aria-label="Open search"
             >
-              <Search className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+              <Search className="h-5 w-5 text-muted-foreground" />
             </Button>
           </>
         )}
@@ -116,14 +116,14 @@ export function SearchBar({
   return (
     <div className={`relative ${className}`}>
       <Search 
-        className="absolute left-4 top-3 h-4 w-4 text-gray-500 dark:text-gray-400" 
+        className="absolute left-4 top-3 h-4 w-4 text-muted-foreground" 
         aria-hidden="true"
       />
       <Input
         placeholder={placeholder}
         value={localSearchQuery}
         onChange={handleSearchChange}
-        className="h-10 w-full min-w-[200px] max-w-[250px] cursor-pointer appearance-none rounded-full border-0 bg-gray-100 dark:bg-gray-700 px-10 pl-[40px] text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none"
+        className="h-10 w-full md:min-w-[240px] md:max-w-[420px] lg:max-w-[520px] cursor-pointer appearance-none rounded-full border-0 bg-muted px-10 pl-[40px] text-foreground placeholder:text-muted-foreground focus:outline-none"
         aria-label="Search books and authors"
         role="searchbox"
       />

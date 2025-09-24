@@ -34,15 +34,15 @@ export default function AuthorPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-background">
         <Header 
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
         />
         <div className="pt-20 flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading author...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading author...</p>
           </div>
         </div>
       </div>
@@ -56,7 +56,7 @@ export default function AuthorPage() {
   const structuredData = generateStructuredData(author);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}

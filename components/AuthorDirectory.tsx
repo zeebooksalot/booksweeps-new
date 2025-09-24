@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Search, Filter, Users, BookOpen, Calendar } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PublicAuthor } from '@/types/author';
 
@@ -16,6 +16,10 @@ interface AuthorDirectoryProps {
 
 export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
   const [authors, setAuthors] = useState<PublicAuthor[]>(initialAuthors);
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('popularity');
   const [genreFilter, setGenreFilter] = useState('all');
@@ -102,24 +106,24 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
   return (
     <div className="space-y-6">
       {/* Search and Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border">
+      <div className="bg-card rounded-lg p-6 shadow-sm border border-subtle">
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder="Search authors..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-muted text-foreground placeholder:text-muted-foreground"
               />
             </div>
           </div>
 
           {/* Genre Filter */}
           <Select value={genreFilter} onValueChange={setGenreFilter}>
-            <SelectTrigger className="w-full lg:w-48">
+            <SelectTrigger className="w-full lg:w-48 bg-muted text-foreground">
               <SelectValue placeholder="Filter by genre" />
             </SelectTrigger>
             <SelectContent>
@@ -134,7 +138,7 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
 
           {/* Sort */}
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-full lg:w-48">
+            <SelectTrigger className="w-full lg:w-48 bg-muted text-foreground">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -149,7 +153,7 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
 
       {/* Results Count */}
       <div className="flex items-center justify-between">
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-muted-foreground">
           {filteredAuthors.length} author{filteredAuthors.length !== 1 ? 's' : ''} found
           {totalPages > 1 && (
             <span className="ml-2">
@@ -171,11 +175,11 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
       {/* Error State */}
       {error && !isLoading && (
         <div className="text-center py-12">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
+          <div className="bg-destructive/10 border border-destructive rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-destructive mb-2">
               Unable to Load Authors
             </h3>
-            <p className="text-red-700 dark:text-red-300 mb-4">
+            <p className="text-destructive mb-4">
               {error}
             </p>
             <Button onClick={loadAuthors} variant="outline">
@@ -189,16 +193,16 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
       {!error && (isLoading ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border animate-pulse">
+            <div key={i} className="bg-card rounded-lg p-6 shadow-sm border border-subtle animate-pulse">
               <div className="flex items-center space-x-4 mb-4">
-                <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                <div className="w-16 h-16 bg-muted rounded-full"></div>
                 <div className="flex-1">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                  <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-muted rounded w-1/2"></div>
                 </div>
               </div>
-              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
-              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+              <div className="h-3 bg-muted rounded w-full mb-2"></div>
+              <div className="h-3 bg-muted rounded w-2/3"></div>
             </div>
           ))}
         </div>
@@ -208,36 +212,48 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
             <Link
               key={author.id}
               href={`/authors/${author.slug}`}
-              className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border hover:shadow-md transition-shadow"
+              className="bg-card rounded-lg p-6 shadow-sm border border-faint hover:border-subtle transition-shadow"
             >
-              <div className="flex items-start space-x-4 mb-4">
-                <div className="relative w-16 h-16 flex-shrink-0">
-                  <Image
-                    src={author.avatar_url || '/placeholder-author.jpg'}
-                    alt={author.name}
-                    fill
-                    className="rounded-full object-cover"
-                  />
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start space-x-4 flex-1 min-w-0">
+                  <Avatar className="w-16 h-16 bg-gradient-to-br from-primary to-accent text-foreground dark:text-primary-foreground text-lg font-bold ring-2 ring-border/20">
+                    {author.avatar_url ? (
+                      <img 
+                        src={author.avatar_url} 
+                        alt={author.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <AvatarFallback>{getInitials(author.name)}</AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-foreground truncate">
+                      {author.name}
+                    </h3>
+                    {author.genre && (
+                      <Badge variant="secondary" className="mt-1">
+                        {author.genre}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {author.name}
-                  </h3>
-                  {author.genre && (
-                    <Badge variant="secondary" className="mt-1">
-                      {author.genre}
-                    </Badge>
-                  )}
-                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 hover:border-emerald-700 px-4 py-2"
+                >
+                  Follow
+                </Button>
               </div>
 
               {author.bio && (
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-3">
+                <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
                   {author.bio}
                 </p>
               )}
 
-              <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <div className="flex items-center space-x-4">
                   <span className="flex items-center">
                     <BookOpen className="h-4 w-4 mr-1" />
@@ -258,11 +274,11 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
         </div>
       ) : (
         <div className="text-center py-12">
-          <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">
             No authors found
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-muted-foreground mb-4">
             {searchQuery ? 'Try adjusting your search terms.' : 'No authors are available at the moment.'}
           </p>
           {searchQuery && (

@@ -9,7 +9,7 @@ export default function AuthorsPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background">
       <Header 
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -17,10 +17,10 @@ export default function AuthorsPage() {
       <div className="pt-20">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            <h1 className="text-4xl font-bold text-foreground mb-4">
               Discover Authors
             </h1>
-            <p className="text-lg text-gray-600 dark:text-gray-400">
+            <p className="text-lg text-muted-foreground">
               Explore our community of talented authors and discover your next favorite writer.
             </p>
           </div>

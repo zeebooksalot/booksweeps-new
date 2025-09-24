@@ -1,6 +1,7 @@
 import type React from "react"
+import { Suspense } from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Inter, Playfair_Display } from "next/font/google"
 import { GoogleAnalytics } from '@next/third-parties/google'
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -9,7 +10,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Toaster } from "@/components/ui/toaster"
 import { Footer } from "@/components/Footer"
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" })
+const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair", display: "swap" })
 
 export const metadata: Metadata = {
   title: {
@@ -126,12 +128,16 @@ export default function RootLayout({
         />
         <link rel="icon" href="/favicon.ico" />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={`${inter.variable} ${playfair.variable} font-sans min-h-screen flex flex-col`} suppressHydrationWarning>
         <ErrorBoundary>
           <AuthProvider>
             <ThemeProvider defaultTheme="system">
-              {children}
-              <Footer />
+              <Suspense fallback={null}>
+                <main className="flex-1">
+                  {children}
+                </main>
+                <Footer />
+              </Suspense>
               <Toaster />
             </ThemeProvider>
           </AuthProvider>
