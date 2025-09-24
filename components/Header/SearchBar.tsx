@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,6 +42,7 @@ export function SearchBar({
   isMobileSearchOpen = false
 }: SearchBarProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Debounced search implementation
   const debouncedSearchChange = useDebouncedSearch(onSearchChange, 300)
@@ -50,6 +51,22 @@ export function SearchBar({
   useEffect(() => {
     setLocalSearchQuery(searchQuery)
   }, [searchQuery])
+
+  // Handle CMD + K keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        if (inputRef.current) {
+          inputRef.current.focus()
+          inputRef.current.select()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // Handle search input change with debouncing
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,6 +93,7 @@ export function SearchBar({
                 aria-hidden="true"
               />
               <Input
+                ref={inputRef}
                 placeholder={placeholder}
                 value={localSearchQuery}
                 onChange={handleSearchChange}
@@ -120,13 +138,20 @@ export function SearchBar({
         aria-hidden="true"
       />
       <Input
+        ref={inputRef}
         placeholder={placeholder}
         value={localSearchQuery}
         onChange={handleSearchChange}
-        className="h-10 w-full md:min-w-[240px] md:max-w-[420px] lg:max-w-[520px] cursor-pointer appearance-none rounded-full border-0 bg-muted px-10 pl-[40px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+        className="h-10 w-full md:min-w-[240px] md:max-w-[420px] lg:max-w-[520px] cursor-pointer appearance-none rounded-full border-0 bg-muted px-10 pl-[40px] pr-20 text-foreground placeholder:text-muted-foreground focus:outline-none"
         aria-label="Search books and authors"
         role="searchbox"
       />
+      {/* Keyboard shortcut hint */}
+      <div className="absolute right-3 top-2 hidden md:flex items-center gap-1 text-xs text-muted-foreground">
+        <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:inline-flex">
+          <span className="text-xs">⌘</span>K
+        </kbd>
+      </div>
     </div>
   )
 }
