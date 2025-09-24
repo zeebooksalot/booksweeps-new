@@ -49,6 +49,21 @@ export interface ReaderMagnetFeedItem {
   slug: string
   format: string
   download_count: number
+  books?: {
+    id: string
+    title: string
+    author: string
+    cover_image_url: string
+    genre: string
+    page_count?: number
+  } | null
+  pen_names?: {
+    id: string
+    name: string
+    bio: string
+    website?: string
+    avatar_url?: string
+  } | null
 }
 
 export interface ReaderMagnetListProps {

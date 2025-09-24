@@ -23,8 +23,8 @@ export function Footer() {
             <h4 className="font-semibold mb-4 text-foreground">For Readers</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
-                <Link href="/free-books" className="hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background rounded">
-                  Free Books
+                <Link href="/free-ebooks" className="hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background rounded">
+                  Free Ebooks
                 </Link>
               </li>
               <li>

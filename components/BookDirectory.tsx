@@ -2,120 +2,106 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, Filter, Users, BookOpen, Calendar, Plus, Grid3X3, List } from 'lucide-react';
+import { Search, Filter, BookOpen, Calendar, ChevronUp, ChevronDown, Grid3X3, List, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PublicAuthor } from '@/types/author';
+import { ReaderMagnetFeedItem } from '@/types/reader-magnets';
 
-interface AuthorDirectoryProps {
-  initialAuthors?: PublicAuthor[];
+interface BookDirectoryProps {
+  initialBooks?: ReaderMagnetFeedItem[];
 }
 
-export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
-  const [authors, setAuthors] = useState<PublicAuthor[]>(initialAuthors);
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
+export function BookDirectory({ initialBooks = [] }: BookDirectoryProps) {
+  const [books, setBooks] = useState<ReaderMagnetFeedItem[]>(initialBooks);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('popularity');
   const [genreFilter, setGenreFilter] = useState('all');
-  const [contentFilter, setContentFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [authorsPerPage] = useState(12);
+  const [booksPerPage] = useState(12);
 
-  // Get unique genres from authors
+  // Get unique genres from books
   const availableGenres = useMemo(() => {
     const genres = new Set<string>();
-    authors.forEach(author => {
-      if (author.genre) {
-        genres.add(author.genre);
+    books.forEach(book => {
+      if (book.genres && book.genres.length > 0) {
+        book.genres.forEach(genre => genres.add(genre));
       }
     });
     return Array.from(genres).sort();
-  }, [authors]);
+  }, [books]);
 
-  // Filter and sort authors
-  const filteredAuthors = useMemo(() => {
-    let filtered = authors.filter(author => {
-      const matchesSearch = author.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           author.bio?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesGenre = genreFilter === 'all' || author.genre === genreFilter;
-      
-      // Content filter logic
-      let matchesContent = true;
-      if (contentFilter === 'giveaways') {
-        matchesContent = author.campaigns && author.campaigns.length > 0;
-      } else if (contentFilter === 'free-books') {
-        // For now, treat all books as potentially free since the data structure doesn't distinguish
-        matchesContent = author.books && author.books.length > 0;
-      } else if (contentFilter === 'both') {
-        matchesContent = author.campaigns && author.campaigns.length > 0 && 
-                        author.books && author.books.length > 0;
-      }
-      
-      return matchesSearch && matchesGenre && matchesContent;
+  // Filter and sort books
+  const filteredBooks = useMemo(() => {
+    let filtered = books.filter(book => {
+      const matchesSearch = book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           book.author.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesGenre = genreFilter === 'all' || (book.genres && book.genres.includes(genreFilter));
+      return matchesSearch && matchesGenre;
     });
 
-    // Sort authors
+    // Sort books
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'books':
-          return b.books.length - a.books.length;
+        case 'title':
+          return a.title.localeCompare(b.title);
+        case 'author':
+          return a.author.localeCompare(b.author);
         case 'recent':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          return new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime();
         case 'popularity':
         default:
-          return (b.followers || 0) - (a.followers || 0);
+          return b.votes - a.votes;
       }
     });
 
     return filtered;
-  }, [authors, searchQuery, sortBy, genreFilter, contentFilter]);
+  }, [books, searchQuery, sortBy, genreFilter]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredAuthors.length / authorsPerPage);
-  const startIndex = (currentPage - 1) * authorsPerPage;
-  const endIndex = startIndex + authorsPerPage;
-  const paginatedAuthors = filteredAuthors.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(filteredBooks.length / booksPerPage);
+  const startIndex = (currentPage - 1) * booksPerPage;
+  const endIndex = startIndex + booksPerPage;
+  const paginatedBooks = filteredBooks.slice(startIndex, endIndex);
 
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, sortBy, genreFilter, contentFilter]);
+  }, [searchQuery, sortBy, genreFilter]);
 
-  // Load authors on component mount
+  // Load books on component mount
   useEffect(() => {
-    if (authors.length === 0) {
-      loadAuthors();
+    if (books.length === 0) {
+      loadBooks();
     }
   }, []);
 
-  const loadAuthors = async () => {
+  const loadBooks = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/authors');
+      const response = await fetch('/api/reader-magnets');
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to fetch authors: ${response.status}`);
+        throw new Error(errorData.error || `Failed to fetch books: ${response.status}`);
       }
       const data = await response.json();
-      setAuthors(data.authors);
+      setBooks(data.reader_magnets || []);
     } catch (error) {
-      console.error('Failed to load authors:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load authors');
+      console.error('Failed to load books:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load books');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVote = (bookId: string) => {
+    // TODO: Implement voting logic
+    console.log('Vote for book:', bookId);
   };
 
   return (
@@ -128,7 +114,7 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="Search authors..."
+                placeholder="Search books..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 bg-muted text-foreground placeholder:text-muted-foreground"
@@ -151,19 +137,6 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
             </SelectContent>
           </Select>
 
-          {/* Content Filter */}
-          <Select value={contentFilter} onValueChange={setContentFilter}>
-            <SelectTrigger className="w-full lg:w-48 bg-muted text-foreground">
-              <SelectValue placeholder="Filter by content" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Activity</SelectItem>
-              <SelectItem value="giveaways">Giveaways</SelectItem>
-              <SelectItem value="free-books">Free Books</SelectItem>
-              <SelectItem value="both">Giveaways & Free Books</SelectItem>
-            </SelectContent>
-          </Select>
-
           {/* Sort */}
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-full lg:w-48 bg-muted text-foreground">
@@ -171,9 +144,9 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="popularity">Most Popular</SelectItem>
-              <SelectItem value="name">Name A-Z</SelectItem>
-              <SelectItem value="books">Most Books</SelectItem>
-              <SelectItem value="recent">Recently Joined</SelectItem>
+              <SelectItem value="title">Title A-Z</SelectItem>
+              <SelectItem value="author">Author A-Z</SelectItem>
+              <SelectItem value="recent">Recently Published</SelectItem>
             </SelectContent>
           </Select>
 
@@ -199,31 +172,30 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
         </div>
       </div>
 
-
       {/* Error State */}
       {error && !isLoading && (
         <div className="text-center py-12">
           <div className="bg-destructive/10 border border-destructive rounded-lg p-6">
             <h3 className="text-lg font-semibold text-destructive mb-2">
-              Unable to Load Authors
+              Unable to Load Books
             </h3>
             <p className="text-destructive mb-4">
               {error}
             </p>
-            <Button onClick={loadAuthors} variant="outline">
+            <Button onClick={loadBooks} variant="outline">
               Try Again
             </Button>
           </div>
         </div>
       )}
 
-      {/* Authors Grid */}
+      {/* Books Grid */}
       {!error && (isLoading ? (
         <div className={viewMode === 'grid' ? "grid gap-6 md:grid-cols-2 lg:grid-cols-3" : "space-y-4"}>
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className={`bg-card rounded-lg p-6 shadow-sm border border-subtle animate-pulse ${viewMode === 'list' ? 'flex items-center space-x-4' : ''}`}>
               <div className="flex items-center space-x-4 mb-4">
-                <div className="w-16 h-16 bg-muted rounded-full"></div>
+                <div className="w-16 h-20 bg-muted rounded-lg"></div>
                 <div className="flex-1">
                   <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
                   <div className="h-3 bg-muted rounded w-1/2"></div>
@@ -234,14 +206,14 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
             </div>
           ))}
         </div>
-      ) : filteredAuthors.length > 0 ? (
+      ) : filteredBooks.length > 0 ? (
         <div className={viewMode === 'grid' ? "grid gap-6 md:grid-cols-2 lg:grid-cols-3" : "space-y-4"}>
-          {paginatedAuthors.map((author, index) => {
+          {paginatedBooks.map((book, index) => {
             const rank = startIndex + index + 1;
             return (
             <Link
-              key={author.id}
-              href={`/authors/${author.slug}`}
+              key={book.id}
+              href={`/dl/${book.slug}`}
               className={`bg-card rounded-lg p-6 shadow-sm border border-faint hover:border-subtle transition-shadow ${
                 viewMode === 'list' ? 'flex items-center space-x-6' : ''
               }`}
@@ -252,125 +224,141 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start space-x-4 flex-1 min-w-0">
                       <div className="relative">
-                        <Avatar className="w-16 h-16 bg-gradient-to-br from-primary to-accent text-foreground dark:text-primary-foreground text-lg font-bold ring-2 ring-border/20">
-                          {author.avatar_url ? (
-                            <img 
-                              src={author.avatar_url} 
-                              alt={author.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <AvatarFallback>{getInitials(author.name)}</AvatarFallback>
-                          )}
-                        </Avatar>
+                        <img
+                          src={book.cover || "/placeholder.svg"}
+                          alt={book.title}
+                          className="w-24 h-32 object-cover rounded-lg shadow-md"
+                        />
                         <div className="absolute -top-2 -left-2 w-8 h-8 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold shadow-lg">
                           {rank}
                         </div>
+                        <Badge className="absolute -top-2 -right-2 text-xs bg-emerald-600 text-white hover:bg-emerald-700 px-2 py-1">
+                          FREE
+                        </Badge>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-foreground truncate">
-                          {author.name}
+                        <h3 className="font-semibold text-foreground leading-tight">
+                          {book.books?.title || book.title}
                         </h3>
-                        {author.genre && (
+                        <p className="text-sm text-muted-foreground truncate">
+                          by {book.author}
+                        </p>
+                        {book.genres && book.genres.length > 0 && (
                           <Badge variant="secondary" className="mt-1">
-                            {author.genre}
+                            {book.genres[0]}
                           </Badge>
                         )}
                       </div>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 hover:border-emerald-700 px-4 py-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Follow
-                    </Button>
+                    <div className="flex flex-col gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="border-border text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleVote(book.id);
+                        }}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                        {book.votes}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="border-border text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleVote(book.id);
+                        }}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                        {book.votes}
+                      </Button>
+                    </div>
                   </div>
-
-                  {author.bio && (
-                    <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
-                      {author.bio}
-                    </p>
-                  )}
 
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <div className="flex items-center space-x-4">
                       <span className="flex items-center">
-                        <BookOpen className="h-4 w-4 mr-1" />
-                        {author.books.length} books
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {book.publishDate}
                       </span>
                       <span className="flex items-center">
-                        <Users className="h-4 w-4 mr-1" />
-                        {(author.followers || 0).toLocaleString()} followers
+                        <Download className="h-4 w-4 mr-1" />
+                        {book.download_count} downloads
                       </span>
                     </div>
-                    <span className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-1" />
-                      {new Date(author.created_at).getFullYear()}
-                    </span>
                   </div>
                 </>
               ) : (
                 // List view layout
                 <>
                   <div className="relative flex-shrink-0">
-                    <Avatar className="w-16 h-16 bg-gradient-to-br from-primary to-accent text-foreground dark:text-primary-foreground text-lg font-bold ring-2 ring-border/20">
-                      {author.avatar_url ? (
-                        <img 
-                          src={author.avatar_url} 
-                          alt={author.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <AvatarFallback>{getInitials(author.name)}</AvatarFallback>
-                      )}
-                    </Avatar>
+                    <img
+                      src={book.cover || "/placeholder.svg"}
+                      alt={book.title}
+                      className="w-24 h-32 object-cover rounded-lg shadow-md"
+                    />
                     <div className="absolute -top-2 -left-2 w-8 h-8 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold shadow-lg">
                       {rank}
                     </div>
+                    <Badge className="absolute -top-2 -right-2 text-xs bg-emerald-600 text-white hover:bg-emerald-700 px-2 py-1">
+                      FREE
+                    </Badge>
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <h3 className="font-semibold text-foreground text-lg">
-                          {author.name}
+                        <h3 className="font-semibold text-foreground text-lg leading-tight">
+                          {book.books?.title || book.title}
                         </h3>
-                        {author.genre && (
+                        <p className="text-sm text-muted-foreground">
+                          by {book.author}
+                        </p>
+                        {book.genres && book.genres.length > 0 && (
                           <Badge variant="secondary" className="mt-1">
-                            {author.genre}
+                            {book.genres[0]}
                           </Badge>
                         )}
                       </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 hover:border-emerald-700 px-4 py-2"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Follow
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white px-3 py-1"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleVote(book.id);
+                          }}
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                          {book.votes}
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="border-red-600 text-red-600 hover:bg-red-600 hover:text-white px-3 py-1"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleVote(book.id);
+                          }}
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                          {book.votes}
+                        </Button>
+                      </div>
                     </div>
-                    
-                    {author.bio && (
-                      <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
-                        {author.bio}
-                      </p>
-                    )}
                     
                     <div className="flex items-center space-x-6 text-sm text-muted-foreground">
                       <span className="flex items-center">
-                        <BookOpen className="h-4 w-4 mr-1" />
-                        {author.books.length} books
-                      </span>
-                      <span className="flex items-center">
-                        <Users className="h-4 w-4 mr-1" />
-                        {(author.followers || 0).toLocaleString()} followers
-                      </span>
-                      <span className="flex items-center">
                         <Calendar className="h-4 w-4 mr-1" />
-                        {new Date(author.created_at).getFullYear()}
+                        {book.publishDate}
+                      </span>
+                      <span className="flex items-center">
+                        <Download className="h-4 w-4 mr-1" />
+                        {book.download_count} downloads
                       </span>
                     </div>
                   </div>
@@ -382,12 +370,12 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
         </div>
       ) : (
         <div className="text-center py-12">
-          <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">
-            No authors found
+            No books found
           </h3>
           <p className="text-muted-foreground mb-4">
-            {searchQuery ? 'Try adjusting your search terms.' : 'No authors are available at the moment.'}
+            {searchQuery ? 'Try adjusting your search terms.' : 'No books are available at the moment.'}
           </p>
           {searchQuery && (
             <Button onClick={() => setSearchQuery('')}>
@@ -400,7 +388,7 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
       {/* Results Count */}
       <div className="flex items-center justify-between mt-8">
         <p className="text-muted-foreground">
-          {filteredAuthors.length} author{filteredAuthors.length !== 1 ? 's' : ''} found
+          {filteredBooks.length} book{filteredBooks.length !== 1 ? 's' : ''} found
           {totalPages > 1 && (
             <span className="ml-2">
               (Page {currentPage} of {totalPages})

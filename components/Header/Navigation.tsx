@@ -12,7 +12,7 @@ export function Navigation({ className = "" }: NavigationProps) {
   const navigationItems = useMemo(() => [
     {
       label: "Books",
-      href: "/free-books"
+      href: "/free-ebooks"
     },
     {
       label: "Authors",

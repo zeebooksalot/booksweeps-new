@@ -244,10 +244,10 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex items-center gap-3">
-          <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"></div>
-          <span className="text-gray-600 dark:text-gray-400">Loading your free gift...</span>
+          <div className="animate-spin rounded-full h-6 w-6 border-2 border-emerald-500 border-t-transparent"></div>
+          <span className="text-muted-foreground">Loading your free gift...</span>
         </div>
       </div>
     )
@@ -255,13 +255,13 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
 
   if (error || !magnet) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
-          <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             Reader Magnet Not Found
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-muted-foreground mb-4">
             {error || "This free download doesn't exist or has been removed."}
           </p>
           <Link href="/">
@@ -273,7 +273,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <Header 
         searchQuery={searchQuery}
@@ -281,7 +281,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
       />
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-0 py-10 pt-32">
+      <div className="max-w-6xl mx-auto px-4 lg:px-0 py-10 pt-24">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
           {/* Left Column - Book Info */}
           <div className="lg:col-span-2 space-y-8">
@@ -301,38 +301,38 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                   {magnet.book.genre}
                 </Badge>
               </div>
-              <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+              <h1 className="text-4xl lg:text-5xl font-bold text-foreground mb-4 font-serif">
                 {magnet.title}
               </h1>
-              <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">
+              <p className="text-xl text-muted-foreground mb-6">
                 {magnet.subtitle}
               </p>
             </div>
 
             {/* Description */}
-            <div className="prose prose-lg dark:prose-invert max-w-none">
-              <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+            <div className="prose prose-lg max-w-none">
+              <p className="text-foreground leading-relaxed">
                 {magnet.description}
               </p>
             </div>
 
             {/* Benefits */}
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <h3 className="text-xl font-semibold text-foreground">
                 What you&apos;ll get:
               </h3>
               <div className="space-y-3">
                 {magnet.benefits.map((benefit, index) => (
                   <div key={index} className="flex items-start gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700 dark:text-gray-300">{benefit}</span>
+                    <CheckCircle className="h-5 w-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-foreground">{benefit}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Author Info */}
-            <div className="bg-white/50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="bg-card rounded-xl p-6 border border-subtle">
               <div className="flex items-center gap-4">
                 <Image
                   src={magnet.author.avatar_url}
@@ -342,10 +342,10 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                   className="rounded-full"
                 />
                 <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                  <h4 className="font-semibold text-foreground">
                     {magnet.author.name}
                   </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     {magnet.author.bio}
                   </p>
                 </div>
@@ -354,19 +354,19 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
 
             {/* Testimonials */}
             <div className="mt-8 space-y-4">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h4 className="text-lg font-semibold text-foreground">
                 What readers are saying:
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {magnet.testimonials.map((testimonial, index) => (
-                  <div key={index} className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                  <div key={index} className="bg-card rounded-lg p-4 border border-subtle">
                     <div className="flex items-center gap-2 mb-2">
                       {renderStars(testimonial.rating)}
                     </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                    <p className="text-sm text-foreground mb-2">
                       &ldquo;{testimonial.text}&rdquo;
                     </p>
-                    <p className="text-xs text-gray-500 font-medium">
+                    <p className="text-xs text-muted-foreground font-medium">
                       — {testimonial.name}
                     </p>
                   </div>
@@ -377,14 +377,14 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
 
           {/* Right Column - Download Form */}
           <div className="lg:col-span-1 lg:sticky lg:top-8">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
+            <div className="bg-card rounded-2xl shadow-xl border border-subtle p-8">
               {isSubmitted ? (
                 <div className="text-center">
-                  <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                  <CheckCircle className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
+                  <h3 className="text-2xl font-bold text-foreground mb-2">
                     Download Ready!
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  <p className="text-muted-foreground mb-6">
                     Your free {magnet.book.format.toUpperCase()} is ready to download.
                   </p>
                   <div className="space-y-4">
@@ -421,14 +421,14 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                         )}
                         
                         {readerError && (
-                          <div className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                            <p className="text-sm text-red-800 dark:text-red-200">
+                          <div className="mt-2 bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                            <p className="text-sm text-destructive">
                               {readerError}
                             </p>
                           </div>
                         )}
 
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           You&apos;ll also receive updates about new releases and exclusive content.
                         </p>
                       </>
@@ -439,7 +439,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                             Your download is being prepared. Please check your email for the download link.
                           </p>
                         </div>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           If you don&apos;t receive the email within a few minutes, please check your spam folder.
                         </p>
                       </>
@@ -449,20 +449,20 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
               ) : (
                 <>
                   <div className="text-center mb-8">
-                    <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
                       <Download className="h-8 w-8" />
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                    <h3 className="text-2xl font-bold text-foreground mb-2">
                       Get Your Free Copy
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-muted-foreground">
                       Enter your email to download this exclusive content instantly.
                     </p>
                   </div>
 
                   {error && (
-                    <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                      <p className="text-sm text-red-800 dark:text-red-200">
+                    <div className="mb-4 bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                      <p className="text-sm text-destructive">
                         {error}
                       </p>
                     </div>
@@ -470,7 +470,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
                         Your Name
                       </label>
                       <Input
@@ -485,7 +485,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                     </div>
 
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
                         Email Address
                       </label>
                       <Input
@@ -502,7 +502,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                     <Button
                       type="submit"
                       disabled={isSubmitting || !email || !name}
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                      className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white"
                       size="lg"
                     >
                       {isSubmitting ? (
@@ -518,7 +518,7 @@ export default function ReaderMagnetPage({ params }: { params: Promise<{ slug: s
                       )}
                     </Button>
 
-                    <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                       <Lock className="h-3 w-3" />
                       <span>We respect your privacy. Your email is never shared without your permission.</span>
                     </div>

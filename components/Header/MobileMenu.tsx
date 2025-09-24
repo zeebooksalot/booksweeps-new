@@ -54,7 +54,7 @@ export function MobileMenu() {
       label: "Books",
       href: "#",
       dropdownItems: [
-        { label: "Free Books", href: "/free-books" },
+        { label: "Free Ebooks", href: "/free-ebooks" },
         { label: "New Releases", href: "#" },
         { label: "Bestsellers", href: "#" },
         { label: "By Genre", href: "#" }

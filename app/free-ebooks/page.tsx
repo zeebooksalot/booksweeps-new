@@ -1,13 +1,12 @@
-'use client';
+'use client'
 
-import { Suspense, useState } from 'react';
-import { AuthorDirectory } from '@/components/AuthorDirectory';
-import { AuthorDirectorySkeleton } from '@/components/AuthorDirectorySkeleton';
-import { Header } from '@/components/Header';
-import { Button } from '@/components/ui/button';
+import { Suspense, useState } from 'react'
+import { Header } from '@/components/Header/index'
+import { BookDirectory } from '@/components/BookDirectory'
+import { Button } from '@/components/ui/button'
 
-export default function AuthorsPage() {
-  const [searchQuery, setSearchQuery] = useState('');
+export default function FreeBooksPage() {
+  const [searchQuery, setSearchQuery] = useState('')
 
   return (
     <div className="min-h-screen bg-background">
@@ -17,15 +16,15 @@ export default function AuthorsPage() {
       />
       <div className="mx-auto max-w-6xl px-4 lg:px-0 pt-24">
         {/* Hero Section */}
-        <div className="bg-card rounded-xl p-8 border border-subtle mb-2">
+        <div className="bg-card rounded-xl p-8 border border-subtle mb-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div className="flex-1">
               <h1 className="text-4xl font-bold text-foreground mb-4 font-serif leading-[1.5em]">
-              Join to access free books <br />
-              & giveaways from authors.
+                Discover Free Ebooks <br />
+                & Reader Magnets
               </h1>
               <p className="text-lg text-muted-foreground">
-                Explore our community of talented authors and discover your next favorite writer.
+                Find amazing free ebooks and reader magnets from talented authors.
               </p>
             </div>
             <div className="w-full lg:w-72">
@@ -46,11 +45,11 @@ export default function AuthorsPage() {
         </div>
 
         <div className="py-8 pb-24">
-          <Suspense fallback={<AuthorDirectorySkeleton />}>
-            <AuthorDirectory />
+          <Suspense fallback={<div>Loading books...</div>}>
+            <BookDirectory />
           </Suspense>
         </div>
       </div>
     </div>
-  );
+  )
 }

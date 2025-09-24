@@ -76,9 +76,18 @@ export async function GET(request: NextRequest) {
       created_at: string
       is_active: boolean
       books?: {
+        id: string
+        title: string
+        author: string
+        cover_image_url: string
+        genre: string
+        page_count?: number
         pen_names?: {
-          bio?: string
+          id: string
+          name: string
+          bio: string
           website?: string
+          avatar_url?: string
         }
         upvotes_count?: number
         downvotes_count?: number
@@ -96,19 +105,25 @@ export async function GET(request: NextRequest) {
       
       return {
         id: magnet.id,
-        slug: magnet.slug || `magnet-${magnet.id}`,
+        type: "book" as const,
         title: magnet.title,
+        author: magnet.books?.author || 'Unknown Author',
         description: magnet.description,
+        cover: magnet.books?.cover_image_url || '/placeholder.svg',
+        votes: totalVotes,
+        comments: magnet.books?.comments_count || 0,
+        rating: Math.round(rating * 10) / 10,
+        genres: magnet.books?.genre ? [magnet.books.genre] : [],
+        hasGiveaway: false,
+        publishDate: new Date(magnet.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        rank: 1, // Will be set by the component
+        slug: magnet.slug || `magnet-${magnet.id}`,
         format: magnet.format,
         download_count: magnet.reader_deliveries?.length || 0,
         created_at: magnet.created_at,
         is_active: magnet.is_active,
         books: magnet.books || null,
-        pen_names: magnet.books?.pen_names || null,
-        // Add real vote, comment, and rating data
-        votes: totalVotes,
-        comments: magnet.books?.comments_count || 0, // Use real comment count
-        rating: Math.round(rating * 10) / 10 // Round to 1 decimal place
+        pen_names: magnet.books?.pen_names || null
       }
     })
 
