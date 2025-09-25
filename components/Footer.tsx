@@ -8,15 +8,15 @@ export function Footer() {
       role="contentinfo"
       aria-label="Site footer"
     >
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div className="mx-auto max-w-6xl px-4 lg:px-0">
+        <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-8 w-full">
           <div>
             <div className="flex items-center space-x-2 mb-4">
               <BookOpen className="h-6 w-6 text-accent" aria-hidden="true" />
               <span className="text-lg font-bold text-foreground">BookSweeps</span>
             </div>
             <p className="text-muted-foreground text-sm">
-              Connecting readers with amazing books through author giveaways.
+              Connecting readers with amazing books through author giveaways since 2016.
             </p>
           </div>
           <div>
@@ -80,6 +80,21 @@ export function Footer() {
               <li>
                 <Link href="/privacy" className="hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background rounded">
                   Privacy Policy
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-semibold mb-4 text-foreground">Our Brands</h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>
+                <Link href="/" className="hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background rounded">
+                  BookSweeps
+                </Link>
+              </li>
+              <li>
+                <Link href="https://authorletters.com" className="hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background rounded">
+                  AuthorLetters
                 </Link>
               </li>
             </ul>
