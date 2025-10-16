@@ -14,7 +14,7 @@ import {
   User,
 } from "lucide-react"
 import { FeedItemDisplay } from "@/components/feed-item-display"
-import { Header } from "@/components/Header/index"
+import { Header } from "@/components/header/index"
 import { LoadingSpinner, FeedItemSkeleton, MobileCardSkeleton } from "@/components/ui/loading"
 import { ErrorState } from "@/components/ui/error-state"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
@@ -138,35 +138,6 @@ export default function BookSweepsHomepage() {
         <div className="pt-20 pb-20 md:pb-8">
           <div className="mx-0 md:mx-4 my-4 md:my-8 flex flex-col justify-center">
             <main className="max-w-4xl mx-auto w-full">
-              {/* Welcome Banner - Hidden on mobile */}
-              <section 
-                className="hidden md:flex mb-6 flex-row items-center gap-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 p-4 shadow-sm mx-4 border border-orange-100 dark:border-orange-800"
-                role="banner"
-                aria-label="Welcome message"
-              >
-                <BookOpen 
-                  className="h-7 w-7 rounded-xl border-2 border-orange-100 dark:border-orange-800 bg-white dark:bg-gray-800 p-2 text-gray-700 dark:text-gray-300" 
-                  aria-hidden="true"
-                />
-                <div className="flex flex-col">
-                  <div className="text-16 font-semibold text-gray-900 dark:text-gray-100">Welcome to BookSweeps!</div>
-                  <div className="flex flex-row gap-1 text-16 text-gray-600 dark:text-gray-400">
-                    The place to discover and vote on amazing books.
-                    <button 
-                      className="text-left text-16 font-semibold text-orange-500 hover:underline focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded"
-                      aria-label="Take a tour of BookSweeps"
-                    >
-                      Take a tour.
-                    </button>
-                  </div>
-                </div>
-                <button 
-                  className="ml-auto flex cursor-pointer items-center justify-center rounded-full border-2 border-orange-100 dark:border-orange-800 bg-white dark:bg-gray-800 p-2 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  aria-label="Dismiss welcome message"
-                >
-                  <span aria-hidden="true">×</span>
-                </button>
-              </section>
 
               {/* Filter Controls */}
               <FilterControls

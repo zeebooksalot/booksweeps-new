@@ -3,7 +3,16 @@
 import { useAuth } from "@/components/auth/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Mail } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { User, Settings, LogOut } from "lucide-react"
 import Link from "next/link"
 import { useCallback } from "react"
 import { useRouter } from "next/navigation"
@@ -14,7 +23,7 @@ interface UserActionsProps {
 }
 
 export function UserActions({ className = "" }: UserActionsProps) {
-  const { user, signOut } = useAuth()
+  const { user, userProfile, signOut } = useAuth()
   const router = useRouter()
 
   // Use the new debug utilities
@@ -55,21 +64,60 @@ export function UserActions({ className = "" }: UserActionsProps) {
     <div className={`hidden md:flex items-center gap-3 ${className}`}>
       {user ? (
         <>
-          <Link 
-            href="/dashboard" 
-          className="inline-flex items-center justify-center h-10 px-4 rounded-full bg-emerald-600 text-16 font-medium text-white hover:bg-emerald-700 transition-colors"
-            aria-label="Go to dashboard"
-          >
-            Dashboard
-          </Link>
-          <Button
-            variant="outline"
-          className="h-10 px-4 rounded-full border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white font-medium"
-            onClick={handleSignOut}
-            aria-label="Sign out"
-          >
-            Sign out
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Avatar className="h-8 w-8">
+                  {userProfile?.avatar_url ? (
+                    <AvatarImage 
+                      src={userProfile.avatar_url} 
+                      alt={user?.email || "User"}
+                      className="object-cover"
+                    />
+                  ) : null}
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                    {(() => {
+                      const name = userProfile?.display_name || user?.email || "";
+                      if (name.includes(" ")) {
+                        // If display name has spaces, use first letter of first and last word
+                        const words = name.split(" ");
+                        return (words[0]?.charAt(0) || "") + (words[words.length - 1]?.charAt(0) || "");
+                      } else if (name.includes("@")) {
+                        // If email, use first letter of name part and first letter after @
+                        const [namePart, domainPart] = name.split("@");
+                        return (namePart?.charAt(0) || "") + (domainPart?.charAt(0) || "");
+                      } else {
+                        // Fallback to first two characters
+                        return name.substring(0, 2).toUpperCase();
+                      }
+                    })()}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1 py-2">
+                  <p className="text-base font-semibold leading-none">{userProfile?.display_name || user?.email}</p>
+                  <p className="text-sm text-muted-foreground leading-none">{user?.email}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push('/dashboard')} className="profile-menu-item">
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/dashboard?tab=profile')} className="settings-menu-item">
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={handleSignOut}
+                className="text-destructive focus:text-destructive signout-menu-item"
+              >
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </>
       ) : (
         <>

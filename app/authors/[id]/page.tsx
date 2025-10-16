@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, notFound } from 'next/navigation';
 import { AuthorProfile } from '@/components/AuthorProfile';
-import { Header } from '@/components/Header';
+import { Header } from '@/components/header';
 import { getAuthorData } from '@/lib/authorApi';
 import { generateStructuredData } from '@/lib/seo';
 import { PublicAuthor } from '@/types/author';

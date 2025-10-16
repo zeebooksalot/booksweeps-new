@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import { Header } from '@/components/Header/index'
+import { Header } from '@/components/header/index'
 import { BookDirectory } from '@/components/BookDirectory'
 import { Button } from '@/components/ui/button'
 

@@ -30,8 +30,8 @@ export function FilterActions({
   const activeFilterCount = getActiveFilterCount()
 
   const getButtonClass = () => {
-    return `gap-${isMobileView ? '1' : '2'} bg-transparent border-gray-200 dark:border-gray-700 ${
-      showAdvancedFilters ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : ''
+    return `gap-${isMobileView ? '1' : '2'} bg-transparent border-gray-200 dark:border-gray-700 text-black dark:text-black hover:bg-black hover:text-white ${
+      showAdvancedFilters ? 'bg-black text-white border-black' : ''
     }`
   }
 

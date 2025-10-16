@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import { AuthorDirectory } from '@/components/AuthorDirectory';
 import { AuthorDirectorySkeleton } from '@/components/AuthorDirectorySkeleton';
-import { Header } from '@/components/Header';
+import { Header } from '@/components/header';
 import { Button } from '@/components/ui/button';
 
 export default function AuthorsPage() {

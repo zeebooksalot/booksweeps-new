@@ -101,8 +101,8 @@ export function DashboardTabs({
               onClick={() => onTabChange(tab.id as DashboardTab)}
               className={`flex items-center gap-2 ${
                 isActive 
-                  ? "bg-orange-500 hover:bg-orange-600 text-white" 
-                  : "border-gray-200 dark:border-gray-700 bg-transparent"
+                  ? "bg-black hover:bg-gray-800 text-white" 
+                  : "border-gray-200 dark:border-gray-700 bg-transparent text-black dark:text-black hover:bg-black hover:text-white"
               }`}
             >
               <Icon className="h-4 w-4" />

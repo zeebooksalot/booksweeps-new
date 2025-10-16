@@ -19,7 +19,7 @@ export const Header = React.memo(({ searchQuery, onSearchChange }: HeaderProps) 
 
   return (
     <header 
-      className="fixed top-0 z-20 w-full border-b border-border bg-background transition-colors"
+      className="fixed top-0 z-20 w-full border-b border-border bg-white dark:bg-background transition-colors"
       role="banner"
       aria-label="Main navigation"
     >

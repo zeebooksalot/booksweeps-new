@@ -1,19 +1,23 @@
 "use client"
 
-import { Header } from '@/components/Header/index'
+import { useState } from "react"
+import { TooltipProvider } from "@/components/ui/tooltip"
+import { Header } from '@/components/header/index'
 import { useGiveaway } from '@/hooks/useGiveaway'
-import { GiveawayHeader } from '@/components/giveaways/GiveawayHeader'
-import { GiveawayBookInfo } from '@/components/giveaways/GiveawayBookInfo'
-import { GiveawayEntryForm } from '@/components/giveaways/GiveawayEntryForm'
-import { GiveawayErrorState } from '@/components/giveaways/GiveawayErrorState'
-import { GiveawayDetailLoadingState } from '@/components/giveaways/GiveawayDetailLoadingState'
-import { GIVEAWAY_STYLES } from '@/constants/giveaways'
+import { GiveawaySingleRelated } from '@/components/giveaways/GiveawaySingleRelated'
+import { GiveawaySingleBook } from '@/components/giveaways/GiveawaySingleBook'
+import { GiveawaySingleAuthor } from '@/components/giveaways/GiveawaySingleAuthor'
+import { GiveawaySingleSidebar } from '@/components/giveaways/GiveawaySingleSidebar'
+import { GiveawaySingleRulesModal } from '@/components/giveaways/GiveawaySingleRulesModal'
+import { GiveawaySingleError } from '@/components/giveaways/GiveawaySingleError'
+import { GiveawaySingleLoading } from '@/components/giveaways/GiveawaySingleLoading'
 
 interface GiveawayEntryPageProps {
   params: Promise<{ id: string }>
 }
 
 export default function GiveawayEntryPage({ params }: GiveawayEntryPageProps) {
+  const [showRulesModal, setShowRulesModal] = useState(false)
   const {
     giveaway,
     isLoading,
@@ -25,42 +29,43 @@ export default function GiveawayEntryPage({ params }: GiveawayEntryPageProps) {
   } = useGiveaway({ params })
 
   if (isLoading) {
-    return <GiveawayDetailLoadingState />
+    return <GiveawaySingleLoading />
   }
 
   if (error || !giveaway) {
-    return <GiveawayErrorState error={error} />
+    return <GiveawaySingleError error={error} />
   }
 
   return (
-    <div className={GIVEAWAY_STYLES.container}>
-      {/* Header */}
-      <Header 
-        searchQuery=""
-        onSearchChange={() => {}}
-      />
+    <TooltipProvider>
+      <div className="min-h-screen bg-background">
+        <Header 
+          searchQuery=""
+          onSearchChange={() => {}}
+        />
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8 pt-20">
-        <GiveawayHeader title={giveaway.title} />
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Book Info */}
-          <GiveawayBookInfo giveaway={giveaway} />
+        <main className="max-w-5xl mx-auto px-4 py-8 pt-24">
+          <GiveawaySingleRelated />
 
-          {/* Entry Form */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 sticky top-6">
-              <GiveawayEntryForm
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Main Content */}
+            <div className="lg:col-span-2 space-y-8">
+              <GiveawaySingleBook giveaway={giveaway} />
+              <GiveawaySingleAuthor author={giveaway.author} />
+            </div>
+
+            {/* Sidebar */}
+            <div className="flex flex-col items-start">
+              <GiveawaySingleSidebar 
+                onShowRules={() => setShowRulesModal(true)} 
                 giveaway={giveaway}
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-                isSubmitted={isSubmitted}
               />
             </div>
           </div>
-        </div>
+        </main>
+
+        <GiveawaySingleRulesModal isOpen={showRulesModal} onClose={() => setShowRulesModal(false)} />
       </div>
-    </div>
+    </TooltipProvider>
   )
 }
