@@ -113,13 +113,99 @@
     border-color: color-mix(in oklab, var(--border) 50%, transparent);
   }
   
-  /* Avatar specific utilities */
-  .avatar-ring {
-    box-shadow: 0 0 0 2px var(--avatar-border);
-  }
-  .avatar-ring-hover:hover {
-    box-shadow: 0 0 0 2px var(--primary);
-  }
+/* Avatar specific utilities */
+.avatar-ring {
+  box-shadow: 0 0 0 2px var(--avatar-border);
+}
+.avatar-ring-hover:hover {
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+/* Remove focus outline from avatar button */
+[data-radix-dropdown-menu-trigger] {
+  outline: none !important;
+}
+
+[data-radix-dropdown-menu-trigger]:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+[data-radix-dropdown-menu-trigger]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove focus outline from the Button component inside the trigger */
+[data-radix-dropdown-menu-trigger] button {
+  outline: none !important;
+}
+
+[data-radix-dropdown-menu-trigger] button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+[data-radix-dropdown-menu-trigger] button:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove all focus styles from avatar button - more aggressive approach */
+button[data-radix-dropdown-menu-trigger],
+[data-radix-dropdown-menu-trigger] button,
+button[id^="radix-"] {
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-color: transparent !important;
+  --tw-ring-offset-width: 0px !important;
+  --tw-ring-width: 0px !important;
+  box-shadow: none !important;
+  outline: none !important;
+  ring: none !important;
+}
+
+button[data-radix-dropdown-menu-trigger]:focus,
+[data-radix-dropdown-menu-trigger] button:focus,
+button[id^="radix-"]:focus {
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-color: transparent !important;
+  --tw-ring-offset-width: 0px !important;
+  --tw-ring-width: 0px !important;
+  box-shadow: none !important;
+  outline: none !important;
+  ring: none !important;
+}
+
+button[data-radix-dropdown-menu-trigger]:focus-visible,
+[data-radix-dropdown-menu-trigger] button:focus-visible,
+button[id^="radix-"]:focus-visible {
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-color: transparent !important;
+  --tw-ring-offset-width: 0px !important;
+  --tw-ring-width: 0px !important;
+  box-shadow: none !important;
+  outline: none !important;
+  ring: none !important;
+}
+
+/* Override Tailwind's focus-visible:ring-2 class specifically */
+.focus-visible\:ring-2:focus-visible {
+  --tw-ring-width: 0px !important;
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-width: 0px !important;
+  --tw-ring-offset-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Target the specific button with all its classes */
+button.inline-flex.items-center.justify-center.gap-2.whitespace-nowrap.rounded-md.text-sm.font-medium.ring-offset-background.transition-colors.focus-visible\:ring-2.focus-visible\:ring-ring.focus-visible\:ring-offset-2:focus-visible {
+  --tw-ring-width: 0px !important;
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-width: 0px !important;
+  --tw-ring-offset-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
   
   /* Dropdown specific utilities */
   .dropdown-shadow {
@@ -758,15 +844,15 @@ html::-webkit-scrollbar-thumb:hover {
   border: 0;
 }
 
-/* Focus styles for better accessibility */
-.focus-visible:focus {
+/* Focus styles for better accessibility - disabled for avatar */
+.focus-visible:focus:not([data-radix-dropdown-menu-trigger]) {
   outline: 2px solid #f97316;
   outline-offset: 2px;
 }
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
-  .focus-visible:focus {
+  .focus-visible:focus:not([data-radix-dropdown-menu-trigger]) {
     outline: 3px solid #000;
     outline-offset: 1px;
   }
