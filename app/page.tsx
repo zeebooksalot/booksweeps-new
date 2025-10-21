@@ -1,334 +1,372 @@
 "use client"
-
-import type React from "react"
-import { useState, useEffect, useMemo, useCallback } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import {
-  MessageCircle,
-  BookOpen,
-  Mail,
-  Home,
-  Compass,
-  Trophy,
-  User,
-} from "lucide-react"
-import { FeedItemDisplay } from "@/components/feed-item-display"
+import { CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
+import { useState } from "react"
 import { Header } from "@/components/header/index"
-import { LoadingSpinner, FeedItemSkeleton, MobileCardSkeleton } from "@/components/ui/loading"
-import { ErrorState } from "@/components/ui/error-state"
-import { ErrorBoundary } from "@/components/ErrorBoundary"
-import { FilterControls } from "@/components/FilterControls"
-import { useHomePage } from "@/hooks/useHomePage"
-import { useSimpleDebouncedSearch } from "@/hooks/use-debounced-search"
-import { FeedItem, BookItem } from "@/types"
-import { UI_CONFIG } from "@/constants"
+import { DashboardStatsCard } from "@/components/dashboard/DashboardStatsCard"
+import { BookOpen, Trophy, Heart, Flame, Library, ArrowRight } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { DashboardBookCard } from "@/components/dashboard/DashboardBookCard"
+import { DashboardCarouselContainer } from "@/components/dashboard/DashboardCarouselContainer"
+import { DashboardAuthorCard } from "@/components/dashboard/DashboardAuthorCard"
+import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState"
+import { DashboardFeaturedGiveawayCard } from "@/components/dashboard/DashboardFeaturedGiveawayCard"
+import { HeroFloatingBooks } from "@/components/hero-floating-books"
+import { HeroEmailForm } from "@/components/hero-email-form"
+import { HeroSocialProof } from "@/components/hero-social-proof"
 
-// Throttle utility function
-function throttle<T extends (...args: unknown[]) => unknown>(
-  func: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let timeoutId: NodeJS.Timeout | null = null
-  let lastExecTime = 0
-  
-  return (...args: Parameters<T>) => {
-    const currentTime = Date.now()
-    
-    if (currentTime - lastExecTime > delay) {
-      func(...args)
-      lastExecTime = currentTime
-    } else {
-      if (timeoutId) clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => {
-        func(...args)
-        lastExecTime = Date.now()
-      }, delay - (currentTime - lastExecTime))
-    }
-  }
-}
+const featuredGiveaways = [
+  {
+    id: 1,
+    title: "Epic Fantasy Bundle",
+    description: "Win 5 bestselling fantasy novels + $50 Amazon gift card",
+    coverImage: "/dragon-fantasy-book-cover.png",
+    entries: 2847,
+    daysLeft: 5,
+    featured: true,
+  },
+  {
+    id: 2,
+    title: "Romance Reader's Dream",
+    description: "Complete romance collection with signed editions",
+    coverImage: "/fantasy-romance-book-cover.jpg",
+    entries: 1923,
+    daysLeft: 3,
+    featured: true,
+  },
+  {
+    id: 3,
+    title: "Mystery Lover's Package",
+    description: "3 mystery thrillers + exclusive author merchandise",
+    coverImage: "/urban-fantasy-book-cover.jpg",
+    entries: 1456,
+    daysLeft: 8,
+    featured: true,
+  },
+  {
+    id: 4,
+    title: "Sci-Fi Adventure Collection",
+    description: "5 space opera novels + exclusive bookmarks",
+    coverImage: "/scifi-romance-book-cover.jpg",
+    entries: 2134,
+    daysLeft: 6,
+    featured: true,
+  },
+  {
+    id: 5,
+    title: "Historical Fiction Set",
+    description: "4 award-winning historical novels + tote bag",
+    coverImage: "/historical-fiction-book-cover.png",
+    entries: 1678,
+    daysLeft: 4,
+    featured: true,
+  },
+  {
+    id: 6,
+    title: "Horror Classics Bundle",
+    description: "6 spine-chilling horror books + reading light",
+    coverImage: "/horror-book-cover.png",
+    entries: 1892,
+    daysLeft: 7,
+    featured: true,
+  },
+  {
+    id: 7,
+    title: "Adventure Seeker's Pack",
+    description: "Complete adventure series + map poster",
+    coverImage: "/adventure-book-cover.png",
+    entries: 2456,
+    daysLeft: 5,
+    featured: true,
+  },
+  {
+    id: 8,
+    title: "Dark Fantasy Collection",
+    description: "5 dark fantasy novels + exclusive art prints",
+    coverImage: "/dark-fantasy-book-cover.png",
+    entries: 2089,
+    daysLeft: 9,
+    featured: true,
+  },
+]
 
-export default function BookSweepsHomepage() {
-  const [isMobileView, setIsMobileView] = useState(false)
-  
-  // Use the custom hook for all HomePage logic
-  const {
-    filters,
-    isLoading,
-    error,
-    isRefreshing,
-    filteredData,
-    updateFilters,
-    resetFilters,
-    handleVote,
-    handleRefresh,
-    handleSwipeLeft,
-    handleSwipeRight
-  } = useHomePage()
+// Mock data for recommended authors
+const recommendedAuthors = [
+  {
+    id: 1,
+    name: "Sarah Blake",
+    genre: "Fantasy Romance",
+    avatar: "SB",
+    booksPublished: 12,
+    followers: 8500,
+    bio: "Author of magical romance novels",
+  },
+  {
+    id: 2,
+    name: "Michael Chen",
+    genre: "Epic Fantasy",
+    avatar: "MC",
+    booksPublished: 8,
+    followers: 12300,
+    bio: "Award-winning fantasy storyteller",
+  },
+  {
+    id: 3,
+    name: "Luna Martinez",
+    genre: "Urban Fantasy",
+    avatar: "LM",
+    booksPublished: 15,
+    followers: 9800,
+    bio: "Creator of modern magical worlds",
+  },
+  {
+    id: 4,
+    name: "Elena Rodriguez",
+    genre: "Romance",
+    avatar: "ER",
+    booksPublished: 20,
+    followers: 15600,
+    bio: "Contemporary romance specialist",
+  },
+  {
+    id: 5,
+    name: "David Knight",
+    genre: "Historical Fiction",
+    avatar: "DK",
+    booksPublished: 10,
+    followers: 7200,
+    bio: "Master of historical narratives",
+  },
+  {
+    id: 6,
+    name: "Rachel Winters",
+    genre: "Horror",
+    avatar: "RW",
+    booksPublished: 14,
+    followers: 11400,
+    bio: "Queen of spine-chilling tales",
+  },
+  {
+    id: 7,
+    name: "Amir Hassan",
+    genre: "Adventure",
+    avatar: "AH",
+    booksPublished: 9,
+    followers: 6800,
+    bio: "Explorer of thrilling adventures",
+  },
+  {
+    id: 8,
+    name: "Maya Chen",
+    genre: "Urban Fantasy",
+    avatar: "MC",
+    booksPublished: 11,
+    followers: 10200,
+    bio: "Weaver of urban magic stories",
+  },
+]
 
-  // Debounced search
-  const debouncedSearchChange = useSimpleDebouncedSearch(
-    (query: string) => updateFilters({ searchQuery: query }),
-    UI_CONFIG.debounceDelay
-  )
+// Mock data for recommended free books
+const recommendedFreeBooks = [
+  {
+    id: 1,
+    title: "The Enchanted Forest",
+    author: "Emma Thompson",
+    genre: "Fantasy",
+    coverImage: "/fantasy-romance-book-cover.jpg",
+    rating: 4.5,
+    downloads: 12500,
+  },
+  {
+    id: 2,
+    title: "Cyber Dreams",
+    author: "Alex Rivera",
+    genre: "Sci-Fi",
+    coverImage: "/scifi-romance-book-cover.jpg",
+    rating: 4.7,
+    downloads: 8900,
+  },
+  {
+    id: 3,
+    title: "Shadows of the Past",
+    author: "Marcus Black",
+    genre: "Mystery",
+    coverImage: "/dark-fantasy-book-cover.png",
+    rating: 4.3,
+    downloads: 15200,
+  },
+  {
+    id: 4,
+    title: "Love in Paris",
+    author: "Sophie Laurent",
+    genre: "Romance",
+    coverImage: "/ocean-romance-book-cover.jpg",
+    rating: 4.6,
+    downloads: 10800,
+  },
+  {
+    id: 5,
+    title: "The Last Battle",
+    author: "David Knight",
+    genre: "Historical",
+    coverImage: "/historical-fiction-book-cover.png",
+    rating: 4.4,
+    downloads: 9300,
+  },
+  {
+    id: 6,
+    title: "Midnight Terror",
+    author: "Rachel Winters",
+    genre: "Horror",
+    coverImage: "/horror-book-cover.png",
+    rating: 4.2,
+    downloads: 7600,
+  },
+  {
+    id: 7,
+    title: "Desert Winds",
+    author: "Amir Hassan",
+    genre: "Adventure",
+    coverImage: "/adventure-book-cover.png",
+    rating: 4.5,
+    downloads: 11200,
+  },
+  {
+    id: 8,
+    title: "Urban Legends",
+    author: "Maya Chen",
+    genre: "Urban Fantasy",
+    coverImage: "/urban-fantasy-book-cover.jpg",
+    rating: 4.8,
+    downloads: 13400,
+  },
+  {
+    id: 9,
+    title: "Time Traveler's Guide",
+    author: "Dr. James Wilson",
+    genre: "Sci-Fi",
+    coverImage: "/scifi-romance-book-cover.jpg",
+    rating: 4.6,
+    downloads: 9800,
+  },
+  {
+    id: 10,
+    title: "Witch's Brew",
+    author: "Sabrina Moon",
+    genre: "Fantasy",
+    coverImage: "/fantasy-romance-book-cover.jpg",
+    rating: 4.4,
+    downloads: 10500,
+  },
+]
 
-  // Throttled mobile view check
-  const checkMobileView = useCallback(() => {
-    setIsMobileView(window.innerWidth < UI_CONFIG.mobileBreakpoint)
-  }, [])
-
-  const throttledCheckMobileView = useMemo(
-    () => throttle(checkMobileView, 100),
-    [checkMobileView]
-  )
-
-  // Check for mobile view with throttling
-  useEffect(() => {
-    checkMobileView() // Initial check
-    
-    window.addEventListener('resize', throttledCheckMobileView)
-    return () => window.removeEventListener('resize', throttledCheckMobileView)
-  }, [throttledCheckMobileView, checkMobileView])
-
-  // Memoized skeleton arrays for better performance
-  const mobileSkeletons = useMemo(() => Array.from({ length: 3 }, (_, i) => (
-    <MobileCardSkeleton key={`mobile-skeleton-${i}`} />
-  )), [])
-
-  const desktopSkeletons = useMemo(() => Array.from({ length: 5 }, (_, i) => (
-    <FeedItemSkeleton key={`desktop-skeleton-${i}`} />
-  )), [])
-
-  // Live region for screen readers
-  const resultsCount = filteredData.length
-  const resultsText = `${resultsCount} ${resultsCount === 1 ? 'item' : 'items'} found`
+export default function HomePage() {
+  const [searchQuery, setSearchQuery] = useState("")
 
   return (
-    <ErrorBoundary>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 md:bg-white md:dark:bg-gray-900 transition-colors">
-        <Header 
-          searchQuery={filters.searchQuery}
-          onSearchChange={debouncedSearchChange}
-        />
+    <div className="min-h-screen bg-secondary">
+      <Header searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
-        {/* Live region for screen readers */}
-        <div 
-          aria-live="polite" 
-          aria-atomic="true"
-          className="sr-only"
-        >
-          {isLoading ? "Loading books and authors..." : resultsText}
+      {/* Hero Section - Enhanced */}
+      <section className="relative bg-gradient-to-b from-primary/5 via-background to-background pt-36 pb-8 md:pt-36 md:pb-12 overflow-hidden">
+        {/* Decorative background pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(16,185,129,0.05),transparent_50%),radial-gradient(circle_at_70%_60%,rgba(16,185,129,0.03),transparent_50%)] pointer-events-none" />
+
+        {/* Floating book covers carousel in background */}
+        <HeroFloatingBooks />
+
+        <div className="container mx-auto px-4 text-center relative">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-balance mb-4">
+            Win <span className="text-primary">Books</span>, Read Prizes
+          </h1>
+
+          {/* Subheading with improved line-height */}
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto text-balance leading-relaxed mb-8">
+            Enter giveaways from your favorite authors, download free books, and discover new reads. Join thousands of
+            book lovers finding their next great read.
+          </p>
+
+          {/* Email subscription form and CTAs */}
+          <HeroEmailForm />
+
+          {/* Social proof section */}
+          <HeroSocialProof />
         </div>
+      </section>
 
-        {/* Pull to Refresh Indicator */}
-        {isRefreshing && (
-          <div 
-            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-30 bg-white dark:bg-gray-800 rounded-full shadow-lg px-4 py-2 border border-gray-200 dark:border-gray-700"
-            role="status"
-            aria-label="Refreshing content"
-          >
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-orange-500 border-t-transparent"></div>
-              <span className="text-14 font-medium text-gray-700 dark:text-gray-300">Refreshing...</span>
-            </div>
-          </div>
-        )}
+      <div className="container mx-auto px-4 py-8">
 
-        {/* Main Content */}
-        <div className="pt-20 pb-20 md:pb-8">
-          <div className="mx-0 md:mx-4 my-4 md:my-8 flex flex-col justify-center">
-            <main className="max-w-4xl mx-auto w-full">
-
-              {/* Filter Controls */}
-              <FilterControls
-                filters={filters}
-                onFiltersChange={updateFilters}
-                onResetFilters={resetFilters}
-                isMobileView={isMobileView}
-              />
-
-              {/* Content */}
-              <div className="mb-12 flex flex-col gap-4 md:gap-10">
-                <div className="flex flex-col">
-                  <h1 className="hidden md:block mb-6 text-24 font-semibold text-gray-900 dark:text-gray-100 mx-4">
-                    Top Books & Authors Today
-                  </h1>
-
-                  {/* Loading State */}
-                  {isLoading && (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="flex items-center gap-3">
-                        <LoadingSpinner size="md" />
-                        <span className="text-gray-600 dark:text-gray-400">Loading books and authors...</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Error State */}
-                  {error && !isLoading && (
-                    <ErrorState
-                      title="Failed to load content"
-                      message="We couldn't load the books and authors. Please try again."
-                      error={error}
-                      onRetry={handleRefresh}
-                      showDetails={false}
-                      variant="compact"
-                    />
-                  )}
-
-                  {/* Content */}
-                  {!isLoading && !error && (
-                    <>
-                      {/* Mobile Card View */}
-                      <div className="md:hidden">
-                        {filteredData.length > 0 ? (
-                          filteredData.map((item: FeedItem) => (
-                            <FeedItemDisplay
-                              key={item.id}
-                              item={item}
-                              isMobileView={true}
-                              onVote={handleVote}
-                              onSwipeLeft={handleSwipeLeft}
-                              onSwipeRight={handleSwipeRight}
-                              downloadSlug={item.type === 'book' ? (item as BookItem).downloadSlug || undefined : undefined}
-                            />
-                          ))
-                        ) : (
-                          <div className="text-center py-12 px-4">
-                            <p className="text-gray-600 dark:text-gray-400">
-                              No books or authors found matching your criteria.
-                            </p>
-                            <button
-                              onClick={resetFilters}
-                              className="mt-4 text-orange-500 hover:underline focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded"
-                            >
-                              Clear filters
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Desktop List View */}
-                      <div className="hidden md:block">
-                        {filteredData.length > 0 ? (
-                          filteredData.map((item: FeedItem) => (
-                            <FeedItemDisplay
-                              key={item.id}
-                              item={item}
-                              isMobileView={false}
-                              onVote={handleVote}
-                              onSwipeLeft={handleSwipeLeft}
-                              onSwipeRight={handleSwipeRight}
-                              downloadSlug={item.type === 'book' ? (item as BookItem).downloadSlug || undefined : undefined}
-                            />
-                          ))
-                        ) : (
-                          <div className="text-center py-12 px-4">
-                            <p className="text-gray-600 dark:text-gray-400">
-                              No books or authors found matching your criteria.
-                            </p>
-                            <button
-                              onClick={resetFilters}
-                              className="mt-4 text-orange-500 hover:underline focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded"
-                            >
-                              Clear filters
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-
-                  {/* Loading Skeletons */}
-                  {isLoading && (
-                    <>
-                      <div className="md:hidden">
-                        {mobileSkeletons}
-                      </div>
-                      <div className="hidden md:block">
-                        {desktopSkeletons}
-                      </div>
-                    </>
-                  )}
-
-                  <button 
-                    className="relative my-4 mx-4 grow inline-block max-h-11 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-center text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                    aria-label="View all of today's books and authors"
-                  >
-                    See all of today&apos;s books & authors
-                  </button>
-                </div>
+        <main className="space-y-10">
+          {/* Featured Giveaways Section */}
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">Recommended Book Giveaways to Enter</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Discover new giveaways and free books tailored to your interests
+                </p>
               </div>
+              <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+            <DashboardCarouselContainer>
+              {featuredGiveaways.map((giveaway) => (
+                <DashboardFeaturedGiveawayCard key={giveaway.id} {...giveaway} />
+              ))}
+            </DashboardCarouselContainer>
+          </div>
 
-              {/* Newsletter Signup - Desktop only */}
-              <section 
-                className="hidden md:flex mb-6 flex-row items-center gap-4 rounded-xl bg-gray-50 dark:bg-gray-800 p-4 shadow-sm mx-4 border border-gray-200 dark:border-gray-700"
-                role="complementary"
-                aria-label="Newsletter signup"
-              >
-                <Mail 
-                  className="hidden h-7 w-7 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 md:block text-gray-700 dark:text-gray-300" 
-                  aria-hidden="true"
-                />
-                <div className="flex w-full flex-col items-center justify-between gap-4 sm:flex-row">
-                  <div className="text-16 font-semibold text-gray-900 dark:text-gray-100">
-                    Get the best of BookSweeps, directly in your inbox.
-                  </div>
-                  <Link
-                    href="/signup"
-                    className="w-full md:w-auto inline-block max-h-11 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-center text-16 font-semibold text-gray-600 dark:text-gray-400 transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-                    aria-label="Sign up for BookSweeps newsletter"
-                  >
-                    Sign Up
-                  </Link>
+          {/* Recommended Free Books to Download Section */}
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">Recommended Free Books to Download</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Download these free books instantly to your device
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+            <DashboardCarouselContainer>
+              {recommendedFreeBooks.map((book) => (
+                <div key={book.id} className="flex-none w-[calc(20%-12.8px)] min-w-[180px] snap-start">
+                  <DashboardBookCard {...book} showDownloadButton={true} />
                 </div>
-              </section>
-            </main>
-
+              ))}
+            </DashboardCarouselContainer>
           </div>
 
-        </div>
-
-        {/* Mobile Bottom Navigation */}
-        <nav 
-          className="fixed bottom-0 left-0 right-0 z-20 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden transition-colors"
-          role="navigation"
-          aria-label="Mobile navigation"
-        >
-          <div className="flex items-center justify-around py-2">
-            <button 
-              className="flex flex-col items-center gap-1 p-2 text-orange-500"
-              aria-label="Navigate to home page"
-              aria-current="page"
-            >
-              <Home className="h-5 w-5" aria-hidden="true" />
-              <span className="text-10 font-medium">Home</span>
-            </button>
-            <button 
-              className="flex flex-col items-center gap-1 p-2 text-gray-600 dark:text-gray-400"
-              aria-label="Navigate to discover page"
-            >
-              <Compass className="h-5 w-5" aria-hidden="true" />
-              <span className="text-10 font-medium">Discover</span>
-            </button>
-            <Link 
-              href="/giveaways" 
-              className="flex flex-col items-center gap-1 p-2 text-gray-600 dark:text-gray-400"
-              aria-label="Navigate to giveaways page"
-            >
-              <Trophy className="h-5 w-5" aria-hidden="true" />
-              <span className="text-10 font-medium">Giveaways</span>
-            </Link>
-            <button 
-              className="flex flex-col items-center gap-1 p-2 text-gray-600 dark:text-gray-400"
-              aria-label="Navigate to profile page"
-            >
-              <User className="h-5 w-5" aria-hidden="true" />
-              <span className="text-10 font-medium">Profile</span>
-            </button>
+          {/* Recommended Authors to Follow Section */}
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">Recommended Authors to Follow</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Follow these authors to get notified of their new giveaways and releases
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+            <DashboardCarouselContainer>
+              {recommendedAuthors.map((author) => (
+                <DashboardAuthorCard key={author.id} {...author} />
+              ))}
+            </DashboardCarouselContainer>
           </div>
-        </nav>
+        </main>
       </div>
-    </ErrorBoundary>
+    </div>
   )
 }

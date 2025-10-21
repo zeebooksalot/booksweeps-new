@@ -858,6 +858,48 @@ html::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* Floating book animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(var(--rotation, 0deg));
+  }
+  50% {
+    transform: translateY(-20px) rotate(var(--rotation, 0deg));
+  }
+}
+
+@keyframes float-delayed {
+  0%, 100% {
+    transform: translateY(0px) rotate(var(--rotation, 0deg));
+  }
+  50% {
+    transform: translateY(-15px) rotate(var(--rotation, 0deg));
+  }
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) rotate(var(--rotation, 0deg));
+  }
+  50% {
+    transform: translateY(-10px) rotate(var(--rotation, 0deg));
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-delayed 8s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+.animate-float-slow {
+  animation: float-slow 10s ease-in-out infinite;
+  animation-delay: 4s;
+}
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -867,5 +909,11 @@ html::-webkit-scrollbar-thumb:hover {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  
+  .animate-float,
+  .animate-float-delayed,
+  .animate-float-slow {
+    animation: none !important;
   }
 }

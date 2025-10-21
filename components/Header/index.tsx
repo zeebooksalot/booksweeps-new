@@ -23,9 +23,9 @@ export const Header = React.memo(({ searchQuery, onSearchChange }: HeaderProps) 
       role="banner"
       aria-label="Main navigation"
     >
-      <div className="mx-auto max-w-6xl px-4 py-3 md:py-4 lg:px-0">
-        <div className="flex items-center">
-          {/* Left cluster: Logo + Nav */}
+      <div className="container mx-auto px-4 py-3 md:py-4">
+        <div className="flex items-center gap-4">
+          {/* Left cluster: Logo + Nav + Search */}
           <div className="flex items-center gap-4 md:gap-6">
             {/* Logo */}
             <Link 
@@ -40,21 +40,19 @@ export const Header = React.memo(({ searchQuery, onSearchChange }: HeaderProps) 
 
             {/* Desktop Navigation */}
             <Navigation />
-          </div>
 
-          {/* Center: Search Bar */}
-          <div className="flex-1 flex justify-center px-4">
-            <div className="w-full max-w-md">
+            {/* Search Bar */}
+            <div className="hidden md:block">
               <SearchBar
                 searchQuery={searchQuery}
                 onSearchChange={onSearchChange}
-                className="hidden md:block w-full"
+                className="w-64"
               />
             </div>
           </div>
 
           {/* Right: User actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 ml-auto">
             <UserActions />
             {/* Mobile Menu */}
             <div className="md:hidden">

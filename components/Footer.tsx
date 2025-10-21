@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { BookOpen } from "lucide-react";
 
 export function Footer() {
   return (
@@ -8,11 +7,10 @@ export function Footer() {
       role="contentinfo"
       aria-label="Site footer"
     >
-      <div className="mx-auto max-w-6xl px-4 lg:px-0">
+      <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-8 w-full">
           <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <BookOpen className="h-6 w-6 text-accent" aria-hidden="true" />
+            <div className="mb-4">
               <span className="text-lg font-bold text-foreground">BookSweeps</span>
             </div>
             <p className="text-muted-foreground text-sm">

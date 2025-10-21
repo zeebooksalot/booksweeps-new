@@ -110,7 +110,7 @@ export function DashboardBookCard({
 
         {/* Download button for free books */}
         {showDownloadButton && (
-          <Button className="w-full bg-primary hover:bg-primary/90" size="sm">
+          <Button className="w-full bg-primary hover:bg-primary/90 text-white" size="sm">
             Download Free
           </Button>
         )}

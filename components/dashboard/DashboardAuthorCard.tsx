@@ -45,7 +45,7 @@ export function DashboardAuthorCard({ name, genre, avatar, booksPublished, follo
               <span>Followers</span>
             </div>
           </div>
-          <Button className="w-full bg-primary hover:bg-primary/90" size="sm">
+          <Button className="w-full bg-primary hover:bg-primary/90 text-white" size="sm">
             <Heart className="mr-2 h-3.5 w-3.5" />
             Follow
           </Button>

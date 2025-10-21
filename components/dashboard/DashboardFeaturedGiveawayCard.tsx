@@ -45,7 +45,7 @@ export function DashboardFeaturedGiveawayCard({
             <span>{entries.toLocaleString()} entries</span>
             <span className="font-medium text-primary">{daysLeft}d left</span>
           </div>
-          <Button className="w-full bg-primary hover:bg-primary/90" size="sm">
+          <Button className="w-full bg-primary hover:bg-primary/90 text-white" size="sm">
             Enter Giveaway
           </Button>
         </div>
