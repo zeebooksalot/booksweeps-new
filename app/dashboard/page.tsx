@@ -435,7 +435,7 @@ const recommendedFreeBooks = [
   },
 ]
 
-export default function NewDashboardPage() {
+export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("home")
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [entriesFilter, setEntriesFilter] = useState<"active" | "ended">("active")
