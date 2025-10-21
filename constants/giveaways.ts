@@ -1,3 +1,10 @@
+import { 
+  SHARED_GENRES, 
+  SHARED_STATUS_OPTIONS, 
+  SHARED_PRIZE_TYPES, 
+  SHARED_SORT_OPTIONS 
+} from './shared'
+
 export const GIVEAWAY_CONFIG = {
   mobileBreakpoint: 768,
   searchDebounceDelay: 300,
@@ -15,13 +22,7 @@ export const GIVEAWAY_CONFIG = {
 
 export const GIVEAWAY_GENRES = [
   { value: '', label: 'All Genres' },
-  { value: 'Fantasy', label: 'Fantasy' },
-  { value: 'Romance', label: 'Romance' },
-  { value: 'Mystery', label: 'Mystery' },
-  { value: 'Sci-Fi', label: 'Sci-Fi' },
-  { value: 'Thriller', label: 'Thriller' },
-  { value: 'Historical', label: 'Historical' },
-  { value: 'Contemporary', label: 'Contemporary' }
+  ...SHARED_GENRES.map(genre => ({ value: genre, label: genre }))
 ] as const
 
 export const GIVEAWAY_STATUS_OPTIONS = [
