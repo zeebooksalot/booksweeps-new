@@ -7,7 +7,7 @@ import { DEFAULT_USER_SETTINGS } from '@/constants/auth'
 import { handleAuthError, retryWithBackoff, isResourceExhaustionError } from '@/lib/auth-utils'
 
 export function useAuthState() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)

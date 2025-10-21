@@ -8,7 +8,7 @@ interface ApiError {
   message: string
   status?: number
   code?: string
-  details?: any
+  details?: unknown
 }
 
 interface UseApiErrorHandlerOptions {
@@ -36,25 +36,27 @@ export function useApiErrorHandler(options: UseApiErrorHandlerOptions = {}) {
     onSuccess 
   })
 
-  const handleError = useCallback((error: any) => {
+  const handleError = useCallback((error: unknown) => {
     let apiError: ApiError
 
     // Parse different error formats
-    if (error?.response?.data) {
+    if (error && typeof error === 'object' && 'response' in error) {
       // Axios-style error
+      const axiosError = error as { response: { data: { message?: string; error?: string; code?: string; details?: unknown }; status: number } }
       apiError = {
-        message: error.response.data.message || error.response.data.error || 'Request failed',
-        status: error.response.status,
-        code: error.response.data.code,
-        details: error.response.data.details
+        message: axiosError.response.data.message || axiosError.response.data.error || 'Request failed',
+        status: axiosError.response.status,
+        code: axiosError.response.data.code,
+        details: axiosError.response.data.details
       }
-    } else if (error?.message) {
+    } else if (error && typeof error === 'object' && 'message' in error) {
       // Standard Error object
+      const standardError = error as { message: string; status?: number; code?: string; details?: unknown }
       apiError = {
-        message: error.message,
-        status: error.status,
-        code: error.code,
-        details: error.details
+        message: standardError.message,
+        status: standardError.status,
+        code: standardError.code,
+        details: standardError.details
       }
     } else if (typeof error === 'string') {
       // String error

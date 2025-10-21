@@ -40,7 +40,7 @@ export function useProfileForm() {
   }, [updateFormData])
 
   // Handle form field changes
-  const handleFieldChange = useCallback((field: keyof ProfileFormData, value: any) => {
+  const handleFieldChange = useCallback((field: keyof ProfileFormData, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,

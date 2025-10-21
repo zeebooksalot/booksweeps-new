@@ -4,20 +4,27 @@ import { useCallback, useState, useRef } from 'react'
 import { useApiErrorHandler } from '@/hooks/use-api-error-handler'
 import { useToast } from '@/hooks/use-toast'
 
+interface ApiError {
+  message: string
+  status?: number
+  code?: string
+  details?: unknown
+}
+
 interface ApiClientOptions {
   baseURL?: string
   timeout?: number
   retries?: number
   retryDelay?: number
   showToast?: boolean
-  onError?: (error: any) => void
-  onSuccess?: (data: any) => void
+  onError?: (error: ApiError) => void
+  onSuccess?: (data: unknown) => void
 }
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
   headers?: Record<string, string>
-  body?: any
+  body?: unknown
   timeout?: number
   retries?: number
   showToast?: boolean
@@ -43,7 +50,7 @@ export function useApiClient(options: ApiClientOptions = {}) {
     onSuccess: onSuccess ? () => onSuccess(null) : undefined
   })
 
-  const [cache, setCache] = useState<Map<string, { data: any; timestamp: number }>>(new Map())
+  const [cache, setCache] = useState<Map<string, { data: unknown; timestamp: number }>>(new Map())
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const getCacheKey = useCallback((url: string, options?: RequestOptions) => {
@@ -74,7 +81,7 @@ export function useApiClient(options: ApiClientOptions = {}) {
     if (method === 'GET' && cache.has(cacheKey)) {
       const cached = cache.get(cacheKey)!
       if (isCacheValid(cached.timestamp)) {
-        return cached.data
+        return cached.data as T
       }
     }
 
@@ -131,15 +138,15 @@ export function useApiClient(options: ApiClientOptions = {}) {
     return request<T>(url, { ...options, method: 'GET' })
   }, [request])
 
-  const post = useCallback(<T>(url: string, body?: any, options: Omit<RequestOptions, 'method' | 'body'> = {}) => {
+  const post = useCallback(<T>(url: string, body?: unknown, options: Omit<RequestOptions, 'method' | 'body'> = {}) => {
     return request<T>(url, { ...options, method: 'POST', body })
   }, [request])
 
-  const put = useCallback(<T>(url: string, body?: any, options: Omit<RequestOptions, 'method' | 'body'> = {}) => {
+  const put = useCallback(<T>(url: string, body?: unknown, options: Omit<RequestOptions, 'method' | 'body'> = {}) => {
     return request<T>(url, { ...options, method: 'PUT', body })
   }, [request])
 
-  const patch = useCallback(<T>(url: string, body?: any, options: Omit<RequestOptions, 'method' | 'body'> = {}) => {
+  const patch = useCallback(<T>(url: string, body?: unknown, options: Omit<RequestOptions, 'method' | 'body'> = {}) => {
     return request<T>(url, { ...options, method: 'PATCH', body })
   }, [request])
 
@@ -189,7 +196,7 @@ export function useApiClient(options: ApiClientOptions = {}) {
 }
 
 // Specialized hook for REST API endpoints
-export function useRestApi<T = any>(baseURL: string, options: ApiClientOptions = {}) {
+export function useRestApi<T = unknown>(baseURL: string, options: ApiClientOptions = {}) {
   const apiClient = useApiClient({ ...options, baseURL })
 
   const create = useCallback((data: Partial<T>) => {
@@ -208,7 +215,7 @@ export function useRestApi<T = any>(baseURL: string, options: ApiClientOptions =
     return apiClient.delete(`/${id}`)
   }, [apiClient])
 
-  const list = useCallback((params?: Record<string, any>) => {
+  const list = useCallback((params?: Record<string, string>) => {
     const searchParams = new URLSearchParams(params)
     const queryString = searchParams.toString()
     const url = queryString ? `?${queryString}` : ''

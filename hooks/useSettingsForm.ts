@@ -44,7 +44,7 @@ export function useSettingsForm() {
   }, [updateFormData])
 
   // Handle form field changes
-  const handleFieldChange = useCallback((field: keyof SettingsFormData, value: any) => {
+  const handleFieldChange = useCallback((field: keyof SettingsFormData, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,
