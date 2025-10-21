@@ -1,40 +1,40 @@
 "use client";
 
 import React from 'react';
-import { Search, Filter, Grid3X3, List } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-interface AuthorDirectoryHeaderProps {
+interface GiveawayDirectoryHeaderProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   sortBy: string;
   setSortBy: (sort: string) => void;
   genreFilter: string;
   setGenreFilter: (genre: string) => void;
-  contentFilter: string;
-  setContentFilter: (content: string) => void;
+  statusFilter: string;
+  setStatusFilter: (status: string) => void;
   viewMode: 'grid' | 'list';
   setViewMode: (mode: 'grid' | 'list') => void;
   availableGenres: string[];
   isLoading: boolean;
 }
 
-export const AuthorDirectoryHeader = React.memo(function AuthorDirectoryHeader({
+export const GiveawayDirectoryHeader = React.memo(function GiveawayDirectoryHeader({
   searchQuery,
   setSearchQuery,
   sortBy,
   setSortBy,
   genreFilter,
   setGenreFilter,
-  contentFilter,
-  setContentFilter,
+  statusFilter,
+  setStatusFilter,
   viewMode,
   setViewMode,
   availableGenres,
   isLoading
-}: AuthorDirectoryHeaderProps) {
+}: GiveawayDirectoryHeaderProps) {
   return (
     <div className="bg-card rounded-lg p-6 shadow-sm border border-subtle">
       <div className="flex flex-col lg:flex-row gap-4">
@@ -43,22 +43,36 @@ export const AuthorDirectoryHeader = React.memo(function AuthorDirectoryHeader({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search authors..."
+              placeholder="Search giveaways, books, or authors..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-muted text-foreground placeholder:text-muted-foreground"
             />
           </div>
         </div>
-        
+
+        {/* Sort */}
+        <Select value={sortBy} onValueChange={setSortBy} disabled={isLoading}>
+          <SelectTrigger className="w-full lg:w-48 bg-muted text-foreground">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="popularity">Most Popular</SelectItem>
+            <SelectItem value="recent">Most Recent</SelectItem>
+            <SelectItem value="ending-soon">Ending Soon</SelectItem>
+            <SelectItem value="title">Title A-Z</SelectItem>
+            <SelectItem value="author">Author A-Z</SelectItem>
+          </SelectContent>
+        </Select>
+
         {/* Genre Filter */}
         <Select value={genreFilter} onValueChange={setGenreFilter} disabled={isLoading}>
           <SelectTrigger className="w-full lg:w-48 bg-muted text-foreground">
-            <SelectValue placeholder="Filter by genre" />
+            <SelectValue placeholder="All Genres" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Genres</SelectItem>
-            {availableGenres.map(genre => (
+            {availableGenres.map((genre) => (
               <SelectItem key={genre} value={genre}>
                 {genre}
               </SelectItem>
@@ -66,49 +80,35 @@ export const AuthorDirectoryHeader = React.memo(function AuthorDirectoryHeader({
           </SelectContent>
         </Select>
 
-        {/* Content Filter */}
-        <Select value={contentFilter} onValueChange={setContentFilter} disabled={isLoading}>
+        {/* Status Filter */}
+        <Select value={statusFilter} onValueChange={setStatusFilter} disabled={isLoading}>
           <SelectTrigger className="w-full lg:w-48 bg-muted text-foreground">
-            <SelectValue placeholder="Filter by content" />
+            <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Content</SelectItem>
-            <SelectItem value="books">Books Only</SelectItem>
-            <SelectItem value="giveaways">Giveaways Only</SelectItem>
-            <SelectItem value="both">Books & Giveaways</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Sort Dropdown */}
-        <Select value={sortBy} onValueChange={setSortBy} disabled={isLoading}>
-          <SelectTrigger className="w-full lg:w-48 bg-muted text-foreground">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="popularity">Most Popular</SelectItem>
-            <SelectItem value="name">Name A-Z</SelectItem>
-            <SelectItem value="newest">Newest</SelectItem>
-            <SelectItem value="books">Most Books</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="ending-soon">Ending Soon</SelectItem>
+            <SelectItem value="ended">Ended</SelectItem>
           </SelectContent>
         </Select>
 
         {/* View Mode Toggle */}
-        <div className="flex border rounded-md">
+        <div className="flex border border-border rounded-lg bg-muted h-10">
           <Button
             variant={viewMode === 'grid' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('grid')}
-            className="rounded-r-none"
+            className="rounded-r-none border-0 h-full px-3"
           >
-            <Grid3X3 className="h-4 w-4" />
+            <Filter className="h-4 w-4" />
           </Button>
           <Button
             variant={viewMode === 'list' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('list')}
-            className="rounded-l-none"
+            className="rounded-l-none border-0 h-full px-3"
           >
-            <List className="h-4 w-4" />
+            <Filter className="h-4 w-4" />
           </Button>
         </div>
       </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { PublicAuthor } from '@/types/author';
+import { Button } from '@/components/ui/button';
 import { AuthorDirectoryHeader, AuthorDirectoryGrid, AuthorDirectoryPagination } from './AuthorDirectory/';
 
 interface AuthorDirectoryProps {
@@ -118,63 +119,51 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Authors</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={loadAuthors}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
+      <div className="text-center py-12">
+        <div className="bg-destructive/10 border border-destructive rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-destructive mb-2">
+            Unable to Load Authors
+          </h3>
+          <p className="text-destructive mb-4">
+            {error}
+          </p>
+          <Button onClick={loadAuthors} variant="outline">
             Try Again
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Author Directory</h1>
-          <p className="mt-2 text-gray-600">
-            Discover talented authors and their amazing books
-          </p>
-        </div>
+    <div className="space-y-6">
+      <AuthorDirectoryHeader
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        genreFilter={genreFilter}
+        setGenreFilter={setGenreFilter}
+        contentFilter={contentFilter}
+        setContentFilter={setContentFilter}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        availableGenres={availableGenres}
+        isLoading={isLoading}
+      />
 
-        <AuthorDirectoryHeader
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          genreFilter={genreFilter}
-          setGenreFilter={setGenreFilter}
-          contentFilter={contentFilter}
-          setContentFilter={setContentFilter}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          availableGenres={availableGenres}
-          isLoading={isLoading}
-        />
+      <AuthorDirectoryGrid
+        authors={paginatedAuthors}
+        viewMode={viewMode}
+        isLoading={isLoading}
+      />
 
-        <div className="mt-8">
-          <AuthorDirectoryGrid
-            authors={paginatedAuthors}
-            viewMode={viewMode}
-            isLoading={isLoading}
-          />
-        </div>
-
-        <div className="mt-8">
-          <AuthorDirectoryPagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-            isLoading={isLoading}
-          />
-        </div>
-      </div>
+      <AuthorDirectoryPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -10,7 +11,7 @@ interface AuthorDirectoryPaginationProps {
   isLoading: boolean;
 }
 
-export function AuthorDirectoryPagination({
+export const AuthorDirectoryPagination = React.memo(function AuthorDirectoryPagination({
   currentPage,
   totalPages,
   onPageChange,
@@ -121,4 +122,4 @@ export function AuthorDirectoryPagination({
       </div>
     </div>
   );
-}
+});

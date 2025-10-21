@@ -1,5 +1,6 @@
 "use client";
 
+import React from 'react';
 import Link from 'next/link';
 import { Users, BookOpen, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ interface AuthorDirectoryGridProps {
   isLoading: boolean;
 }
 
-export function AuthorDirectoryGrid({ authors, viewMode, isLoading }: AuthorDirectoryGridProps) {
+export const AuthorDirectoryGrid = React.memo(function AuthorDirectoryGrid({ authors, viewMode, isLoading }: AuthorDirectoryGridProps) {
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
@@ -158,4 +159,4 @@ export function AuthorDirectoryGrid({ authors, viewMode, isLoading }: AuthorDire
       ))}
     </div>
   );
-}
+});

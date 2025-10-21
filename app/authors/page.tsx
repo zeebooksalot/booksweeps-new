@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from 'react';
 import { AuthorDirectory } from '@/components/AuthorDirectory';
-import { AuthorDirectorySkeleton } from '@/components/AuthorDirectorySkeleton';
+import { AuthorDirectorySkeleton } from '@/components/AuthorDirectory/AuthorDirectorySkeleton';
 import { Header } from '@/components/header';
 import { Button } from '@/components/ui/button';
 
@@ -17,7 +17,7 @@ export default function AuthorsPage() {
       />
       <div className="mx-auto max-w-6xl px-4 lg:px-0 pt-24">
         {/* Hero Section */}
-        <div className="bg-card rounded-xl p-8 border border-subtle mb-2">
+        <div className="bg-card rounded-xl p-8 border border-subtle mb-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div className="flex-1">
               <h1 className="text-4xl font-bold text-foreground mb-4 font-serif leading-[1.5em]">
