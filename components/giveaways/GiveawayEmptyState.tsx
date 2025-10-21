@@ -92,7 +92,7 @@ export function GiveawayEmptyState({
           </h4>
           <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
             <p>• Check out our <a href="/authors" className="text-orange-500 hover:text-orange-600 underline">featured authors</a></p>
-            <p>• Browse <a href="/free-books" className="text-orange-500 hover:text-orange-600 underline">free books</a> while you wait</p>
+            <p>• Browse <a href="/free-ebooks" className="text-orange-500 hover:text-orange-600 underline">free books</a> while you wait</p>
             <p>• Follow us on social media for giveaway announcements</p>
           </div>
         </div>

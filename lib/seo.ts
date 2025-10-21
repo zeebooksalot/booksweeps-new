@@ -51,8 +51,40 @@ export function generateAuthorSitemap(authorSlugs: string[]) {
   <url>
     <loc>${baseUrl}/authors/${slug}</loc>
     <lastmod>${new Date().toISOString()}</lastmod>
-    <changefreq>weekly</changefreq>
+    <changefreq>daily</changefreq>
     <priority>0.8</priority>
+  </url>`).join('')}
+</urlset>`;
+}
+
+// Sitemap generation for free books/reader magnets
+export function generateFreeBooksSitemap(freeBookSlugs: string[]) {
+  const baseUrl = 'https://staging.booksweeps.com';
+  
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  ${freeBookSlugs.map(slug => `
+  <url>
+    <loc>${baseUrl}/dl/${slug}</loc>
+    <lastmod>${new Date().toISOString()}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>`).join('')}
+</urlset>`;
+}
+
+// Sitemap generation for giveaways
+export function generateGiveawaysSitemap(giveawayIds: string[]) {
+  const baseUrl = 'https://staging.booksweeps.com';
+  
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  ${giveawayIds.map(id => `
+  <url>
+    <loc>${baseUrl}/giveaways/${id}</loc>
+    <lastmod>${new Date().toISOString()}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
   </url>`).join('')}
 </urlset>`;
 }

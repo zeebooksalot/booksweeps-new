@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { generateAuthorSitemap } from '@/lib/seo';
+import { generateFreeBooksSitemap } from '@/lib/seo';
 
 export async function GET() {
   try {
@@ -10,24 +10,25 @@ export async function GET() {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Fetch all active author slugs from pen_names table
-    const { data: authors, error } = await supabase
-      .from('pen_names')
+    // Fetch all active reader magnets from book_delivery_methods table
+    const { data: freeBooks, error } = await supabase
+      .from('book_delivery_methods')
       .select('slug')
-      .eq('status', 'active')
+      .eq('is_active', true)
+      .eq('delivery_method', 'ebook')
       .not('slug', 'is', null);
 
     if (error) {
-      console.error('Database error fetching authors:', error);
-      return new NextResponse('Error fetching author data', { status: 500 });
+      console.error('Database error fetching free books:', error);
+      return new NextResponse('Error fetching free books data', { status: 500 });
     }
 
     // Extract slugs from the data
-    const authorSlugs = authors?.map(author => author.slug).filter(Boolean) || [];
+    const freeBookSlugs = freeBooks?.map(book => book.slug).filter(Boolean) || [];
     
-    console.log(`Generating sitemap for ${authorSlugs.length} authors`);
+    console.log(`Generating sitemap for ${freeBookSlugs.length} free books`);
     
-    const sitemap = generateAuthorSitemap(authorSlugs);
+    const sitemap = generateFreeBooksSitemap(freeBookSlugs);
     
     return new NextResponse(sitemap, {
       headers: {
@@ -36,7 +37,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error('Error generating author sitemap:', error);
+    console.error('Error generating free books sitemap:', error);
     return new NextResponse('Error generating sitemap', { status: 500 });
   }
 }
