@@ -3,6 +3,7 @@
 import { Book, Calendar, Star } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import Image from 'next/image';
 
 interface GiveawayBookDetailsProps {
   giveaway?: {
@@ -36,10 +37,12 @@ export function GiveawaySingleBook({ giveaway }: GiveawayBookDetailsProps) {
         <div className="flex flex-col md:flex-row">
           <div className="md:w-1/3 p-6 bg-muted/30">
             <div className="aspect-[3/4] bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center relative overflow-hidden">
-              <img
+              <Image
                 src={book.cover_image_url}
                 alt={`${book.title} book cover`}
-                className="w-full h-full object-cover rounded-lg"
+                fill
+                className="object-cover rounded-lg"
+                sizes="(max-width: 768px) 100vw, 33vw"
               />
             </div>
           </div>

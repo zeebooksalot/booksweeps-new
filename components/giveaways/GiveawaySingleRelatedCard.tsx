@@ -1,6 +1,7 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
+import Image from 'next/image';
 
 interface RelatedGiveawayCardProps {
   title: string
@@ -18,7 +19,14 @@ export function GiveawaySingleRelatedCard({ title, author, genre, daysLeft, cove
         {daysLeft}
       </Badge>
       <div className="w-12 h-16 flex-shrink-0 rounded overflow-hidden">
-        <img src={cover || "/placeholder.svg"} alt={`${title} book cover`} className="w-full h-full object-cover" />
+        <Image 
+          src={cover || "/placeholder.svg"} 
+          alt={`${title} book cover`} 
+          width={48}
+          height={64}
+          className="object-cover"
+          sizes="48px"
+        />
       </div>
       <div className="space-y-1">
         <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{description}</p>

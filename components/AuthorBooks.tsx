@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PublicBook } from '@/types/author';
 import { Download } from 'lucide-react';
+import Image from 'next/image';
 
 interface AuthorBooksProps {
   books: PublicBook[];
@@ -32,11 +33,14 @@ export function AuthorBooks({ books, authorName }: AuthorBooksProps) {
               console.log(`Navigate to book: ${book.title}`);
             }}
           >
-            <div className="flex-shrink-0 relative">
-              <img
+            <div className="flex-shrink-0 relative w-20 h-28">
+              <Image
                 src={book.cover_image_url || "/placeholder.svg"}
                 alt={`${book.title} cover`}
-                className="w-20 h-28 object-cover rounded-lg shadow-md"
+                width={80}
+                height={112}
+                className="object-cover rounded-lg shadow-md"
+                sizes="80px"
               />
             </div>
 

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Calendar, Users, Gift, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -113,14 +114,18 @@ export const GiveawayDirectoryGrid = React.memo(function GiveawayDirectoryGrid({
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start space-x-4 flex-1 min-w-0">
-                  <div className="relative">
-                    <img
-                      src={giveaway.book?.cover_image_url || '/placeholder-book.jpg'}
-                      alt={giveaway.book?.title || 'Book cover'}
-                      className="w-16 h-20 object-cover rounded-lg shadow-sm"
-                    />
-                    <div className="absolute -top-2 -left-2 w-8 h-8 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold shadow-lg">
-                      {rank}
+                  <div className="relative w-16 h-20 flex-shrink-0">
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={giveaway.book?.cover_image_url || '/placeholder-book.jpg'}
+                        alt={giveaway.book?.title || 'Book cover'}
+                        fill
+                        className="object-cover rounded-lg shadow-sm"
+                        sizes="64px"
+                      />
+                      <div className="absolute -top-2 -left-2 w-8 h-8 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
+                        {rank}
+                      </div>
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -185,14 +190,18 @@ export const GiveawayDirectoryGrid = React.memo(function GiveawayDirectoryGrid({
             href={`/giveaways/${giveaway.id}`}
             className="block bg-card rounded-lg p-6 shadow-sm border border-subtle hover:shadow-md transition-shadow"
           >
-            <div className="relative flex-shrink-0">
-              <img
-                src={giveaway.book?.cover_image_url || '/placeholder-book.jpg'}
-                alt={giveaway.book?.title || 'Book cover'}
-                className="w-full h-48 object-cover rounded-lg shadow-sm"
-              />
-              <div className="absolute -top-2 -left-2 w-8 h-8 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold shadow-lg">
-                {rank}
+            <div className="relative flex-shrink-0 w-full h-48">
+              <div className="relative w-full h-full">
+                <Image
+                  src={giveaway.book?.cover_image_url || '/placeholder-book.jpg'}
+                  alt={giveaway.book?.title || 'Book cover'}
+                  fill
+                  className="object-cover rounded-lg shadow-sm"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                />
+                <div className="absolute -top-2 -left-2 w-8 h-8 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
+                  {rank}
+                </div>
               </div>
             </div>
             <div className="flex-1 min-w-0">

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PublicBook } from '@/types/author';
+import Image from 'next/image';
 
 interface AuthorFreeBooksProps {
   books: PublicBook[];
@@ -30,11 +31,14 @@ export function AuthorFreeBooks({ books, authorName }: AuthorFreeBooksProps) {
               console.log(`Navigate to book: ${book.title}`);
             }}
           >
-            <div className="flex-shrink-0 relative">
-              <img
+            <div className="flex-shrink-0 relative w-20 h-28">
+              <Image
                 src={book.cover_image_url || "/placeholder.svg"}
                 alt={`${book.title} cover`}
-                className="w-20 h-28 object-cover rounded-lg shadow-md"
+                width={80}
+                height={112}
+                className="object-cover rounded-lg shadow-md"
+                sizes="80px"
               />
               <Badge className="absolute -top-2 -right-2 text-xs bg-emerald-600 text-white hover:bg-emerald-700 px-2 py-1">
                 FREE

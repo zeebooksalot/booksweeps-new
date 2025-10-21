@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PublicAuthor } from '@/types/author';
 import { Plus, Users, Gift, Download } from 'lucide-react';
+import Image from 'next/image';
 
 interface AuthorHeaderProps {
   author: PublicAuthor;
@@ -19,10 +20,13 @@ export function AuthorHeader({ author }: AuthorHeaderProps) {
         <div className="flex-shrink-0">
           <Avatar className="w-24 h-24 bg-gradient-to-br from-primary to-accent text-foreground dark:text-primary-foreground text-2xl font-bold ring-2 ring-border/20">
             {author.avatar_url ? (
-              <img 
+              <Image 
                 src={author.avatar_url} 
                 alt={author.name}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="96px"
+                priority
               />
             ) : (
               <AvatarFallback>{getInitials(author.name)}</AvatarFallback>

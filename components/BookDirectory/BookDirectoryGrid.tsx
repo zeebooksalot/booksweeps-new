@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { BookOpen, Calendar, Download, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -73,18 +74,22 @@ export const BookDirectoryGrid = React.memo(function BookDirectoryGrid({
               <>
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-start space-x-4 flex-1 min-w-0">
-                    <div className="relative">
-                      <img
-                        src={book.cover || "/placeholder.svg"}
-                        alt={book.title}
-                        className="w-24 h-32 object-cover rounded-lg shadow-md"
-                      />
-                      <div className="absolute -top-2 -left-2 w-8 h-8 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold shadow-lg">
-                        {rank}
+                    <div className="relative w-24 h-32 flex-shrink-0">
+                      <div className="relative w-full h-full">
+                        <Image
+                          src={book.cover || "/placeholder.svg"}
+                          alt={book.title}
+                          fill
+                          className="object-cover rounded-lg shadow-md"
+                          sizes="96px"
+                        />
+                        <div className="absolute -top-2 -left-2 w-8 h-8 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
+                          {rank}
+                        </div>
+                        <Badge className="absolute -top-2 -right-2 text-xs bg-emerald-600 text-white hover:bg-emerald-700 px-2 py-1 z-10">
+                          FREE
+                        </Badge>
                       </div>
-                      <Badge className="absolute -top-2 -right-2 text-xs bg-emerald-600 text-white hover:bg-emerald-700 px-2 py-1">
-                        FREE
-                      </Badge>
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-foreground leading-tight">
@@ -144,18 +149,22 @@ export const BookDirectoryGrid = React.memo(function BookDirectoryGrid({
             ) : (
               // List view layout
               <>
-                <div className="relative flex-shrink-0">
-                  <img
-                    src={book.cover || "/placeholder.svg"}
-                    alt={book.title}
-                    className="w-16 h-20 object-cover rounded-lg shadow-md"
-                  />
-                  <div className="absolute -top-2 -left-2 w-6 h-6 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
-                    {rank}
+                <div className="relative flex-shrink-0 w-16 h-20">
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={book.cover || "/placeholder.svg"}
+                      alt={book.title}
+                      fill
+                      className="object-cover rounded-lg shadow-md"
+                      sizes="64px"
+                    />
+                    <div className="absolute -top-2 -left-2 w-6 h-6 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg z-10">
+                      {rank}
+                    </div>
+                    <Badge className="absolute -top-1 -right-1 text-xs bg-emerald-600 text-white hover:bg-emerald-700 px-1 py-0.5 z-10">
+                      FREE
+                    </Badge>
                   </div>
-                  <Badge className="absolute -top-1 -right-1 text-xs bg-emerald-600 text-white hover:bg-emerald-700 px-1 py-0.5">
-                    FREE
-                  </Badge>
                 </div>
                 
                 <div className="flex-1 min-w-0">
