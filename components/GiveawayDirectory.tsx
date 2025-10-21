@@ -59,7 +59,7 @@ export function GiveawayDirectory({ initialGiveaways = [] }: GiveawayDirectoryPr
 
   // Filter and sort giveaways
   const filteredGiveaways = useMemo(() => {
-    let filtered = giveaways.filter(giveaway => {
+    const filtered = giveaways.filter(giveaway => {
       const matchesSearch = giveaway.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            (giveaway.book?.title && giveaway.book.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
                            (giveaway.book?.author && giveaway.book.author.toLowerCase().includes(searchQuery.toLowerCase()));

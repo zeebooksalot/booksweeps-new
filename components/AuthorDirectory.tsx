@@ -43,7 +43,7 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
 
   // Filter and sort authors
   const filteredAuthors = useMemo(() => {
-    let filtered = authors.filter(author => {
+    const filtered = authors.filter(author => {
       const matchesSearch = author.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            author.bio?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesGenre = genreFilter === 'all' || author.genre === genreFilter;

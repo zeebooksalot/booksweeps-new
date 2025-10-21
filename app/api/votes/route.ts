@@ -1,58 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { withApiHandler, createRateLimitConfig } from '@/lib/api-middleware'
+import { parseBody } from '@/lib/api-request'
+import { successResponse, createdResponse, badRequestError, notFoundError, conflictError } from '@/lib/api-response'
+import { CreateVoteSchema } from '@/lib/api-schemas'
+import { RATE_LIMITS } from '@/lib/rate-limiter'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export async function POST(request: NextRequest) {
-  try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
-
-    const body = await request.json()
-    const { user_id, book_id, pen_name_id, vote_type } = body
-
-    if (!user_id || !vote_type || (!book_id && !pen_name_id)) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
-
-    if (vote_type !== 'upvote' && vote_type !== 'downvote') {
-      return NextResponse.json(
-        { error: 'Invalid vote type' },
-        { status: 400 }
-      )
-    }
-
+export const POST = withApiHandler(
+  async (req, { supabase }) => {
+    const validated = await parseBody(req, CreateVoteSchema)
+    
     // Check for existing vote
     const { data: existingVote, error: checkError } = await supabase
       .from('votes')
       .select('*')
-      .eq('user_id', user_id)
-      .eq('vote_type', vote_type)
+      .eq('user_id', validated.user_id)
+      .eq('vote_type', validated.vote_type)
 
     if (checkError) {
-      return NextResponse.json({ error: checkError.message }, { status: 500 })
+      throw new Error(`Database error: ${checkError.message}`)
     }
 
-    if (book_id) {
-      const existingBookVote = existingVote?.find(vote => vote.book_id === book_id)
+    if (validated.book_id) {
+      const existingBookVote = existingVote?.find((vote: { book_id?: string }) => vote.book_id === validated.book_id)
       if (existingBookVote) {
-        return NextResponse.json(
-          { error: 'You have already voted on this book' },
-          { status: 400 }
-        )
+        return conflictError('You have already voted on this book')
       }
     }
 
-    if (pen_name_id) {
-      const existingPenNameVote = existingVote?.find(vote => vote.pen_name_id === pen_name_id)
+    if (validated.pen_name_id) {
+      const existingPenNameVote = existingVote?.find((vote: { pen_name_id?: string }) => vote.pen_name_id === validated.pen_name_id)
       if (existingPenNameVote) {
-        return NextResponse.json(
-          { error: 'You have already voted on this pen name' },
-          { status: 400 }
-        )
+        return conflictError('You have already voted on this pen name')
       }
     }
 
@@ -60,23 +38,23 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('votes')
       .insert({
-        user_id,
-        book_id,
-        pen_name_id,
-        vote_type
+        user_id: validated.user_id,
+        book_id: validated.book_id,
+        pen_name_id: validated.pen_name_id,
+        vote_type: validated.vote_type
       })
       .select()
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
 
     // Update vote counts
-    if (book_id) {
+    if (validated.book_id) {
       const { error: updateError } = await supabase.rpc('update_book_vote_count', {
-        book_id_param: book_id,
-        vote_type_param: vote_type
+        book_id_param: validated.book_id,
+        vote_type_param: validated.vote_type
       })
 
       if (updateError) {
@@ -84,10 +62,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (pen_name_id) {
+    if (validated.pen_name_id) {
       const { error: updateError } = await supabase.rpc('update_pen_name_vote_count', {
-        pen_name_id_param: pen_name_id,
-        vote_type_param: vote_type
+        pen_name_id_param: validated.pen_name_id,
+        vote_type_param: validated.vote_type
       })
 
       if (updateError) {
@@ -95,45 +73,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ vote: data }, { status: 201 })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return createdResponse({ vote: data })
+  },
+  {
+    auth: 'required',
+    rateLimit: createRateLimitConfig('vote', RATE_LIMITS.VOTE),
+    clientType: 'authenticated'
   }
-}
+)
 
-export async function DELETE(request: NextRequest) {
-  try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
-
-    const { searchParams } = new URL(request.url)
-    const user_id = searchParams.get('user_id')
-    const book_id = searchParams.get('book_id')
-    const pen_name_id = searchParams.get('pen_name_id')
+export const DELETE = withApiHandler(
+  async (req, { supabase, query }) => {
+    const { user_id, book_id, pen_name_id } = query
 
     if (!user_id || (!book_id && !pen_name_id)) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
+      return badRequestError('Missing required fields')
     }
 
     // Get the vote before deleting to know what type it was
-    const { data: existingVote } = await supabase
+    const { data: existingVote, error: fetchError } = await supabase
       .from('votes')
       .select('*')
-      .eq('user_id', user_id)
-      .eq(book_id ? 'book_id' : 'pen_name_id', book_id || pen_name_id)
+      .eq('user_id', user_id as string)
+      .eq(book_id ? 'book_id' : 'pen_name_id', (book_id || pen_name_id) as string)
       .single()
 
-    if (!existingVote) {
-      return NextResponse.json(
-        { error: 'Vote not found' },
-        { status: 404 }
-      )
+    if (fetchError || !existingVote) {
+      return notFoundError('Vote not found')
     }
 
     // Delete vote
@@ -143,21 +109,19 @@ export async function DELETE(request: NextRequest) {
       .eq('id', existingVote.id)
 
     if (error) {
-      console.error('Vote deletion error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
 
     // Decrement vote counts
-    await updateVoteCounts(supabase, book_id, pen_name_id, existingVote.vote_type, null)
+    await updateVoteCounts(supabase, book_id as string, pen_name_id as string, existingVote.vote_type, null)
 
-    return NextResponse.json({ message: 'Vote removed successfully' })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return successResponse({ message: 'Vote removed successfully' })
+  },
+  {
+    auth: 'required',
+    clientType: 'authenticated'
   }
-}
+)
 
 async function updateVoteCounts(
   supabase: SupabaseClient,

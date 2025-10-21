@@ -1,22 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { withApiHandler } from '@/lib/api-middleware'
+import { parseBody, validatePagination } from '@/lib/api-request'
+import { paginatedResponse, createdResponse } from '@/lib/api-response'
+import { CreateCampaignSchema } from '@/lib/api-schemas'
 
-export async function GET(request: NextRequest) {
-  try {
-    // Create service role client for public access
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+export const GET = withApiHandler(
+  async (req, { supabase, query }) => {
+    const { page, limit, user_id, status, search } = query
+
+    const { page: validPage, limit: validLimit } = validatePagination(
+      typeof page === 'string' ? parseInt(page) : 1,
+      typeof limit === 'string' ? parseInt(limit) : 10
     )
 
-    const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const user_id = searchParams.get('user_id')
-    const status = searchParams.get('status')
-    const search = searchParams.get('search')
-
-    let query = supabase
+    let dbQuery = supabase
       .from('campaigns')
       .select(`
         *,
@@ -34,106 +30,71 @@ export async function GET(request: NextRequest) {
         )
       `)
 
-    if (user_id) {
-      query = query.eq('user_id', user_id)
+    if (user_id && typeof user_id === 'string') {
+      dbQuery = dbQuery.eq('user_id', user_id)
     }
 
-    if (status) {
-      query = query.eq('status', status)
+    if (status && typeof status === 'string') {
+      dbQuery = dbQuery.eq('status', status)
     }
 
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`)
+    if (search && typeof search === 'string') {
+      dbQuery = dbQuery.or(`title.ilike.%${search}%,description.ilike.%${search}%`)
     }
 
     // Apply sorting
-    query = query.order('created_at', { ascending: false })
+    dbQuery = dbQuery.order('created_at', { ascending: false })
 
     // Apply pagination
-    const offset = (page - 1) * limit
-    const { data, error, count } = await query.range(offset, offset + limit - 1)
+    const offset = (validPage - 1) * validLimit
+    const { data, error, count } = await dbQuery.range(offset, offset + validLimit - 1)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
 
-    return NextResponse.json({
-      campaigns: data,
-      pagination: {
-        page,
-        limit,
-        total: count,
-        totalPages: Math.ceil((count || 0) / limit)
+    return paginatedResponse(
+      { campaigns: data },
+      {
+        page: validPage,
+        limit: validLimit,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / validLimit)
       }
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
     )
+  },
+  {
+    auth: 'none',
+    clientType: 'service'
   }
-}
+)
 
-export async function POST(request: NextRequest) {
-  try {
-    // Create service role client for public access
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    const body = await request.json()
-    const { 
-      user_id, 
-      title, 
-      description, 
-      book_id, 
-      pen_name_id,
-      campaign_type,
-      prize_description,
-      rules,
-      start_date,
-      end_date,
-      max_entries,
-      number_of_winners,
-      target_entries,
-      duration,
-      entry_methods,
-      selected_books,
-      gdpr_checkbox,
-      custom_thank_you_page,
-      social_media_config
-    } = body
-
-    if (!user_id || !title || !campaign_type) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
-
+export const POST = withApiHandler(
+  async (req, { supabase }) => {
+    const validated = await parseBody(req, CreateCampaignSchema)
+    
     const { data, error } = await supabase
       .from('campaigns')
       .insert({
-        user_id,
-        title,
-        description,
-        book_id,
-        pen_name_id,
-        campaign_type,
-        prize_description,
-        rules,
-        start_date,
-        end_date,
-        max_entries,
-        number_of_winners,
-        target_entries,
-        duration,
-        entry_methods,
-        selected_books,
-        gdpr_checkbox,
-        custom_thank_you_page,
-        social_media_config,
+        user_id: validated.user_id,
+        title: validated.title,
+        description: validated.description,
+        book_id: validated.book_id,
+        pen_name_id: validated.pen_name_id,
+        campaign_type: validated.campaign_type,
+        prize_description: validated.prize_description,
+        rules: validated.rules,
+        start_date: validated.start_date,
+        end_date: validated.end_date,
+        max_entries: validated.max_entries,
+        number_of_winners: validated.number_of_winners,
+        target_entries: validated.target_entries,
+        duration: validated.duration,
+        entry_methods: validated.entry_methods,
+        selected_books: validated.selected_books,
+        gdpr_checkbox: validated.gdpr_checkbox,
+        custom_thank_you_page: validated.custom_thank_you_page,
+        social_media_config: validated.social_media_config,
         status: 'draft',
         entry_count: 0,
         is_featured: false
@@ -142,14 +103,13 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
 
-    return NextResponse.json({ campaign: data }, { status: 201 })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return createdResponse({ campaign: data })
+  },
+  {
+    auth: 'required',
+    clientType: 'service'
   }
-} 
+) 

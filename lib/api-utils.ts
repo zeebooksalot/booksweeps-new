@@ -1,24 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { NextRequest } from 'next/server'
 import { PaginationState } from '@/types'
 
-// Check if Supabase client is available for API routes
-export function checkSupabaseConnection() {
-  try {
-    const supabase = createRouteHandlerClient({ cookies })
-    return { supabase }
-  } catch (error) {
-    return {
-      error: NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-  }
-}
-
-// Create standardized API response
+// Create standardized API response (legacy - use api-response.ts instead)
 export function createApiResponse<T>(
   data: T, 
   page: number, 
@@ -32,23 +15,13 @@ export function createApiResponse<T>(
     totalPages: Math.ceil(total / limit)
   }
 
-  return NextResponse.json({
+  return {
     data,
     pagination
-  })
+  }
 }
 
-// Create error response
-export function createErrorResponse(
-  error: unknown, 
-  status: number = 500,
-  defaultMessage: string = 'Internal server error'
-) {
-  const message = error instanceof Error ? error.message : defaultMessage
-  return NextResponse.json({ error: message }, { status })
-}
-
-// Parse common query parameters
+// Parse common query parameters (legacy - use api-request.ts instead)
 export function parseQueryParams(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   
@@ -128,55 +101,7 @@ export async function applyPagination(
   return { data, error, count }
 }
 
-// Validate request body
-export function validateRequestBody<T>(body: unknown, schema: any): T { // eslint-disable-line @typescript-eslint/no-explicit-any
-  try {
-    return schema.parse(body)
-  } catch {
-    throw new Error('Invalid request body')
-  }
-}
-
-// Handle database errors
-export function handleDatabaseError(error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-  console.error('Database error:', error)
-  return createErrorResponse(error, 500, 'Database operation failed')
-}
-
-// Create success response
-export function createSuccessResponse<T>(
-  data: T,
-  status: number = 200
-) {
-  return NextResponse.json(data, { status })
-}
-
-// Parse and validate request body
-export async function parseRequestBody<T>(request: NextRequest): Promise<T> {
-  try {
-    return await request.json()
-  } catch {
-    throw new Error('Invalid JSON in request body')
-  }
-}
-
-// Check if user is authenticated
-export async function checkAuthentication(_request: NextRequest) {
-  // This would typically check for valid JWT or session
-  // For now, we'll assume authentication is handled by middleware
-  return true
-}
-
-// Rate limiting utilities
-export function createRateLimitIdentifier(
-  type: 'ip' | 'user',
-  identifier: string,
-  action: string
-) {
-  return `${type}:${identifier}:${action}`
-}
-
-// Get client IP from request headers
+// Get client IP from request headers (still useful)
 export function getClientIP(request: NextRequest): string {
   return request.headers.get('x-forwarded-for') || 
          request.headers.get('x-real-ip') || 
@@ -184,7 +109,7 @@ export function getClientIP(request: NextRequest): string {
          'unknown'
 }
 
-// Validate and sanitize input
+// Validate and sanitize input (still useful)
 export function validateInput(input: string, maxLength: number = 1000): string {
   if (!input || typeof input !== 'string') {
     throw new Error('Invalid input')
@@ -199,7 +124,7 @@ export function validateInput(input: string, maxLength: number = 1000): string {
   return sanitized
 }
 
-// Check if user has permission to access resource
+// Check if user has permission to access resource (still useful)
 export function checkUserPermission(
   resourceUserId: string,
   currentUserId: string
@@ -207,7 +132,7 @@ export function checkUserPermission(
   return resourceUserId === currentUserId
 }
 
-// Format error message for client
+// Format error message for client (still useful)
 export function formatErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message
@@ -215,7 +140,7 @@ export function formatErrorMessage(error: unknown): string {
   return 'An unexpected error occurred'
 }
 
-// Validate pagination parameters
+// Validate pagination parameters (still useful)
 export function validatePagination(page: number, limit: number) {
   const validPage = Math.max(1, page)
   const validLimit = Math.min(Math.max(1, limit), 100) // Max 100 items per page

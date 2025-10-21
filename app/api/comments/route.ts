@@ -1,24 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
-import { checkRateLimit, createRateLimitIdentifier, RATE_LIMITS, getClientIP } from '@/lib/rate-limiter'
+import { withApiHandler, createRateLimitConfig } from '@/lib/api-middleware'
+import { parseBody, validatePagination } from '@/lib/api-request'
+import { paginatedResponse, badRequestError, createdResponse } from '@/lib/api-response'
+import { CreateCommentSchema } from '@/lib/api-schemas'
+import { RATE_LIMITS } from '@/lib/rate-limiter'
 
-export async function GET(request: NextRequest) {
-  try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
-
-    const { searchParams } = new URL(request.url)
-    const book_id = searchParams.get('book_id')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-
-    if (!book_id) {
-      return NextResponse.json(
-        { error: 'Book ID is required' },
-        { status: 400 }
-      )
+export const GET = withApiHandler(
+  async (req, { supabase, query }) => {
+    const { book_id, page, limit } = query
+    
+    if (!book_id || typeof book_id !== 'string') {
+      return badRequestError('Book ID is required')
     }
+
+    const { page: validPage, limit: validLimit } = validatePagination(
+      typeof page === 'string' ? parseInt(page) : 1,
+      typeof limit === 'string' ? parseInt(limit) : 10
+    )
 
     const { data, error, count } = await supabase
       .from('comments')
@@ -32,79 +29,38 @@ export async function GET(request: NextRequest) {
       `)
       .eq('book_id', book_id)
       .order('created_at', { ascending: false })
-      .range((page - 1) * limit, page * limit - 1)
+      .range((validPage - 1) * validLimit, validPage * validLimit - 1)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
 
-    return NextResponse.json({
-      comments: data,
-      pagination: {
-        page,
-        limit,
-        total: count,
-        totalPages: Math.ceil((count || 0) / limit)
+    return paginatedResponse(
+      { comments: data },
+      {
+        page: validPage,
+        limit: validLimit,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / validLimit)
       }
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
     )
+  },
+  {
+    auth: 'none',
+    clientType: 'authenticated'
   }
-}
+)
 
-export async function POST(request: NextRequest) {
-  try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
-
-    const body = await request.json()
-    const { user_id, book_id, content } = body
-
-    if (!user_id || !book_id || !content) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
-
-    // Apply rate limiting - check both IP and user-based limits
-    const clientIP = getClientIP(request)
-    const ipIdentifier = createRateLimitIdentifier('ip', clientIP, 'comment')
-    const userIdentifier = createRateLimitIdentifier('user', user_id, 'comment')
+export const POST = withApiHandler(
+  async (req, { supabase }) => {
+    const validated = await parseBody(req, CreateCommentSchema)
     
-    // Check IP-based rate limit
-    const ipRateLimit = await checkRateLimit(ipIdentifier, RATE_LIMITS.COMMENT)
-    if (!ipRateLimit.allowed) {
-      return NextResponse.json(
-        { 
-          error: 'Too many comment requests. Please try again later.',
-          retryAfter: Math.ceil(ipRateLimit.resetTime / 1000)
-        },
-        { status: 429 }
-      )
-    }
-    
-    // Check user-based rate limit
-    const userRateLimit = await checkRateLimit(userIdentifier, RATE_LIMITS.COMMENT)
-    if (!userRateLimit.allowed) {
-      return NextResponse.json(
-        { 
-          error: 'Too many comments from this user. Please try again later.',
-          retryAfter: Math.ceil(userRateLimit.resetTime / 1000)
-        },
-        { status: 429 }
-      )
-    }
-
     const { data, error } = await supabase
       .from('comments')
       .insert({
-        user_id,
-        book_id,
-        content
+        user_id: validated.user_id,
+        book_id: validated.book_id,
+        content: validated.content
       })
       .select(`
         *,
@@ -117,23 +73,24 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
 
     // Update comment count
     const { error: updateError } = await supabase.rpc('increment_book_comments', {
-      book_id_param: book_id
+      book_id_param: validated.book_id
     })
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
+      console.error('Error updating comment count:', updateError)
+      // Don't fail the request if count update fails
     }
 
-    return NextResponse.json({ comment: data }, { status: 201 })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return createdResponse({ comment: data })
+  },
+  {
+    auth: 'required',
+    rateLimit: createRateLimitConfig('comment', RATE_LIMITS.COMMENT),
+    clientType: 'authenticated'
   }
-} 
+) 

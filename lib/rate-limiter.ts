@@ -193,3 +193,28 @@ export async function checkRateLimit(
   
   return { allowed, remaining, resetTime }
 }
+
+// Middleware function for rate limiting that can be used in API handlers
+export async function withRateLimit(
+  request: Request,
+  config: RateLimitConfig,
+  identifier: string
+): Promise<{ allowed: boolean; remaining: number; resetTime: number } | null> {
+  try {
+    return await checkRateLimit(identifier, config)
+  } catch (error) {
+    console.error('Rate limiting error:', error)
+    // Allow request to proceed if rate limiting fails
+    return { allowed: true, remaining: config.limit, resetTime: 0 }
+  }
+}
+
+// Enhanced rate limiting for API middleware
+export async function checkApiRateLimit(
+  request: Request,
+  config: RateLimitConfig,
+  identifier: string
+): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
+  const result = await withRateLimit(request, config, identifier)
+  return result || { allowed: true, remaining: config.limit, resetTime: 0 }
+}

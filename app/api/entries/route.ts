@@ -1,98 +1,67 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { withApiHandler } from '@/lib/api-middleware'
+import { parseBody, validatePagination } from '@/lib/api-request'
+import { paginatedResponse, badRequestError, createdResponse } from '@/lib/api-response'
+import { CreateEntrySchema } from '@/lib/api-schemas'
+import { RATE_LIMITS } from '@/lib/rate-limiter'
 
-export async function GET(request: NextRequest) {
-  try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
-
-    const { searchParams } = new URL(request.url)
-    const campaign_id = searchParams.get('campaign_id')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-
-    if (!campaign_id) {
-      return NextResponse.json(
-        { error: 'Campaign ID is required' },
-        { status: 400 }
-      )
+export const GET = withApiHandler(
+  async (req, { supabase, query }) => {
+    const { campaign_id, page, limit } = query
+    
+    if (!campaign_id || typeof campaign_id !== 'string') {
+      return badRequestError('Campaign ID is required')
     }
+
+    const { page: validPage, limit: validLimit } = validatePagination(
+      typeof page === 'string' ? parseInt(page) : 1,
+      typeof limit === 'string' ? parseInt(limit) : 10
+    )
 
     const { data, error, count } = await supabase
       .from('reader_entries')
       .select('*')
       .eq('campaign_id', campaign_id)
       .order('created_at', { ascending: false })
-      .range((page - 1) * limit, page * limit - 1)
+      .range((validPage - 1) * validLimit, validPage * validLimit - 1)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
 
-    return NextResponse.json({
-      entries: data,
-      pagination: {
-        page,
-        limit,
-        total: count,
-        totalPages: Math.ceil((count || 0) / limit)
+    return paginatedResponse(
+      { entries: data },
+      {
+        page: validPage,
+        limit: validLimit,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / validLimit)
       }
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
     )
+  },
+  {
+    auth: 'none',
+    clientType: 'authenticated'
   }
-}
+)
 
-export async function POST(request: NextRequest) {
-  try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
-
-    const body = await request.json()
-    const { 
-      campaign_id, 
-      email, 
-      first_name, 
-      last_name, 
-      entry_method, 
-      entry_data = {},
-      marketing_opt_in = false,
-      referral_code,
-      referred_by
-    } = body
-
-    if (!campaign_id || !email || !entry_method) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
-
-    // Get client IP and user agent
-    const clientIP = request.headers.get('x-forwarded-for') || 
-                    request.headers.get('x-real-ip') || 
-                    request.headers.get('cf-connecting-ip') || 
-                    'unknown'
-    const userAgent = request.headers.get('user-agent') || null
-
+export const POST = withApiHandler(
+  async (req, { supabase, clientMetadata }) => {
+    const validated = await parseBody(req, CreateEntrySchema)
+    
     const { data, error } = await supabase
       .from('reader_entries')
       .insert({
-        campaign_id,
-        email,
-        first_name,
-        last_name,
-        entry_method,
-        entry_data,
-        ip_address: clientIP,
-        user_agent: userAgent,
-        marketing_opt_in,
-        referral_code,
-        referred_by,
+        campaign_id: validated.campaign_id,
+        email: validated.email,
+        first_name: validated.first_name,
+        last_name: validated.last_name,
+        entry_method: validated.entry_method,
+        entry_data: validated.entry_data || {},
+        ip_address: clientMetadata.ip,
+        user_agent: clientMetadata.userAgent,
+        marketing_opt_in: validated.marketing_opt_in,
+        referral_code: validated.referral_code,
+        referred_by: validated.referred_by,
         status: 'pending',
         verified: false
       })
@@ -100,12 +69,12 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
 
     // Update entry count
     const { error: updateError } = await supabase.rpc('increment_campaign_entries', {
-      campaign_id_param: campaign_id
+      campaign_id_param: validated.campaign_id
     })
 
     if (updateError) {
@@ -113,11 +82,15 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if count update fails
     }
 
-    return NextResponse.json({ entry: data }, { status: 201 })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return createdResponse({ entry: data })
+  },
+  {
+    auth: 'none',
+    rateLimit: {
+      type: 'ip',
+      action: 'campaign_entry',
+      config: RATE_LIMITS.CAMPAIGN_ENTRY
+    },
+    clientType: 'authenticated'
   }
-}
+)

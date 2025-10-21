@@ -1,31 +1,17 @@
-import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { 
-  createApiResponse, 
-  createErrorResponse,
-  createSuccessResponse,
-  parseQueryParams,
-  applyCommonFilters,
-  applySorting,
-  applyPagination,
-  checkSupabaseConnection
-} from '@/lib/api-utils'
+import { withApiHandler } from '@/lib/api-middleware'
+import { parseBody } from '@/lib/api-request'
+import { paginatedResponse, createdResponse } from '@/lib/api-response'
+import { CreateBookSchema } from '@/lib/api-schemas'
+import { applyCommonFilters, applySorting, applyPagination } from '@/lib/api-utils'
 
-export async function GET(request: NextRequest) {
-  try {
-    // Use service role client to bypass RLS for public access
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    // Parse query parameters
-    const { page, limit, genre, search, user_id, sortBy } = parseQueryParams(request)
+export const GET = withApiHandler(
+  async (req, { supabase, query }) => {
+    const { page, limit, genre, search, user_id, sortBy } = query
     
     console.log('🔍 Books API - Query params:', { page, limit, genre, search, user_id, sortBy })
 
     // Build query with delivery methods included
-    let query = supabase
+    let dbQuery = supabase
       .from('books')
       .select(`
         *,
@@ -45,20 +31,26 @@ export async function GET(request: NextRequest) {
       `)
 
     // Apply common filters
-    query = applyCommonFilters(query, { genre, search, user_id })
+    dbQuery = applyCommonFilters(dbQuery, { 
+      genre: typeof genre === 'string' ? genre : null,
+      search: typeof search === 'string' ? search : null,
+      user_id: typeof user_id === 'string' ? user_id : null
+    })
     
     // Only show active books
-    query = query.eq('status', 'active')
+    dbQuery = dbQuery.eq('status', 'active')
     
     console.log('🔍 Books API - After filters applied')
 
     // Apply sorting
-    query = applySorting(query, sortBy)
+    dbQuery = applySorting(dbQuery, sortBy as string)
     
     console.log('🔍 Books API - After sorting applied')
 
     // Apply pagination and execute
-    const { data, error, count } = await applyPagination(query, page, limit)
+    const pageNum = typeof page === 'string' ? parseInt(page) : (typeof page === 'number' ? page : 1)
+    const limitNum = typeof limit === 'string' ? parseInt(limit) : (typeof limit === 'number' ? limit : 10)
+    const { data, error, count } = await applyPagination(dbQuery, pageNum, limitNum)
     
     console.log('🔍 Books API - Query result:', { 
       dataCount: data?.length || 0, 
@@ -67,65 +59,47 @@ export async function GET(request: NextRequest) {
     })
 
     if (error) {
-      console.error('❌ Books API - Database error:', error)
-      return createErrorResponse(error, 500, 'Database operation failed')
+      throw new Error(`Database error: ${error.message}`)
     }
 
-    return createApiResponse(data, page, limit, count || 0)
-  } catch (error) {
-    console.error('❌ Books API - Unexpected error:', error)
-    return createErrorResponse(error)
+    return paginatedResponse(
+      data,
+      {
+        page: pageNum,
+        limit: limitNum,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limitNum)
+      }
+    )
+  },
+  {
+    auth: 'none',
+    clientType: 'service'
   }
-}
+)
 
-export async function POST(request: NextRequest) {
-  try {
-    // Check if Supabase client is available
-    const connection = checkSupabaseConnection()
-    if (connection.error) return connection.error
-    const { supabase } = connection
-
-    const body = await request.json()
-    const { 
-      user_id, 
-      title, 
-      author, 
-      description, 
-      cover_image_url, 
-      publisher, 
-      published_date, 
-      genre, 
-      page_count, 
-      language = 'English',
-      isbn,
-      asin,
-      pen_name_id,
-      series_id,
-      series_order
-    } = body
-
-    if (!user_id || !title || !author) {
-      return createErrorResponse(new Error('Missing required fields'), 400)
-    }
-
+export const POST = withApiHandler(
+  async (req, { supabase }) => {
+    const validated = await parseBody(req, CreateBookSchema)
+    
     const { data, error } = await supabase
       .from('books')
       .insert({
-        user_id,
-        title,
-        author,
-        description,
-        cover_image_url,
-        publisher,
-        published_date,
-        genre,
-        page_count,
-        language,
-        isbn,
-        asin,
-        pen_name_id,
-        series_id,
-        series_order,
+        user_id: validated.user_id,
+        title: validated.title,
+        author: validated.author,
+        description: validated.description,
+        cover_image_url: validated.cover_image_url,
+        publisher: validated.publisher,
+        published_date: validated.published_date,
+        genre: validated.genre,
+        page_count: validated.page_count,
+        language: validated.language,
+        isbn: validated.isbn,
+        asin: validated.asin,
+        pen_name_id: validated.pen_name_id,
+        series_id: validated.series_id,
+        series_order: validated.series_order,
         status: 'active',
         source: 'manual'
       })
@@ -133,11 +107,13 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      return createErrorResponse(error, 500, 'Database operation failed')
+      throw new Error(`Database error: ${error.message}`)
     }
 
-    return createSuccessResponse({ book: data }, 201)
-  } catch (error) {
-    return createErrorResponse(error)
+    return createdResponse({ book: data })
+  },
+  {
+    auth: 'required',
+    clientType: 'service'
   }
-} 
+) 

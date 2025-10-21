@@ -37,7 +37,7 @@ export function BookDirectory({ initialBooks = [] }: BookDirectoryProps) {
 
   // Filter and sort books
   const filteredBooks = useMemo(() => {
-    let filtered = books.filter(book => {
+    const filtered = books.filter(book => {
       const matchesSearch = book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            book.author.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesGenre = genreFilter === 'all' || (book.genres && book.genres.includes(genreFilter));
