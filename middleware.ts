@@ -1,19 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createNextSecurityMiddleware } from '@/lib/security-middleware'
-
-// Create security middleware
-const securityMiddleware = createNextSecurityMiddleware({
-  enableCors: true,
-  enableRateLimit: true,
-  enableSecurityHeaders: true,
-  enableInputSanitization: true
-})
 
 export function middleware(request: NextRequest) {
-  // Apply security middleware
-  const response = securityMiddleware(request)
-  
-  // Additional security checks
+  // Basic security checks
   const url = new URL(request.url)
   
   // Block access to sensitive files
@@ -23,6 +11,9 @@ export function middleware(request: NextRequest) {
       url.pathname.includes('..')) {
     return new NextResponse('Forbidden', { status: 403 })
   }
+  
+  // Add basic security headers
+  const response = NextResponse.next()
   
   // Add security headers for static files
   if (url.pathname.startsWith('/_next/static/') || 

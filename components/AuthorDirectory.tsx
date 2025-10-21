@@ -1,14 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
-import { Search, Filter, Users, BookOpen, Calendar, Plus, Grid3X3, List } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PublicAuthor } from '@/types/author';
+import { AuthorDirectoryHeader, AuthorDirectoryGrid, AuthorDirectoryPagination } from './AuthorDirectory/';
 
 interface AuthorDirectoryProps {
   initialAuthors?: PublicAuthor[];
@@ -16,16 +10,12 @@ interface AuthorDirectoryProps {
 
 export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
   const [authors, setAuthors] = useState<PublicAuthor[]>(initialAuthors);
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('popularity');
   const [genreFilter, setGenreFilter] = useState('all');
   const [contentFilter, setContentFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [authorsPerPage] = useState(12);
@@ -53,7 +43,6 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
       if (contentFilter === 'giveaways') {
         matchesContent = author.campaigns && author.campaigns.length > 0;
       } else if (contentFilter === 'free-books') {
-        // For now, treat all books as potentially free since the data structure doesn't distinguish
         matchesContent = author.books && author.books.length > 0;
       } else if (contentFilter === 'both') {
         matchesContent = author.campaigns && author.campaigns.length > 0 && 
@@ -102,371 +91,90 @@ export function AuthorDirectory({ initialAuthors = [] }: AuthorDirectoryProps) {
   const loadAuthors = async () => {
     setIsLoading(true);
     setError(null);
+    
     try {
       const response = await fetch('/api/authors');
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to fetch authors: ${response.status}`);
+        throw new Error('Failed to load authors');
       }
+      
       const data = await response.json();
-      setAuthors(data.authors);
-    } catch (error) {
-      console.error('Failed to load authors:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load authors');
+      if (data.data && data.data.authors) {
+        setAuthors(data.data.authors);
+      } else {
+        throw new Error('Invalid data structure received');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Authors</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={loadAuthors}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Search and Filters */}
-      <div className="bg-card rounded-lg p-6 shadow-sm border border-subtle">
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search authors..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-muted text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-          </div>
-
-          {/* Genre Filter */}
-          <Select value={genreFilter} onValueChange={setGenreFilter}>
-            <SelectTrigger className="w-full lg:w-48 bg-muted text-foreground">
-              <SelectValue placeholder="Filter by genre" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Genres</SelectItem>
-              {availableGenres.map((genre) => (
-                <SelectItem key={genre} value={genre}>
-                  {genre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Content Filter */}
-          <Select value={contentFilter} onValueChange={setContentFilter}>
-            <SelectTrigger className="w-full lg:w-48 bg-muted text-foreground">
-              <SelectValue placeholder="Filter by content" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Activity</SelectItem>
-              <SelectItem value="giveaways">Giveaways</SelectItem>
-              <SelectItem value="free-books">Free Books</SelectItem>
-              <SelectItem value="both">Giveaways & Free Books</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Sort */}
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-full lg:w-48 bg-muted text-foreground">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="popularity">Most Popular</SelectItem>
-              <SelectItem value="name">Name A-Z</SelectItem>
-              <SelectItem value="books">Most Books</SelectItem>
-              <SelectItem value="recent">Recently Joined</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* View Toggle */}
-          <div className="flex border border-border rounded-lg bg-muted h-10">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-              className="rounded-r-none border-0 h-full px-3"
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-              className="rounded-l-none border-0 h-full px-3"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-
-      {/* Error State */}
-      {error && !isLoading && (
-        <div className="text-center py-12">
-          <div className="bg-destructive/10 border border-destructive rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-destructive mb-2">
-              Unable to Load Authors
-            </h3>
-            <p className="text-destructive mb-4">
-              {error}
-            </p>
-            <Button onClick={loadAuthors} variant="outline">
-              Try Again
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Authors Grid */}
-      {!error && (isLoading ? (
-        <div className={viewMode === 'grid' ? "grid gap-6 md:grid-cols-2 lg:grid-cols-3" : "space-y-4"}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className={`bg-card rounded-lg p-6 shadow-sm border border-subtle animate-pulse ${viewMode === 'list' ? 'flex items-center space-x-4' : ''}`}>
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="w-16 h-16 bg-muted rounded-full"></div>
-                <div className="flex-1">
-                  <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-muted rounded w-1/2"></div>
-                </div>
-              </div>
-              <div className="h-3 bg-muted rounded w-full mb-2"></div>
-              <div className="h-3 bg-muted rounded w-2/3"></div>
-            </div>
-          ))}
-        </div>
-      ) : filteredAuthors.length > 0 ? (
-        <div className={viewMode === 'grid' ? "grid gap-6 md:grid-cols-2 lg:grid-cols-3" : "space-y-4"}>
-          {paginatedAuthors.map((author, index) => {
-            const rank = startIndex + index + 1;
-            return (
-            <Link
-              key={author.id}
-              href={`/authors/${author.slug}`}
-              className={`bg-card rounded-lg p-6 shadow-sm border border-faint hover:border-subtle transition-shadow ${
-                viewMode === 'list' ? 'flex items-center space-x-6' : ''
-              }`}
-            >
-              {viewMode === 'grid' ? (
-                // Grid view layout
-                <>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start space-x-4 flex-1 min-w-0">
-                      <div className="relative">
-                        <Avatar className="w-16 h-16 bg-gradient-to-br from-primary to-accent text-foreground dark:text-primary-foreground text-lg font-bold ring-2 ring-border/20">
-                          {author.avatar_url ? (
-                            <img 
-                              src={author.avatar_url} 
-                              alt={author.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <AvatarFallback>{getInitials(author.name)}</AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div className="absolute -top-2 -left-2 w-8 h-8 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold shadow-lg">
-                          {rank}
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-foreground truncate">
-                          {author.name}
-                        </h3>
-                        {author.genre && (
-                          <Badge variant="secondary" className="mt-1">
-                            {author.genre}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 hover:border-emerald-700 px-4 py-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Follow
-                    </Button>
-                  </div>
-
-                  {author.bio && (
-                    <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
-                      {author.bio}
-                    </p>
-                  )}
-
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <div className="flex items-center space-x-4">
-                      <span className="flex items-center">
-                        <BookOpen className="h-4 w-4 mr-1" />
-                        {author.books.length} books
-                      </span>
-                      <span className="flex items-center">
-                        <Users className="h-4 w-4 mr-1" />
-                        {(author.followers || 0).toLocaleString()} followers
-                      </span>
-                    </div>
-                    <span className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-1" />
-                      {new Date(author.created_at).getFullYear()}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                // List view layout
-                <>
-                  <div className="relative flex-shrink-0">
-                    <Avatar className="w-16 h-16 bg-gradient-to-br from-primary to-accent text-foreground dark:text-primary-foreground text-lg font-bold ring-2 ring-border/20">
-                      {author.avatar_url ? (
-                        <img 
-                          src={author.avatar_url} 
-                          alt={author.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <AvatarFallback>{getInitials(author.name)}</AvatarFallback>
-                      )}
-                    </Avatar>
-                    <div className="absolute -top-2 -left-2 w-8 h-8 border-2 border-emerald-600 bg-background text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold shadow-lg">
-                      {rank}
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h3 className="font-semibold text-foreground text-lg">
-                          {author.name}
-                        </h3>
-                        {author.genre && (
-                          <Badge variant="secondary" className="mt-1">
-                            {author.genre}
-                          </Badge>
-                        )}
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 hover:border-emerald-700 px-4 py-2"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Follow
-                      </Button>
-                    </div>
-                    
-                    {author.bio && (
-                      <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
-                        {author.bio}
-                      </p>
-                    )}
-                    
-                    <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-                      <span className="flex items-center">
-                        <BookOpen className="h-4 w-4 mr-1" />
-                        {author.books.length} books
-                      </span>
-                      <span className="flex items-center">
-                        <Users className="h-4 w-4 mr-1" />
-                        {(author.followers || 0).toLocaleString()} followers
-                      </span>
-                      <span className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {new Date(author.created_at).getFullYear()}
-                      </span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </Link>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">
-            No authors found
-          </h3>
-          <p className="text-muted-foreground mb-4">
-            {searchQuery ? 'Try adjusting your search terms.' : 'No authors are available at the moment.'}
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Author Directory</h1>
+          <p className="mt-2 text-gray-600">
+            Discover talented authors and their amazing books
           </p>
-          {searchQuery && (
-            <Button onClick={() => setSearchQuery('')}>
-              Clear search
-            </Button>
-          )}
         </div>
-      ))}
 
-      {/* Results Count */}
-      <div className="flex items-center justify-between mt-8">
-        <p className="text-muted-foreground">
-          {filteredAuthors.length} author{filteredAuthors.length !== 1 ? 's' : ''} found
-          {totalPages > 1 && (
-            <span className="ml-2">
-              (Page {currentPage} of {totalPages})
-            </span>
-          )}
-        </p>
-        {searchQuery && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSearchQuery('')}
-          >
-            Clear search
-          </Button>
-        )}
+        <AuthorDirectoryHeader
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          genreFilter={genreFilter}
+          setGenreFilter={setGenreFilter}
+          contentFilter={contentFilter}
+          setContentFilter={setContentFilter}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          availableGenres={availableGenres}
+          isLoading={isLoading}
+        />
+
+        <div className="mt-8">
+          <AuthorDirectoryGrid
+            authors={paginatedAuthors}
+            viewMode={viewMode}
+            isLoading={isLoading}
+          />
+        </div>
+
+        <div className="mt-8">
+          <AuthorDirectoryPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            isLoading={isLoading}
+          />
+        </div>
       </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center space-x-2 mt-8">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          
-          <div className="flex items-center space-x-1">
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-              
-              return (
-                <Button
-                  key={pageNum}
-                  variant={currentPage === pageNum ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentPage(pageNum)}
-                  className="w-8 h-8 p-0"
-                >
-                  {pageNum}
-                </Button>
-              );
-            })}
-          </div>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
