@@ -1,57 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
-import { getClientIP } from '@/lib/utils'
+import { withApiHandler } from '@/lib/api-middleware'
+import { parseBody } from '@/lib/api-request'
+import { successResponse, badRequestError, forbiddenError } from '@/lib/api-response'
+import { z } from 'zod'
 
-export async function POST(request: NextRequest) {
-  try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
-    
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    
-    if (sessionError || !session) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
+const UpgradeUserTypeSchema = z.object({
+  user_id: z.string().uuid(),
+  new_user_type: z.literal('both'),
+  upgrade_reason: z.string().optional(),
+  domain_referrer: z.string().url().optional()
+})
 
-    const body = await request.json()
-    const { 
-      user_id, 
-      new_user_type, 
-      upgrade_reason, 
-      domain_referrer 
-    } = body
+export const POST = withApiHandler(
+  async (req, { supabase, clientMetadata }) => {
+    const { user_id, new_user_type, upgrade_reason, domain_referrer } = await parseBody(req, UpgradeUserTypeSchema)
 
-    if (!user_id || !new_user_type) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
+    console.log('🔍 Upgrade User Type API - User ID:', user_id, 'New Type:', new_user_type)
 
     // Security check: ensure user can only upgrade their own account
-    if (session.user.id !== user_id) {
-      return NextResponse.json(
-        { error: 'Unauthorized: can only upgrade your own account' },
-        { status: 403 }
-      )
+    if (clientMetadata.userId !== user_id) {
+      return forbiddenError('Unauthorized: can only upgrade your own account')
     }
-
-    // Validate user type transition
-    if (new_user_type !== 'both') {
-      return NextResponse.json(
-        { error: 'Invalid user type transition' },
-        { status: 400 }
-      )
-    }
-
-    // Get real IP address and user agent from request headers
-    const clientIP = getClientIP(request)
-    const userAgent = request.headers.get('user-agent') || null
 
     // Update user type
     const { error: updateError } = await supabase
@@ -63,8 +31,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user_id)
 
     if (updateError) {
-      console.error('Error updating user type:', updateError)
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
+      throw new Error(`Database error: ${updateError.message}`)
     }
 
     // Log the upgrade event for analytics (optional until migration is ready)
@@ -77,8 +44,8 @@ export async function POST(request: NextRequest) {
           to_user_type: new_user_type,
           upgrade_reason,
           domain_referrer,
-          ip_address: clientIP,
-          user_agent: userAgent,
+          ip_address: clientMetadata.ip,
+          user_agent: clientMetadata.userAgent,
           upgraded_at: new Date().toISOString()
         })
 
@@ -91,20 +58,16 @@ export async function POST(request: NextRequest) {
       // Continue without logging - this is expected until migration is run
     }
 
-    // Return success with cache invalidation hint
-    return NextResponse.json({
+    return successResponse({
       success: true,
       message: 'User type upgraded successfully',
       new_user_type,
       cache_invalidated: true, // Hint for client to clear cache
       timestamp: new Date().toISOString()
     })
-
-  } catch (error) {
-    console.error('Upgrade user type error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+  },
+  {
+    auth: 'required',
+    clientType: 'authenticated'
   }
-}
+)

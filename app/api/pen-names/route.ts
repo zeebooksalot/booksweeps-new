@@ -1,111 +1,102 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { withApiHandler } from '@/lib/api-middleware'
+import { parseBody } from '@/lib/api-request'
+import { paginatedResponse, createdResponse } from '@/lib/api-response'
+import { applyPagination } from '@/lib/api-utils'
+import { CreatePenNameSchema } from '@/lib/api-schemas'
 
-export async function GET(request: NextRequest) {
-  try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
+export const GET = withApiHandler(
+  async (req, { supabase, query }) => {
+    const { page, limit, user_id, search } = query
+    
+    console.log('🔍 Pen Names API - Query params:', { page, limit, user_id, search })
 
-    const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const user_id = searchParams.get('user_id')
-    const search = searchParams.get('search')
-
-    let query = supabase
+    let dbQuery = supabase
       .from('pen_names')
       .select('*')
 
-    if (user_id) {
-      query = query.eq('user_id', user_id)
+    // Apply user filter
+    if (typeof user_id === 'string' && user_id) {
+      dbQuery = dbQuery.eq('user_id', user_id)
     }
 
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,bio.ilike.%${search}%`)
+    // Apply search filter
+    if (typeof search === 'string' && search) {
+      dbQuery = dbQuery.or(`name.ilike.%${search}%,bio.ilike.%${search}%`)
     }
 
     // Only show active pen names
-    query = query.eq('status', 'active')
+    dbQuery = dbQuery.eq('status', 'active')
 
     // Apply sorting
-    query = query.order('is_primary', { ascending: false })
+    dbQuery = dbQuery.order('is_primary', { ascending: false })
       .order('created_at', { ascending: false })
 
-    // Apply pagination
-    const offset = (page - 1) * limit
-    const { data, error, count } = await query.range(offset, offset + limit - 1)
+    console.log('🔍 Pen Names API - After filters applied')
+
+    // Apply pagination and execute
+    const pageNum = typeof page === 'string' ? parseInt(page) : (typeof page === 'number' ? page : 1)
+    const limitNum = typeof limit === 'string' ? parseInt(limit) : (typeof limit === 'number' ? limit : 10)
+    const { data, error, count } = await applyPagination(dbQuery, pageNum, limitNum)
+    
+    console.log('🔍 Pen Names API - Query result:', { 
+      dataCount: data?.length || 0, 
+      totalCount: count || 0, 
+      error: error?.message 
+    })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
 
-    return NextResponse.json({
-      pen_names: data,
-      pagination: {
-        page,
-        limit,
-        total: count,
-        totalPages: Math.ceil((count || 0) / limit)
+    return paginatedResponse(
+      { pen_names: data },
+      {
+        page: pageNum,
+        limit: limitNum,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limitNum)
       }
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
     )
+  },
+  {
+    auth: 'optional',
+    clientType: 'authenticated'
   }
-}
+)
 
-export async function POST(request: NextRequest) {
-  try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
-
-    const body = await request.json()
-    const { 
-      user_id, 
-      name, 
-      bio, 
-      website, 
-      social_links = {}, 
-      is_primary = false,
-      avatar_url,
-      genre
-    } = body
-
-    if (!user_id || !name) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
+export const POST = withApiHandler(
+  async (req, { supabase, body, clientMetadata }) => {
+    const validated = await parseBody(req, CreatePenNameSchema)
+    
+    // Use authenticated user's ID if not provided
+    const userId = validated.user_id || clientMetadata.userId
+    if (!userId) {
+      throw new Error('User ID is required')
     }
 
     const { data, error } = await supabase
       .from('pen_names')
       .insert({
-        user_id,
-        name,
-        bio,
-        website,
-        social_links,
-        is_primary,
-        avatar_url,
-        genre,
+        user_id: userId,
+        name: validated.name,
+        bio: validated.bio,
+        website: validated.website,
+        social_links: validated.social_links || {},
+        avatar_url: validated.avatar_url,
+        genre: validated.genre,
         status: 'active'
       })
       .select()
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
 
-    return NextResponse.json({ pen_name: data }, { status: 201 })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return createdResponse({ pen_name: data })
+  },
+  {
+    auth: 'required',
+    clientType: 'authenticated'
   }
-}
+)

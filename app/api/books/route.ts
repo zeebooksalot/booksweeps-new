@@ -1,10 +1,11 @@
 import { withApiHandler } from '@/lib/api-middleware'
+import { withCachedApiHandler } from '@/lib/api-cache-middleware'
 import { parseBody } from '@/lib/api-request'
 import { paginatedResponse, createdResponse } from '@/lib/api-response'
 import { CreateBookSchema } from '@/lib/api-schemas'
 import { applyCommonFilters, applySorting, applyPagination } from '@/lib/api-utils'
 
-export const GET = withApiHandler(
+export const GET = withCachedApiHandler(
   async (req, { supabase, query }) => {
     const { page, limit, genre, search, user_id, sortBy } = query
     
@@ -74,7 +75,8 @@ export const GET = withApiHandler(
   },
   {
     auth: 'none',
-    clientType: 'service'
+    clientType: 'service',
+    cacheType: 'database'
   }
 )
 

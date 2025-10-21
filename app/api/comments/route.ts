@@ -19,14 +19,7 @@ export const GET = withApiHandler(
 
     const { data, error, count } = await supabase
       .from('comments')
-      .select(`
-        *,
-        users (
-          id,
-          username,
-          avatar_url
-        )
-      `)
+      .select('*')
       .eq('book_id', book_id)
       .order('created_at', { ascending: false })
       .range((validPage - 1) * validLimit, validPage * validLimit - 1)
@@ -62,14 +55,7 @@ export const POST = withApiHandler(
         book_id: validated.book_id,
         content: validated.content
       })
-      .select(`
-        *,
-        users (
-          id,
-          username,
-          avatar_url
-        )
-      `)
+      .select('*')
       .single()
 
     if (error) {

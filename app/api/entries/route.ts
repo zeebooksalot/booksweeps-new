@@ -12,6 +12,12 @@ export const GET = withApiHandler(
       return badRequestError('Campaign ID is required')
     }
 
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(campaign_id)) {
+      return badRequestError('Campaign ID must be a valid UUID')
+    }
+
     const { page: validPage, limit: validLimit } = validatePagination(
       typeof page === 'string' ? parseInt(page) : 1,
       typeof limit === 'string' ? parseInt(limit) : 10

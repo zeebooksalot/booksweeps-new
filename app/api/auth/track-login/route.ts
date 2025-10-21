@@ -1,59 +1,83 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { withApiHandler } from '@/lib/api-middleware'
+import { parseBody } from '@/lib/api-request'
+import { successResponse, badRequestError } from '@/lib/api-response'
 import { FailedLoginTracker } from '@/lib/failed-login-tracker'
-import { getClientIP } from '@/lib/client-ip'
 import { getReferringURL } from '@/lib/referring-url'
+import { z } from 'zod'
 
-export async function POST(request: NextRequest) {
-  try {
-    const { email, success, loginPageUrl } = await request.json()
-    const ipAddress = await getClientIP()
-    const referringUrl = await getReferringURL()
+const TrackLoginSchema = z.object({
+  email: z.string().email(),
+  success: z.boolean(),
+  loginPageUrl: z.string().url().optional()
+})
 
-    if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
+const CheckLoginSchema = z.object({
+  email: z.string().email()
+})
+
+export const POST = withApiHandler(
+  async (req, { clientMetadata, body }) => {
+    // Validate the body using Zod schema
+    const result = TrackLoginSchema.safeParse(body)
+    if (!result.success) {
+      const errors = result.error.errors.map(err => 
+        `${err.path.join('.')}: ${err.message}`
       )
+      throw new Error(`Validation failed: ${errors.join(', ')}`)
     }
+    
+    const { email, success, loginPageUrl } = result.data
+    const ipAddress = clientMetadata.ip
+    
+    // Get referring URL safely
+    let referringUrl: string | null = null
+    try {
+      const url = await getReferringURL()
+      referringUrl = url || null
+    } catch (error) {
+      console.warn('Could not get referring URL:', error)
+      referringUrl = null
+    }
+
+    console.log('🔍 Track Login API - Email:', email, 'Success:', success)
 
     if (success) {
       // Track successful login and clear failed attempts
-      await FailedLoginTracker.trackSuccessfulAttempt(email, ipAddress, referringUrl, loginPageUrl)
-      return NextResponse.json({ message: 'Login tracked and failed attempts cleared' })
+      await FailedLoginTracker.trackSuccessfulAttempt(email, ipAddress, referringUrl || undefined, loginPageUrl)
+      return successResponse({ message: 'Login tracked and failed attempts cleared' })
     } else {
       // Track failed attempt
-      const result = await FailedLoginTracker.trackFailedAttempt(email, ipAddress, referringUrl, loginPageUrl)
-      return NextResponse.json(result)
+      const result = await FailedLoginTracker.trackFailedAttempt(email, ipAddress, referringUrl || undefined, loginPageUrl)
+      return successResponse(result)
     }
-  } catch (error) {
-    console.error('Error tracking login attempt:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+  },
+  {
+    auth: 'none',
+    clientType: 'authenticated'
   }
-}
+)
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const email = searchParams.get('email')
-    const ipAddress = await getClientIP()
-
-    if (!email) {
-      return NextResponse.json(
-        { error: 'Email parameter required' },
-        { status: 400 }
-      )
+export const GET = withApiHandler(
+  async (req, { query, clientMetadata }) => {
+    const { email } = query
+    
+    if (!email || typeof email !== 'string') {
+      return badRequestError('Email parameter required')
     }
 
-    const result = await FailedLoginTracker.isLoginAllowed(email, ipAddress)
-    return NextResponse.json(result)
-  } catch (error) {
-    console.error('Error checking login status:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    // Validate email format
+    const emailValidation = z.string().email().safeParse(email)
+    if (!emailValidation.success) {
+      return badRequestError('Invalid email format')
+    }
+
+    console.log('🔍 Check Login API - Email:', email)
+
+    const result = await FailedLoginTracker.isLoginAllowed(email, clientMetadata.ip)
+    return successResponse(result)
+  },
+  {
+    auth: 'none',
+    clientType: 'authenticated'
   }
-}
+)

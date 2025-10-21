@@ -44,7 +44,9 @@ export function withApiHandler(
         )
       } else {
         // Use authenticated client
-        const routeHandlerClient = createRouteHandlerClient({ cookies })
+        const routeHandlerClient = createRouteHandlerClient({ 
+          cookies: async () => await cookies() 
+        })
         supabase = routeHandlerClient
 
         // Check authentication if required

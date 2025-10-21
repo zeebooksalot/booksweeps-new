@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { withApiHandler } from '@/lib/api-middleware'
+import { paginatedResponse } from '@/lib/api-response'
+import { applyCommonFilters, applySorting, applyPagination } from '@/lib/api-utils'
 import { PublicAuthor } from '@/types/author'
 import { ApiAuthor } from '@/types'
 
@@ -53,25 +54,14 @@ function mapPenNameToPublicAuthor(penNameData: any): PublicAuthor {
   }
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    // For public access, use service role client to bypass RLS
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '12')
-    const search = searchParams.get('search')
-    const genre = searchParams.get('genre')
-    const sortBy = searchParams.get('sortBy') || 'popularity'
-
-    console.log('Fetching pen_names with service role...')
+export const GET = withApiHandler(
+  async (req, { supabase, query }) => {
+    const { page, limit, search, genre, sortBy } = query
     
+    console.log('🔍 Authors API - Query params:', { page, limit, search, genre, sortBy })
+
     // Build query with joins to books and campaigns
-    let query = supabase
+    let dbQuery = supabase
       .from('pen_names')
       .select(`
         *,
@@ -84,83 +74,87 @@ export async function GET(request: NextRequest) {
       `, { count: 'exact' })
 
     // Only show active pen names
-    query = query.eq('status', 'active')
+    dbQuery = dbQuery.eq('status', 'active')
     
     // Only show active books
-    query = query.eq('books.status', 'active')
-
-    // Apply search filter
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,bio.ilike.%${search}%`)
-    }
+    dbQuery = dbQuery.eq('books.status', 'active')
 
     // Apply genre filter
-    if (genre && genre !== 'all') {
-      query = query.eq('genre', genre)
+    if (typeof genre === 'string' && genre && genre !== 'all') {
+      dbQuery = dbQuery.eq('genre', genre)
     }
 
+    // Apply search filter for pen names (name and bio)
+    if (typeof search === 'string' && search) {
+      dbQuery = dbQuery.or(`name.ilike.%${search}%,bio.ilike.%${search}%`)
+    }
+
+    console.log('🔍 Authors API - After filters applied')
+
     // Apply sorting
-    switch (sortBy) {
+    const sortByValue = typeof sortBy === 'string' ? sortBy : 'popularity'
+    switch (sortByValue) {
       case 'name':
-        query = query.order('name', { ascending: true })
+        dbQuery = dbQuery.order('name', { ascending: true })
         break
       case 'books':
         // Sort by number of books (we'll handle this in post-processing for now)
-        query = query.order('created_at', { ascending: false })
+        dbQuery = dbQuery.order('created_at', { ascending: false })
         break
       case 'recent':
-        query = query.order('created_at', { ascending: false })
+        dbQuery = dbQuery.order('created_at', { ascending: false })
         break
       case 'popularity':
       default:
         // Sort by upvotes count (we'll calculate followers from votes later)
-        query = query.order('upvotes_count', { ascending: false })
+        dbQuery = dbQuery.order('upvotes_count', { ascending: false })
         break
     }
+    
+    console.log('🔍 Authors API - After sorting applied')
 
-    // Apply pagination
-    const offset = (page - 1) * limit
-    const { data, error, count } = await query.range(offset, offset + limit - 1)
+    // Apply pagination and execute
+    const pageNum = typeof page === 'string' ? parseInt(page) : (typeof page === 'number' ? page : 1)
+    const limitNum = typeof limit === 'string' ? parseInt(limit) : (typeof limit === 'number' ? limit : 12)
+    const { data, error, count } = await applyPagination(dbQuery, pageNum, limitNum)
+    
+    console.log('🔍 Authors API - Query result:', { 
+      dataCount: data?.length || 0, 
+      totalCount: count || 0, 
+      error: error?.message 
+    })
 
     if (error) {
-      console.error('Database error:', error)
-      return NextResponse.json({ error: 'Database operation failed' }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
-
-    console.log('Pen names query result:', { 
-      dataCount: data?.length || 0, 
-      totalCount: count || 0 
-    })
 
     // Map the data to PublicAuthor interface
     const authors = (data || []).map(mapPenNameToPublicAuthor)
 
     // Handle sorting that requires post-processing
     let sortedAuthors = authors
-    if (sortBy === 'books') {
-      sortedAuthors = authors.sort((a, b) => b.books.length - a.books.length)
+    if (sortByValue === 'books') {
+      sortedAuthors = authors.sort((a: PublicAuthor, b: PublicAuthor) => b.books.length - a.books.length)
     }
 
     // Convert to ApiAuthor format for homepage compatibility
     const apiAuthors = sortedAuthors.map(mapPublicAuthorToApiAuthor)
 
-    return NextResponse.json({
-      authors: sortedAuthors, // For author directory pages
-      data: apiAuthors, // For homepage compatibility
-      pagination: {
-        page,
-        limit,
+    return paginatedResponse(
+      {
+        authors: sortedAuthors, // For author directory pages
+        data: apiAuthors // For homepage compatibility
+      },
+      {
+        page: pageNum,
+        limit: limitNum,
         total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit),
-        hasNext: (offset + limit) < (count || 0),
-        hasPrev: page > 1
+        totalPages: Math.ceil((count || 0) / limitNum)
       }
-    })
-  } catch (error) {
-    console.error('Error fetching authors:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch authors. Please try again later.' },
-      { status: 500 }
     )
+  },
+  {
+    auth: 'none',
+    clientType: 'service'
   }
-} 
+) 

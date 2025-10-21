@@ -1,26 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+import { withApiHandler } from '@/lib/api-middleware'
+import { parseBody } from '@/lib/api-request'
+import { paginatedResponse, createdResponse } from '@/lib/api-response'
+import { applyPagination } from '@/lib/api-utils'
+import { CreateReaderMagnetSchema } from '@/lib/api-schemas'
 
-export async function GET(request: NextRequest) {
-  try {
-    // For public access, use service role client to bypass RLS
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const user_id = searchParams.get('user_id')
-    const genre = searchParams.get('genre')
-    const search = searchParams.get('search')
-
-    console.log('Fetching book_delivery_methods with service role...')
+export const GET = withApiHandler(
+  async (req, { supabase, query }) => {
+    const { page, limit, user_id, genre, search } = query
     
-    let query = supabase
+    console.log('🔍 Reader Magnets API - Query params:', { page, limit, user_id, genre, search })
+
+    let dbQuery = supabase
       .from('book_delivery_methods')
       .select(`
         *,
@@ -35,36 +25,43 @@ export async function GET(request: NextRequest) {
       `)
 
     // Only show active reader magnets
-    query = query.eq('is_active', true)
+    dbQuery = dbQuery.eq('is_active', true)
     
     // Make sure we're only getting ebook delivery methods (as per RLS policy)
-    query = query.eq('delivery_method', 'ebook')
+    dbQuery = dbQuery.eq('delivery_method', 'ebook')
 
-    if (user_id) {
-      query = query.eq('books.user_id', user_id)
+    // Apply filters
+    if (typeof user_id === 'string' && user_id) {
+      dbQuery = dbQuery.eq('books.user_id', user_id)
     }
 
-    if (genre) {
-      query = query.eq('books.genre', genre)
+    if (typeof genre === 'string' && genre) {
+      dbQuery = dbQuery.eq('books.genre', genre)
     }
 
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,books.author.ilike.%${search}%`)
+    if (typeof search === 'string' && search) {
+      dbQuery = dbQuery.or(`title.ilike.%${search}%,description.ilike.%${search}%,books.author.ilike.%${search}%`)
     }
 
     // Apply sorting
-    query = query.order('created_at', { ascending: false })
+    dbQuery = dbQuery.order('created_at', { ascending: false })
 
-    // Apply pagination
-    const offset = (page - 1) * limit
-    const { data, error, count } = await query.range(offset, offset + limit - 1)
+    console.log('🔍 Reader Magnets API - After filters applied')
+
+    // Apply pagination and execute
+    const pageNum = typeof page === 'string' ? parseInt(page) : (typeof page === 'number' ? page : 1)
+    const limitNum = typeof limit === 'string' ? parseInt(limit) : (typeof limit === 'number' ? limit : 10)
+    const { data, error, count } = await applyPagination(dbQuery, pageNum, limitNum)
+    
+    console.log('🔍 Reader Magnets API - Query result:', { 
+      dataCount: data?.length || 0, 
+      totalCount: count || 0, 
+      error: error?.message 
+    })
 
     if (error) {
-      console.error('Database error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
-
-    console.log('Found data:', data?.length || 0, 'records')
 
     // Transform data to match expected structure
     const transformedData = (data || []).map((magnet: {
@@ -127,59 +124,43 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
-      reader_magnets: transformedData,
-      pagination: {
-        page,
-        limit,
-        total: count,
-        totalPages: Math.ceil((count || 0) / limit)
+    return paginatedResponse(
+      { reader_magnets: transformedData },
+      {
+        page: pageNum,
+        limit: limitNum,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limitNum)
       }
-    })
-  } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
     )
+  },
+  {
+    auth: 'none',
+    clientType: 'service'
   }
-}
+)
 
-export async function POST(request: NextRequest) {
-  try {
-    // Create authenticated client
-    const supabase = createRouteHandlerClient({ cookies })
-
-    const body = await request.json()
-    const { 
-      user_id, 
-      title, 
-      description, 
-      cover_image_url, 
-      genre, 
-      author_name,
-      file_url,
-      download_limit
-    } = body
-
-    if (!user_id || !title || !description) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
+export const POST = withApiHandler(
+  async (req, { supabase, body, clientMetadata }) => {
+    const validated = await parseBody(req, CreateReaderMagnetSchema)
+    
+    // Use authenticated user's ID if not provided
+    const userId = validated.user_id || clientMetadata.userId
+    if (!userId) {
+      throw new Error('User ID is required')
     }
 
     const { data, error } = await supabase
       .from('reader_magnets')
       .insert({
-        user_id,
-        title,
-        description,
-        cover_image_url,
-        genre,
-        author_name,
-        file_url,
-        download_limit,
+        user_id: userId,
+        title: validated.title,
+        description: validated.description,
+        cover_image_url: validated.cover_image_url,
+        genre: validated.genre,
+        author_name: validated.author_name,
+        file_url: validated.file_url,
+        download_limit: validated.download_limit,
         status: 'active',
         download_count: 0
       })
@@ -187,14 +168,13 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      throw new Error(`Database error: ${error.message}`)
     }
 
-    return NextResponse.json({ reader_magnet: data }, { status: 201 })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return createdResponse({ reader_magnet: data })
+  },
+  {
+    auth: 'required',
+    clientType: 'authenticated'
   }
-}
+)

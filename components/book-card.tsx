@@ -1,6 +1,6 @@
 "use client"
 
-import Image from "next/image"
+import { BookCoverImage } from "@/components/ui/optimized-image"
 import { ChevronUp, MessageCircle, Star, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -57,12 +57,10 @@ export function BookCard({
             <div className="flex items-start space-x-4">
               {/* Book Cover */}
               <div className="flex-shrink-0">
-                <Image
+                <BookCoverImage
                   src={cover || "/placeholder.svg"}
                   alt={title}
-                  width={80}
-                  height={120}
-                  className="rounded-lg object-cover"
+                  priority={false}
                 />
               </div>
 

@@ -1,22 +1,16 @@
-import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { withApiHandler } from '@/lib/api-middleware'
+import { successResponse } from '@/lib/api-response'
 import { generateCsrfToken } from '@/lib/csrf'
 
-export async function POST() {
-  try {
-    // Create authenticated client using SSR-compatible client
-    const supabase = createRouteHandlerClient({ cookies })
+export const POST = withApiHandler(
+  async (req, { clientMetadata }) => {
+    console.log('🔍 CSRF Generate API - User ID:', clientMetadata.userId)
 
-    // Get user session (but don't require it)
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-
-    // If no session, generate a temporary token for unauthenticated users
-    if (sessionError || !session) {
-      // Generate a temporary CSRF token for unauthenticated users
+    // If no authenticated user, generate a temporary token for unauthenticated users
+    if (!clientMetadata.userId) {
       const tempToken = generateCsrfToken('anonymous')
       
-      return NextResponse.json({
+      return successResponse({
         token: tempToken,
         expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
         temporary: true
@@ -24,18 +18,16 @@ export async function POST() {
     }
 
     // Generate CSRF token for the authenticated user
-    const token = generateCsrfToken(session.user.id)
+    const token = generateCsrfToken(clientMetadata.userId)
 
-    return NextResponse.json({
+    return successResponse({
       token,
       expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
       temporary: false
     })
-  } catch (error) {
-    console.error('CSRF token generation error:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate CSRF token' },
-      { status: 500 }
-    )
+  },
+  {
+    auth: 'optional',
+    clientType: 'authenticated'
   }
-}
+)

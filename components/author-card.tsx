@@ -1,6 +1,6 @@
 "use client"
 
-import Image from "next/image"
+import { AuthorAvatarImage } from "@/components/ui/optimized-image"
 import { ChevronUp, BookOpen, Users, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -41,12 +41,10 @@ export function AuthorCard({ id, name, bio, avatar, votes, books, followers, joi
             <div className="flex items-start space-x-4">
               {/* Author Avatar */}
               <div className="flex-shrink-0">
-                <Image
+                <AuthorAvatarImage
                   src={avatar || "/placeholder.svg"}
                   alt={name}
-                  width={80}
-                  height={80}
-                  className="rounded-full object-cover"
+                  priority={false}
                 />
               </div>
 
