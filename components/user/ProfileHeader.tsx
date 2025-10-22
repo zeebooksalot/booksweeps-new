@@ -1,6 +1,6 @@
 'use client'
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { EnhancedAvatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { UserProfile } from '@/types/auth'
 
@@ -10,30 +10,15 @@ interface ProfileHeaderProps {
 }
 
 export function ProfileHeader({ userProfile, userEmail }: ProfileHeaderProps) {
-  const getInitials = (firstName?: string | null, lastName?: string | null, displayName?: string | null) => {
-    if (displayName) {
-      return displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    }
-    if (firstName && lastName) {
-      return `${firstName[0]}${lastName[0]}`.toUpperCase()
-    }
-    if (firstName) {
-      return firstName[0].toUpperCase()
-    }
-    return userEmail[0].toUpperCase()
-  }
-
   return (
     <div className="flex items-center gap-4">
-      <Avatar className="h-16 w-16">
-        <AvatarImage 
-          src={userProfile.avatar_url || undefined} 
-          alt={userProfile.display_name || userEmail} 
-        />
-        <AvatarFallback>
-          {getInitials(userProfile.first_name, userProfile.last_name, userProfile.display_name)}
-        </AvatarFallback>
-      </Avatar>
+      <EnhancedAvatar
+        src={userProfile.avatar_url}
+        email={userEmail}
+        name={userProfile.display_name || `${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim() || undefined}
+        size={64}
+        alt={userProfile.display_name || userEmail}
+      />
       <div className="flex-1">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
           {userProfile.display_name || userEmail}

@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { GradientBookCover } from "@/components/ui/gradient-book-cover"
-import { getGradientCover } from "@/lib/gradient-covers"
+import Image from "next/image"
 
 interface EnhancedBookCardProps {
   id: number
@@ -55,6 +55,7 @@ export function DashboardBookCard({
             alt={title}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 768px) 100vw, 20vw"
           />
         )}
         <Badge className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs">{genre}</Badge>

@@ -1,37 +1,25 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { EnhancedAvatar } from "@/components/ui/avatar"
 import { PublicAuthor } from '@/types/author';
 import { Plus, Users, Gift, Download } from 'lucide-react';
-import Image from 'next/image';
 
 interface AuthorHeaderProps {
   author: PublicAuthor;
 }
 
 export function AuthorHeader({ author }: AuthorHeaderProps) {
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
-
   return (
     <div className="bg-card rounded-xl p-8 border border-subtle">
       <div className="flex flex-col md:flex-row gap-6">
         <div className="flex-shrink-0">
-          <Avatar className="w-24 h-24 bg-gradient-to-br from-primary to-accent text-foreground dark:text-primary-foreground text-2xl font-bold ring-2 ring-border/20">
-            {author.avatar_url ? (
-              <Image 
-                src={author.avatar_url} 
-                alt={author.name}
-                fill
-                className="object-cover"
-                sizes="96px"
-                priority
-              />
-            ) : (
-              <AvatarFallback>{getInitials(author.name)}</AvatarFallback>
-            )}
-          </Avatar>
+          <EnhancedAvatar
+            src={author.avatar_url}
+            name={author.name}
+            size={96}
+            alt={author.name}
+            className="ring-2 ring-border/20"
+          />
         </div>
 
         <div className="flex-1 space-y-4">

@@ -3,7 +3,7 @@
 import { useAuth } from "@/components/auth/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { EnhancedAvatar } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,32 +68,13 @@ export function UserActions({ className = "" }: UserActionsProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
-                <Avatar className="h-8 w-8">
-                  {userProfile?.avatar_url ? (
-                    <AvatarImage 
-                      src={userProfile.avatar_url} 
-                      alt={user?.email || "User"}
-                      className="object-cover"
-                    />
-                  ) : null}
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {(() => {
-                      const name = userProfile?.display_name || user?.email || "";
-                      if (name.includes(" ")) {
-                        // If display name has spaces, use first letter of first and last word
-                        const words = name.split(" ");
-                        return (words[0]?.charAt(0) || "") + (words[words.length - 1]?.charAt(0) || "");
-                      } else if (name.includes("@")) {
-                        // If email, use first letter of name part and first letter after @
-                        const [namePart, domainPart] = name.split("@");
-                        return (namePart?.charAt(0) || "") + (domainPart?.charAt(0) || "");
-                      } else {
-                        // Fallback to first two characters
-                        return name.substring(0, 2).toUpperCase();
-                      }
-                    })()}
-                  </AvatarFallback>
-                </Avatar>
+                <EnhancedAvatar
+                  src={userProfile?.avatar_url}
+                  email={user?.email}
+                  name={userProfile?.display_name || undefined}
+                  size={32}
+                  alt={user?.email || "User"}
+                />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
