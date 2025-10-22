@@ -9,7 +9,7 @@ export function WavyDivider() {
       >
         <defs>
           <filter id="intenseShadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="35" stdDeviation="30" floodColor="rgba(0,0,0,0.25)"/>
+            <feDropShadow dx="0" dy="25" stdDeviation="30" floodColor="rgba(0,0,0,0.1)"/>
           </filter>
         </defs>
         <path
