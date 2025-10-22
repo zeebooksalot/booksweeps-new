@@ -567,7 +567,7 @@ export default function DashboardPage() {
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight">Your Active Entries</h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Track all the giveaways you've entered and their remaining time
+                    Track all the giveaways you&apos;ve entered and their remaining time
                   </p>
                 </div>
 
@@ -602,9 +602,9 @@ export default function DashboardPage() {
             {activeTab === "books-won" && (
               <div>
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight">Books You've Won</h2>
+                  <h2 className="text-2xl font-bold tracking-tight">Books You&apos;ve Won</h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    View all the books you've won from giveaways and their delivery status
+                    View all the books you&apos;ve won from giveaways and their delivery status
                   </p>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-6">
@@ -636,7 +636,7 @@ export default function DashboardPage() {
             {activeTab === "following" && (
               <div>
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight">Authors You're Following</h2>
+                  <h2 className="text-2xl font-bold tracking-tight">Authors You&apos;re Following</h2>
                   <p className="text-sm text-muted-foreground mt-1">
                     Stay updated with your favorite authors and their latest giveaways
                   </p>
@@ -644,7 +644,7 @@ export default function DashboardPage() {
                 <div className="mt-6">
                   <DashboardEmptyState
                     icon={Heart}
-                    title="You're not following any authors yet"
+                    title="You&apos;re not following any authors yet"
                     description="Discover authors below and follow them to get notified of their new giveaways"
                   />
 

@@ -8,7 +8,7 @@ export default function AuthorNotFound() {
         Author Not Found
       </h1>
       <p className="text-gray-600 mb-8">
-        The author you're looking for doesn't exist or has been removed.
+        The author you&apos;re looking for doesn&apos;t exist or has been removed.
       </p>
       <Link href="/">
         <Button>Back to Home</Button>

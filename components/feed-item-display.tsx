@@ -60,7 +60,7 @@ function MobileBookCard({
         <FeedItemContent item={item} isMobile={true} />
 
         {/* Giveaway Banner */}
-        {item.type !== "giveaway" && (item as any).hasGiveaway && <FeedItemGiveaway isMobile={true} />}
+        {item.type !== "giveaway" && (item as FeedItem & { hasGiveaway?: boolean }).hasGiveaway && <FeedItemGiveaway isMobile={true} />}
       </div>
     </Link>
   )

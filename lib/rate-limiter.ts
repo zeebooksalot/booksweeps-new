@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getClientIP } from './client-ip'
+import { RateLimitError, logError, safeExecute } from '@/lib/shared/errors'
 
 /**
  * Comprehensive rate limiting system for the application
@@ -202,7 +203,9 @@ export async function checkRateLimit(
   try {
     return await rateLimiter.checkLimit(identifier, config.limit, config.window)
   } catch (error) {
-    console.error('Rate limiting error:', error)
+    logError(error as Error, {
+      metadata: { identifier, config }
+    })
     // Allow request to proceed if rate limiting fails
     return { allowed: true, remaining: config.limit, resetTime: 0 }
   }
@@ -216,12 +219,13 @@ export async function withRateLimit(
   options: RateLimitOptions,
   handler: (request: NextRequest) => Promise<NextResponse>
 ): Promise<NextResponse> {
+  // Get client IP
+  const clientIP = getClientIP(request)
+  
+  // Create rate limit identifier
+  const identifier = options.identifier || createRateLimitIdentifier('ip', clientIP)
+  
   try {
-    // Get client IP
-    const clientIP = getClientIP(request)
-    
-    // Create rate limit identifier
-    const identifier = options.identifier || createRateLimitIdentifier('ip', clientIP)
     
     // Check rate limit
     const { allowed, remaining, resetTime } = await checkRateLimit(identifier, {
@@ -258,7 +262,9 @@ export async function withRateLimit(
     
     return response
   } catch (error) {
-    console.error('Rate limiting error:', error)
+    logError(error as Error, {
+      metadata: { identifier, options }
+    })
     // If rate limiting fails, allow the request to proceed
     return await handler(request)
   }
@@ -321,7 +327,9 @@ export async function checkApiRateLimit(
   try {
     return await checkRateLimit(identifier, config)
   } catch (error) {
-    console.error('Rate limiting error:', error)
+    logError(error as Error, {
+      metadata: { identifier, config }
+    })
     // Allow request to proceed if rate limiting fails
     return { allowed: true, remaining: config.limit, resetTime: 0 }
   }

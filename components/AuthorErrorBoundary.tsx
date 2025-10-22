@@ -31,7 +31,7 @@ export class AuthorErrorBoundary extends React.Component<Props, State> {
             Something went wrong
           </h1>
           <p className="text-gray-600 mb-8">
-            We're having trouble loading this author's profile.
+            We&apos;re having trouble loading this author&apos;s profile.
           </p>
           <Button onClick={() => window.location.reload()}>
             Try Again

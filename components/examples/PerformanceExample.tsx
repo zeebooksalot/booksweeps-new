@@ -106,7 +106,7 @@ export function PerformanceExample() {
           ...prev,
           imageLoadTime: paint.find(p => p.name === 'first-contentful-paint')?.startTime || 0,
           apiResponseTime: navigation.responseEnd - navigation.requestStart,
-          memoryUsage: (performance as any).memory?.usedJSHeapSize / 1024 / 1024 || 0
+          memoryUsage: ((performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize || 0) / 1024 / 1024
         }))
       }
     }

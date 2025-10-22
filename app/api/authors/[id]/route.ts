@@ -5,36 +5,36 @@ import { cookies } from 'next/headers'
 import { PublicAuthor } from '@/types/author'
 
 // Helper function to map pen_name data to PublicAuthor interface
-function mapPenNameToPublicAuthor(penNameData: any): PublicAuthor {
+function mapPenNameToPublicAuthor(penNameData: Record<string, unknown>): PublicAuthor {
   return {
-    id: penNameData.id,
-    slug: penNameData.slug,
-    name: penNameData.name,
-    bio: penNameData.bio,
-    genre: penNameData.genre,
-    website: penNameData.website,
-    avatar_url: penNameData.avatar_url,
-    social_links: penNameData.social_links || {},
-    created_at: penNameData.created_at,
-    followers: penNameData.followers || 0,
-    books: penNameData.books?.map((book: any) => ({
-      id: book.id,
-      title: book.title,
-      author: book.author || penNameData.name,
-      description: book.description,
-      cover_image_url: book.cover_image_url,
-      page_count: book.page_count,
-      language: book.language || 'English',
-      created_at: book.created_at
+    id: penNameData.id as string,
+    slug: penNameData.slug as string,
+    name: penNameData.name as string,
+    bio: penNameData.bio as string,
+    genre: penNameData.genre as string,
+    website: penNameData.website as string,
+    avatar_url: penNameData.avatar_url as string,
+    social_links: (penNameData.social_links as Record<string, string>) || {},
+    created_at: penNameData.created_at as string,
+    followers: (penNameData.followers as number) || 0,
+    books: (penNameData.books as Record<string, unknown>[])?.map((book: Record<string, unknown>) => ({
+      id: book.id as string,
+      title: book.title as string,
+      author: (book.author as string) || (penNameData.name as string),
+      description: book.description as string,
+      cover_image_url: book.cover_image_url as string,
+      page_count: book.page_count as number,
+      language: (book.language as string) || 'English',
+      created_at: book.created_at as string
     })) || [],
-    campaigns: penNameData.campaigns?.map((campaign: any) => ({
-      id: campaign.id,
-      title: campaign.title,
-      description: campaign.description,
-      start_date: campaign.start_date,
-      end_date: campaign.end_date,
-      status: campaign.status,
-      created_at: campaign.created_at
+    campaigns: (penNameData.campaigns as Record<string, unknown>[])?.map((campaign: Record<string, unknown>) => ({
+      id: campaign.id as string,
+      title: campaign.title as string,
+      description: campaign.description as string,
+      start_date: campaign.start_date as string,
+      end_date: campaign.end_date as string,
+      status: campaign.status as string,
+      created_at: campaign.created_at as string
     })) || []
   }
 }

@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { checkRateLimit, createRateLimitIdentifier, RATE_LIMITS, RateLimitConfig } from '@/lib/rate-limiter'
 import { getClientIP } from '@/lib/client-ip'
 import { serverError, unauthorizedError, rateLimitError } from '@/lib/api-response'
+import { DatabaseError, ConfigurationError, logError, safeExecuteAsync } from '@/lib/shared/errors'
 
 export interface HandlerContext {
   supabase: SupabaseClient
@@ -112,7 +113,14 @@ export function withApiHandler(
       return await handler(request, context)
 
     } catch (error) {
-      console.error('API middleware error:', error)
+      logError(error as Error, {
+        requestId: request.headers.get('x-request-id') || undefined,
+        metadata: {
+          url: request.url,
+          method: request.method,
+          userAgent: request.headers.get('user-agent')
+        }
+      })
       return serverError(error)
     }
   }

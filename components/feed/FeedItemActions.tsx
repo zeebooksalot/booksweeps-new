@@ -16,7 +16,7 @@ export function FeedItemActions({ item, onVote, isMobile = false }: FeedItemActi
   return (
     <div className="flex items-center gap-3">
       {/* Giveaway Button */}
-      {item.type !== "giveaway" && (item as any).hasGiveaway && (
+      {item.type !== "giveaway" && (item as FeedItem & { hasGiveaway?: boolean }).hasGiveaway && (
         <Button 
           className={`${FEED_STATUS_COLORS.giveaway} hover:from-purple-700 hover:to-pink-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300 ${
             isMobile ? "px-4" : "px-6"

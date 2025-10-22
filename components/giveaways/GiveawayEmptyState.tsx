@@ -3,6 +3,7 @@
 import { Gift, Search, Filter, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { GIVEAWAY_TEXT, GIVEAWAY_STYLES } from "@/constants/giveaways"
+import Link from "next/link"
 
 interface GiveawayEmptyStateProps {
   onResetFilters?: () => void
@@ -91,8 +92,8 @@ export function GiveawayEmptyState({
             💡 Suggestions
           </h4>
           <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
-            <p>• Check out our <a href="/authors" className="text-orange-500 hover:text-orange-600 underline">featured authors</a></p>
-            <p>• Browse <a href="/free-ebooks" className="text-orange-500 hover:text-orange-600 underline">free books</a> while you wait</p>
+            <p>• Check out our <Link href="/authors" className="text-orange-500 hover:text-orange-600 underline">featured authors</Link></p>
+            <p>• Browse <Link href="/free-ebooks" className="text-orange-500 hover:text-orange-600 underline">free books</Link> while you wait</p>
             <p>• Follow us on social media for giveaway announcements</p>
           </div>
         </div>
