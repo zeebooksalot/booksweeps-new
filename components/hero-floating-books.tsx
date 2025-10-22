@@ -33,12 +33,6 @@ export function HeroFloatingBooks() {
           <span className="text-white font-bold text-sm">Thriller</span>
         </div>
       </div>
-      {/* Floating book 6 - middle center */}
-      <div className="absolute top-[65%] left-[45%] w-22 h-34 opacity-30 animate-float">
-        <div className="w-full h-full bg-gradient-to-br from-purple-600 to-indigo-800 rounded-lg shadow-2xl rotate-[-8deg] flex items-center justify-center">
-          <span className="text-white font-bold text-sm">Drama</span>
-        </div>
-      </div>
     </div>
   )
 }
