@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import { GradientBookCover } from "@/components/ui/gradient-book-cover"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Gift, Users, Clock } from "lucide-react"
@@ -51,13 +52,23 @@ export function GiveawayCard({ giveaway, onEnter, isMobileView }: GiveawayCardPr
         <div className="flex items-start gap-4">
           {/* Book Cover */}
           <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
-            <Image
-              src={giveaway.book.cover_image_url}
-              alt={giveaway.book.title}
-              width={64}
-              height={80}
-              className="rounded-lg shadow-md group-hover:shadow-lg transition-shadow duration-300"
-            />
+            {giveaway.book.cover_image_url?.startsWith('gradient:') ? (
+              <GradientBookCover
+                genre={giveaway.book.cover_image_url.replace('gradient:', '')}
+                title={giveaway.book.title}
+                author={giveaway.book.author}
+                className="w-16 h-20 rounded-lg shadow-md group-hover:shadow-lg transition-shadow duration-300"
+                size="sm"
+              />
+            ) : (
+              <Image
+                src={giveaway.book.cover_image_url}
+                alt={giveaway.book.title}
+                width={64}
+                height={80}
+                className="rounded-lg shadow-md group-hover:shadow-lg transition-shadow duration-300"
+              />
+            )}
           </div>
 
           {/* Content */}
@@ -133,13 +144,23 @@ export function GiveawayCard({ giveaway, onEnter, isMobileView }: GiveawayCardPr
       <div className="flex items-start gap-6">
         {/* Book Cover */}
         <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
-          <Image
-            src={giveaway.book.cover_image_url}
-            alt={giveaway.book.title}
-            width={80}
-            height={100}
-            className="rounded-lg shadow-md group-hover:shadow-lg transition-shadow duration-300"
-          />
+          {giveaway.book.cover_image_url?.startsWith('gradient:') ? (
+            <GradientBookCover
+              genre={giveaway.book.cover_image_url.replace('gradient:', '')}
+              title={giveaway.book.title}
+              author={giveaway.book.author}
+              className="w-20 h-25 rounded-lg shadow-md group-hover:shadow-lg transition-shadow duration-300"
+              size="md"
+            />
+          ) : (
+            <Image
+              src={giveaway.book.cover_image_url}
+              alt={giveaway.book.title}
+              width={80}
+              height={100}
+              className="rounded-lg shadow-md group-hover:shadow-lg transition-shadow duration-300"
+            />
+          )}
         </div>
 
         {/* Content */}

@@ -188,7 +188,7 @@ export function useGiveaways({ onFiltersChange }: UseGiveawaysProps = {}) {
   // Event handlers
   const handleEnterGiveaway = useCallback((id: string) => {
     // Navigate to giveaway entry page
-    window.location.href = `/giveaways/${id}`
+    window.location.href = `/book-giveaways/${id}`
   }, [])
 
   // Effects

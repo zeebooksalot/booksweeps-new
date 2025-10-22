@@ -5,7 +5,7 @@ export function HeroFloatingBooks() {
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
       {/* Floating book 1 - top left */}
       <div className="absolute top-[30%] left-[5%] w-32 h-48 opacity-30 animate-float">
-        <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-600 rounded-lg shadow-2xl rotate-[-15deg] flex items-center justify-center">
+        <div className="w-full h-full bg-gradient-to-br from-pink-400 to-rose-600 rounded-lg shadow-2xl rotate-[-15deg] flex items-center justify-center">
           <span className="text-white font-bold text-sm">Romance</span>
         </div>
       </div>
@@ -17,7 +17,7 @@ export function HeroFloatingBooks() {
       </div>
       {/* Floating book 3 - middle left */}
       <div className="absolute top-[50%] left-[2%] w-24 h-36 opacity-30 animate-float-slow">
-        <div className="w-full h-full bg-gradient-to-br from-pink-400 to-rose-600 rounded-lg shadow-2xl rotate-[8deg] flex items-center justify-center">
+        <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-600 rounded-lg shadow-2xl rotate-[8deg] flex items-center justify-center">
           <span className="text-white font-bold text-sm">Sci-Fi</span>
         </div>
       </div>
@@ -28,8 +28,10 @@ export function HeroFloatingBooks() {
         </div>
       </div>
       {/* Floating book 5 - bottom left */}
-      <div className="absolute top-[70%] left-[10%] w-24 h-36 opacity-30 animate-float-delayed">
-        <div className="w-full h-full bg-gradient-to-br from-red-400 to-pink-600 rounded-lg shadow-2xl rotate-[15deg] flex items-center justify-center">
+      <div className="absolute top-[50%] left-[10%] w-24 h-36 opacity-30 animate-float-delayed">
+        <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg shadow-2xl rotate-[15deg] flex items-center justify-center">
+          {/* Hidden brown colors for Tailwind inclusion */}
+          <div className="hidden from-amber-500 to-orange-700 from-yellow-600 to-orange-800 from-amber-600 to-orange-700 from-stone-500 to-amber-700"></div>
           <span className="text-white font-bold text-sm">Thriller</span>
         </div>
       </div>

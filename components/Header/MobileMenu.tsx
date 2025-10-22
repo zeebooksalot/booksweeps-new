@@ -71,7 +71,7 @@ export function MobileMenu() {
     },
     {
       label: "Giveaways",
-      href: "/giveaways",
+      href: "/book-giveaways",
       dropdownItems: []
     }
   ], [])

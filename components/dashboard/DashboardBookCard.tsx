@@ -1,7 +1,8 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import Image from "next/image"
+import { GradientBookCover } from "@/components/ui/gradient-book-cover"
+import { getGradientCover } from "@/lib/gradient-covers"
 
 interface EnhancedBookCardProps {
   id: number
@@ -40,12 +41,22 @@ export function DashboardBookCard({
   return (
     <Card className="group overflow-hidden hover:shadow-md transition-all duration-300 border-border/50 hover:border-primary/20 py-0 gap-0">
       <div className="aspect-[2/3] relative bg-muted overflow-hidden">
-        <Image
-          src={coverImage || "/placeholder.svg"}
-          alt={title}
-          fill
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+        {coverImage?.startsWith('gradient:') ? (
+          <GradientBookCover
+            genre={coverImage.replace('gradient:', '')}
+            title={title}
+            author={author}
+            className="w-full h-full group-hover:scale-105 transition-transform duration-300"
+            size="lg"
+          />
+        ) : (
+          <Image
+            src={coverImage || "/placeholder.svg"}
+            alt={title}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        )}
         <Badge className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs">{genre}</Badge>
         {winner && <Badge className="absolute top-2 left-2 bg-green-600 text-white text-xs">Won</Badge>}
       </div>

@@ -246,7 +246,7 @@ export function UserDashboard() {
               Track your giveaway entries and wins.
             </p>
             <Button asChild className="w-full">
-              <Link href="/giveaways">View Giveaways</Link>
+              <Link href="/book-giveaways">View Giveaways</Link>
             </Button>
           </CardContent>
         </Card>

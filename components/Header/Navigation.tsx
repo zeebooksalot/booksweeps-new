@@ -20,7 +20,7 @@ export function Navigation({ className = "" }: NavigationProps) {
     },
     {
       label: "Giveaways",
-      href: "/giveaways"
+      href: "/book-giveaways"
     }
   ], [])
 

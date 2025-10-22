@@ -94,7 +94,7 @@ export const GiveawayDirectoryGrid = React.memo(function GiveawayDirectoryGrid({
           return (
             <Link
               key={giveaway.id}
-              href={`/giveaways/${giveaway.id}`}
+              href={`/book-giveaways/${giveaway.id}`}
               className="block bg-card rounded-lg p-6 shadow-sm border border-subtle hover:shadow-md transition-shadow"
             >
               <div className="flex items-start justify-between mb-4">
@@ -172,7 +172,7 @@ export const GiveawayDirectoryGrid = React.memo(function GiveawayDirectoryGrid({
         return (
           <Link
             key={giveaway.id}
-            href={`/giveaways/${giveaway.id}`}
+            href={`/book-giveaways/${giveaway.id}`}
             className="block bg-card rounded-lg p-6 shadow-sm border border-subtle hover:shadow-md transition-shadow"
           >
             <div className="relative flex-shrink-0 w-full h-48">

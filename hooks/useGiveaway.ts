@@ -58,14 +58,14 @@ export function useGiveaway({ params }: UseGiveawayProps) {
           id: "1",
           title: "Ocean's Echo",
           author: "Elena Rodriguez",
-          cover_image_url: "/placeholder.svg?height=200&width=160",
+          cover_image_url: "gradient:fantasy",
           genre: "Fantasy",
           description: "A magical tale of love and adventure beneath the waves that explores the depths of human connection and the mysteries of the ocean."
         },
         author: {
           id: "1",
           name: "Elena Rodriguez",
-          avatar_url: "/placeholder.svg?height=64&width=64",
+          avatar_url: "gradient:author",
           bio: "Fantasy romance author who transports readers to magical worlds filled with adventure and love."
         },
         start_date: "2024-01-01",

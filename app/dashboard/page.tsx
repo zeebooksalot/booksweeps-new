@@ -2,6 +2,7 @@
 import { CardContent } from "@/components/ui/card"
 import { Card } from "@/components/ui/card"
 import { useState } from "react"
+import Link from "next/link"
 import { Header } from "@/components/header/index"
 import { DashboardStatsCard } from "@/components/dashboard/DashboardStatsCard"
 import { BookOpen, Trophy, Heart, Flame, Library, ArrowRight } from "lucide-react"
@@ -31,7 +32,7 @@ const featuredGiveaways = [
     id: 2,
     title: "Romance Reader's Dream",
     description: "Complete romance collection with signed editions",
-    coverImage: "/fantasy-romance-book-cover.jpg",
+    coverImage: "gradient:fantasy",
     entries: 1923,
     daysLeft: 3,
     featured: true,
@@ -49,7 +50,7 @@ const featuredGiveaways = [
     id: 4,
     title: "Sci-Fi Adventure Collection",
     description: "5 space opera novels + exclusive bookmarks",
-    coverImage: "/scifi-romance-book-cover.jpg",
+    coverImage: "gradient:scifi",
     entries: 2134,
     daysLeft: 6,
     featured: true,
@@ -58,7 +59,7 @@ const featuredGiveaways = [
     id: 5,
     title: "Historical Fiction Set",
     description: "4 award-winning historical novels + tote bag",
-    coverImage: "/historical-fiction-book-cover.png",
+    coverImage: "gradient:historical",
     entries: 1678,
     daysLeft: 4,
     featured: true,
@@ -67,7 +68,7 @@ const featuredGiveaways = [
     id: 6,
     title: "Horror Classics Bundle",
     description: "6 spine-chilling horror books + reading light",
-    coverImage: "/horror-book-cover.png",
+    coverImage: "gradient:horror",
     entries: 1892,
     daysLeft: 7,
     featured: true,
@@ -76,7 +77,7 @@ const featuredGiveaways = [
     id: 7,
     title: "Adventure Seeker's Pack",
     description: "Complete adventure series + map poster",
-    coverImage: "/adventure-book-cover.png",
+    coverImage: "gradient:adventure",
     entries: 2456,
     daysLeft: 5,
     featured: true,
@@ -99,7 +100,7 @@ const activeEntries = [
     title: "Midnight's Promise",
     author: "Sarah Blake",
     genre: "Fantasy Romance",
-    coverImage: "/fantasy-romance-book-cover.jpg",
+    coverImage: "gradient:fantasy",
     entryDate: "Jan 15",
     daysLeft: 3,
   },
@@ -144,7 +145,7 @@ const activeEntries = [
     title: "Starlight Dreams",
     author: "Sophia Williams",
     genre: "Sci-Fi Romance",
-    coverImage: "/scifi-romance-book-cover.jpg",
+    coverImage: "gradient:scifi",
     entryDate: "Jan 3",
     daysLeft: 14,
   },
@@ -157,7 +158,7 @@ const endedEntries = [
     title: "The Winter's Tale",
     author: "Rebecca Snow",
     genre: "Fantasy",
-    coverImage: "/fantasy-romance-book-cover.jpg",
+    coverImage: "gradient:fantasy",
     entryDate: "Dec 20",
     endedDate: "Jan 10",
     winner: false,
@@ -167,7 +168,7 @@ const endedEntries = [
     title: "Crimson Moon",
     author: "Victor Blackwood",
     genre: "Horror",
-    coverImage: "/horror-book-cover.png",
+    coverImage: "gradient:horror",
     entryDate: "Dec 18",
     endedDate: "Jan 8",
     winner: false,
@@ -177,7 +178,7 @@ const endedEntries = [
     title: "Space Odyssey",
     author: "Dr. Sarah Chen",
     genre: "Sci-Fi",
-    coverImage: "/scifi-romance-book-cover.jpg",
+    coverImage: "gradient:scifi",
     entryDate: "Dec 15",
     endedDate: "Jan 5",
     winner: true,
@@ -187,7 +188,7 @@ const endedEntries = [
     title: "Ancient Secrets",
     author: "Marcus Stone",
     genre: "Historical",
-    coverImage: "/historical-fiction-book-cover.png",
+    coverImage: "gradient:historical",
     entryDate: "Dec 12",
     endedDate: "Jan 3",
     winner: false,
@@ -197,7 +198,7 @@ const endedEntries = [
     title: "Desert Storm",
     author: "Amir Hassan",
     genre: "Adventure",
-    coverImage: "/adventure-book-cover.png",
+    coverImage: "gradient:adventure",
     entryDate: "Dec 10",
     endedDate: "Jan 1",
     winner: false,
@@ -210,7 +211,7 @@ const booksWon = [
     title: "The Last Kingdom",
     author: "Robert Hayes",
     genre: "Historical Fiction",
-    coverImage: "/historical-fiction-book-cover.png",
+    coverImage: "gradient:historical",
     wonDate: "Dec 28",
     status: "Shipped",
   },
@@ -219,7 +220,7 @@ const booksWon = [
     title: "Crimson Skies",
     author: "Amanda Foster",
     genre: "Adventure",
-    coverImage: "/adventure-book-cover.png",
+    coverImage: "gradient:adventure",
     wonDate: "Dec 15",
     status: "Delivered",
   },
@@ -228,7 +229,7 @@ const booksWon = [
     title: "Eternal Night",
     author: "Victor Stone",
     genre: "Horror",
-    coverImage: "/horror-book-cover.png",
+    coverImage: "gradient:horror",
     wonDate: "Dec 1",
     status: "Delivered",
   },
@@ -348,7 +349,7 @@ const recommendedFreeBooks = [
     title: "The Enchanted Forest",
     author: "Emma Thompson",
     genre: "Fantasy",
-    coverImage: "/fantasy-romance-book-cover.jpg",
+    coverImage: "gradient:fantasy",
     rating: 4.5,
     downloads: 12500,
   },
@@ -357,7 +358,7 @@ const recommendedFreeBooks = [
     title: "Cyber Dreams",
     author: "Alex Rivera",
     genre: "Sci-Fi",
-    coverImage: "/scifi-romance-book-cover.jpg",
+    coverImage: "gradient:scifi",
     rating: 4.7,
     downloads: 8900,
   },
@@ -384,7 +385,7 @@ const recommendedFreeBooks = [
     title: "The Last Battle",
     author: "David Knight",
     genre: "Historical",
-    coverImage: "/historical-fiction-book-cover.png",
+    coverImage: "gradient:historical",
     rating: 4.4,
     downloads: 9300,
   },
@@ -393,7 +394,7 @@ const recommendedFreeBooks = [
     title: "Midnight Terror",
     author: "Rachel Winters",
     genre: "Horror",
-    coverImage: "/horror-book-cover.png",
+    coverImage: "gradient:horror",
     rating: 4.2,
     downloads: 7600,
   },
@@ -402,7 +403,7 @@ const recommendedFreeBooks = [
     title: "Desert Winds",
     author: "Amir Hassan",
     genre: "Adventure",
-    coverImage: "/adventure-book-cover.png",
+    coverImage: "gradient:adventure",
     rating: 4.5,
     downloads: 11200,
   },
@@ -420,7 +421,7 @@ const recommendedFreeBooks = [
     title: "Time Traveler's Guide",
     author: "Dr. James Wilson",
     genre: "Sci-Fi",
-    coverImage: "/scifi-romance-book-cover.jpg",
+    coverImage: "gradient:scifi",
     rating: 4.6,
     downloads: 9800,
   },
@@ -429,7 +430,7 @@ const recommendedFreeBooks = [
     title: "Witch's Brew",
     author: "Sabrina Moon",
     genre: "Fantasy",
-    coverImage: "/fantasy-romance-book-cover.jpg",
+    coverImage: "gradient:fantasy",
     rating: 4.4,
     downloads: 10500,
   },
@@ -503,10 +504,12 @@ export default function DashboardPage() {
                         Discover new giveaways and free books tailored to your interests
                       </p>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
-                      View All
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    <Link href="/book-giveaways">
+                      <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
+                        View All
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
                   </div>
                   <DashboardCarouselContainer>
                     {featuredGiveaways.map((giveaway) => (
@@ -524,10 +527,12 @@ export default function DashboardPage() {
                         Download these free books instantly to your device
                       </p>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
-                      View All
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    <Link href="/free-ebooks">
+                      <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
+                        View All
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
                   </div>
                   <DashboardCarouselContainer>
                     {recommendedFreeBooks.map((book) => (
@@ -547,10 +552,12 @@ export default function DashboardPage() {
                         Follow these authors to get notified of their new giveaways and releases
                       </p>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
-                      View All
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    <Link href="/authors">
+                      <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
+                        View All
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
                   </div>
                   <DashboardCarouselContainer>
                     {recommendedAuthors.map((author) => (

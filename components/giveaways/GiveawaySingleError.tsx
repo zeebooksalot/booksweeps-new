@@ -21,7 +21,7 @@ export function GiveawaySingleError({ error }: GiveawayErrorStateProps) {
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             {error || "This giveaway doesn't exist or has been removed."}
           </p>
-          <Link href="/giveaways">
+          <Link href="/book-giveaways">
             <Button>Back to Giveaways</Button>
           </Link>
         </div>

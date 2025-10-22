@@ -64,7 +64,7 @@ export const useHeader = () => {
     },
     {
       label: "Giveaways",
-      href: "/giveaways",
+      href: "/book-giveaways",
       dropdownItems: []
     }
   ], [])
