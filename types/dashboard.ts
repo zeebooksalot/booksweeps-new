@@ -28,10 +28,16 @@ export interface ReadingList {
 }
 
 export interface DashboardStats {
-  totalDownloads: number
-  totalFavorites: number
-  readingProgress: number
-  booksCompleted: number
+  totalBooks: number
+  totalAuthors: number
+  totalVotes: number
+  totalGiveaways: number
+  recentActivity: Array<{
+    id: string
+    type: 'vote' | 'giveaway' | 'book' | 'author'
+    title: string
+    timestamp: string
+  }>
 }
 
 export interface DashboardFilters {

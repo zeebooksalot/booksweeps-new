@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DashboardStats as DashboardStatsType } from '@/types/auth'
+import { DashboardStats as DashboardStatsType } from '@/types/dashboard'
 import { BookOpen, Heart, Trophy, TrendingUp } from 'lucide-react'
 
 interface DashboardStatsProps {

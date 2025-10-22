@@ -161,10 +161,18 @@ export function useDashboard() {
       
       // Calculate stats
       const calculatedStats: DashboardStats = {
-        totalDownloads: mockDownloads.length,
-        totalFavorites: mockFavorites.length,
-        readingProgress: mockReadingList.filter(item => item.status === 'reading').length,
-        booksCompleted: mockReadingList.filter(item => item.status === 'completed').length
+        totalBooks: mockReadingList.length,
+        totalAuthors: mockFavorites.length,
+        totalVotes: 0, // This would come from actual vote data
+        totalGiveaways: 0, // This would come from actual giveaway data
+        recentActivity: [
+          {
+            id: '1',
+            type: 'book',
+            title: 'Recent book activity',
+            timestamp: new Date().toISOString()
+          }
+        ]
       }
       
       // Update state

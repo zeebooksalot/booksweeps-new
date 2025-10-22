@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Giveaway, ApiCampaign } from "@/types/giveaways"
+import { Giveaway, ApiCampaign } from "@/types"
 import { GIVEAWAY_CONFIG } from "@/constants/giveaways"
 import { useApi } from "@/hooks/use-api"
 

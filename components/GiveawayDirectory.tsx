@@ -9,27 +9,7 @@ import {
   GiveawayDirectoryPagination 
 } from './GiveawayDirectory/';
 
-interface Giveaway {
-  id: string;
-  title: string;
-  description: string;
-  entry_count: number;
-  max_entries: number;
-  number_of_winners: number;
-  end_date: string;
-  is_featured: boolean;
-  book: {
-    title: string;
-    author: string;
-    cover_image_url: string;
-    genre: string;
-  };
-  author: {
-    name: string;
-    bio: string;
-  };
-  created_at: string;
-}
+import { Giveaway } from '@/types'
 
 interface GiveawayDirectoryProps {
   initialGiveaways?: Giveaway[];

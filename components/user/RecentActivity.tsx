@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { DashboardStats } from '@/types/auth'
+import { DashboardStats } from '@/types/dashboard'
 
 interface RecentActivityProps {
   activities: DashboardStats['recentActivity']

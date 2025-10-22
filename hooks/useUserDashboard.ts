@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { DashboardStats } from '@/types/auth'
+import { DashboardStats } from '@/types/dashboard'
 
 export function useUserDashboard() {
   const { user } = useAuth()

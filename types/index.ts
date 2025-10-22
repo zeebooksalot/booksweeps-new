@@ -88,24 +88,28 @@ export interface ApiAuthor {
 }
 
 // Giveaway types
+export interface GiveawayBook {
+  id: string
+  title: string
+  author: string
+  cover_image_url: string
+  genre: string
+  description: string
+}
+
+export interface GiveawayAuthor {
+  id: string
+  name: string
+  avatar_url: string
+  bio: string
+}
+
 export interface Giveaway {
   id: string
   title: string
   description: string
-  book: {
-    id: string
-    title: string
-    author: string
-    cover_image_url: string
-    genre: string
-    description: string
-  }
-  author: {
-    id: string
-    name: string
-    avatar_url: string
-    bio: string
-  }
+  book: GiveawayBook
+  author: GiveawayAuthor
   start_date: string
   end_date: string
   max_entries: number
@@ -191,11 +195,13 @@ export interface FilterState {
 }
 
 export interface GiveawayFilters {
+  searchQuery: string
   genre: string
   featured: boolean
   endingSoon: boolean
   status: 'all' | 'active' | 'ending_soon'
   prizeType: 'all' | 'signed' | 'digital' | 'physical'
+  showAdvancedFilters: boolean
 }
 
 // Data state types

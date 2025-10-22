@@ -20,18 +20,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
-interface DashboardStats {
-  totalBooks: number
-  totalAuthors: number
-  totalVotes: number
-  totalGiveaways: number
-  recentActivity: Array<{
-    id: string
-    type: 'vote' | 'giveaway' | 'book' | 'author'
-    title: string
-    timestamp: string
-  }>
-}
+import { DashboardStats } from '@/types/dashboard'
 
 export function UserDashboard() {
   const { user, userProfile, loading } = useAuth()

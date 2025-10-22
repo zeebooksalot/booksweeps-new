@@ -81,16 +81,3 @@ export interface SettingsFormData {
   timezone: string
 }
 
-// Dashboard stats interface
-export interface DashboardStats {
-  totalBooks: number
-  totalAuthors: number
-  totalVotes: number
-  totalGiveaways: number
-  recentActivity: Array<{
-    id: string
-    type: 'vote' | 'giveaway' | 'book' | 'author'
-    title: string
-    timestamp: string
-  }>
-}

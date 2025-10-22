@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../lib/supabase'
 
 // Define types for better type safety
 interface Book {

@@ -7,22 +7,7 @@ import { Calendar, Users, Gift, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-interface Giveaway {
-  id: string;
-  title: string;
-  description: string;
-  entry_count: number;
-  max_entries: number;
-  number_of_winners: number;
-  end_date: string;
-  is_featured: boolean;
-  book: {
-    title: string;
-    author: string;
-    cover_image_url: string;
-    genre: string;
-  };
-}
+import { Giveaway } from '@/types'
 
 interface GiveawayDirectoryGridProps {
   giveaways: Giveaway[];

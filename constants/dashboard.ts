@@ -140,11 +140,17 @@ export const MOCK_DASHBOARD_DATA = {
 
 // Default dashboard stats
 export const DEFAULT_DASHBOARD_STATS = {
-  totalDownloads: 0,
-  totalFavorites: 0,
-  readingProgress: 0,
-  booksCompleted: 0
-} as const
+  totalBooks: 0,
+  totalAuthors: 0,
+  totalVotes: 0,
+  totalGiveaways: 0,
+  recentActivity: [] as Array<{
+    id: string
+    type: 'vote' | 'giveaway' | 'book' | 'author'
+    title: string
+    timestamp: string
+  }>
+}
 
 // Default filters
 export const DEFAULT_DASHBOARD_FILTERS = {

@@ -1,6 +1,6 @@
 "use client"
 
-import { Giveaway } from "@/types/giveaways"
+import { Giveaway } from "@/types"
 import { CountdownTimer } from "./CountdownTimer"
 
 interface GiveawayStatsProps {

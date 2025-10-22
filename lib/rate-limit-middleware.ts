@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { checkRateLimit, getClientIP, createRateLimitIdentifier, RATE_LIMITS } from './rate-limiter'
+import { checkRateLimit, createRateLimitIdentifier, RATE_LIMITS } from './rate-limiter'
+import { getClientIP } from './client-ip'
 
 interface RateLimitOptions {
   limit: number
