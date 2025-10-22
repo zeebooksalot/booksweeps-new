@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import { checkRateLimit, createRateLimitIdentifier, RATE_LIMITS, getClientIP } from '@/lib/rate-limiter'
+import { checkRateLimit, createRateLimitIdentifier, RATE_LIMITS, RateLimitConfig } from '@/lib/rate-limiter'
+import { getClientIP } from '@/lib/client-ip'
 import { serverError, unauthorizedError, rateLimitError } from '@/lib/api-response'
 
 export interface HandlerContext {
-  supabase: any // Supabase client
-  body: any // Parsed request body
+  supabase: SupabaseClient
+  body: unknown
   query: Record<string, string | string[] | undefined>
   clientMetadata: {
     ip: string
@@ -21,7 +22,7 @@ export interface ApiHandlerOptions {
   rateLimit?: {
     type: 'ip' | 'user'
     action: string
-    config: any
+    config: RateLimitConfig
   }
   clientType?: 'service' | 'authenticated'
 }
@@ -33,7 +34,7 @@ export function withApiHandler(
   return async (request: NextRequest): Promise<Response> => {
     try {
       // Create appropriate Supabase client
-      let supabase: any
+      let supabase: SupabaseClient
       let userId: string | undefined
 
       if (options.clientType === 'service') {
@@ -63,7 +64,7 @@ export function withApiHandler(
       }
 
       // Parse request body if it's a POST/PUT/PATCH request
-      let body: any = null
+      let body: unknown = null
       if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
         try {
           body = await request.json()
@@ -118,7 +119,7 @@ export function withApiHandler(
 }
 
 // Helper function to create rate limit configs
-export function createRateLimitConfig(action: string, limits: any) {
+export function createRateLimitConfig(action: string, limits: RateLimitConfig) {
   return {
     type: 'ip' as const,
     action,
@@ -127,7 +128,7 @@ export function createRateLimitConfig(action: string, limits: any) {
 }
 
 // Helper function to create user-based rate limit configs
-export function createUserRateLimitConfig(action: string, limits: any) {
+export function createUserRateLimitConfig(action: string, limits: RateLimitConfig) {
   return {
     type: 'user' as const,
     action,

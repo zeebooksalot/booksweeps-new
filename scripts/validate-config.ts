@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { validateConfig } from '../lib/config'
+import { validateConfig } from '../lib/config/index'
 
 console.log('🔍 Validating configuration...')
 

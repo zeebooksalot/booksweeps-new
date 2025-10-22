@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getClientIP } from './utils'
+import { getClientIP } from './client-ip'
 
 export interface AuditLogEntry {
   id: string

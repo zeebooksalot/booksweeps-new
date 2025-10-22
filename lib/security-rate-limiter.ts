@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getClientIP } from '@/lib/rate-limiter'
+import { getClientIP } from '@/lib/client-ip'
 
 export interface SecurityRateLimitConfig {
   // Basic rate limiting

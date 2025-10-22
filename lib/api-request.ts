@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { getClientIP } from '@/lib/api-utils'
+import { getClientIP } from '@/lib/client-ip'
 import { badRequestError, validationError } from '@/lib/api-response'
 
 export interface ParsedQuery {

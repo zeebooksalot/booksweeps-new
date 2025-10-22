@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useEffect, useState } from 'react'
-import { shouldRedirectUser, getPlatformHosts } from '@/lib/config'
+import { shouldRedirectUser, getPlatformHosts } from '@/lib/config/platform'
 import { Info } from 'lucide-react'
 
 export function PlatformRedirect() {

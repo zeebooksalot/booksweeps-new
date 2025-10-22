@@ -1,13 +1,37 @@
-interface RateLimitEntry {
+import { NextRequest, NextResponse } from 'next/server'
+import { getClientIP } from './client-ip'
+
+/**
+ * Comprehensive rate limiting system for the application
+ * Handles both basic rate limiting and Next.js middleware integration
+ */
+
+export interface RateLimitEntry {
   count: number
   resetTime: number
 }
 
-interface RateLimitConfig {
+export interface RateLimitConfig {
   limit: number
   window: number // in seconds
 }
 
+export interface RateLimitOptions {
+  limit: number
+  window: number
+  identifier?: string
+  errorMessage?: string
+}
+
+export interface RateLimitResult {
+  allowed: boolean
+  remaining: number
+  resetTime: number
+}
+
+/**
+ * Core rate limiter class with in-memory storage
+ */
 export class RateLimiter {
   private store: Map<string, RateLimitEntry> = new Map()
   private cleanupInterval: NodeJS.Timeout
@@ -24,9 +48,9 @@ export class RateLimiter {
    * @param identifier - Unique identifier (IP, user ID, etc.)
    * @param limit - Maximum number of requests allowed
    * @param window - Time window in seconds
-   * @returns true if request is allowed, false if rate limited
+   * @returns RateLimitResult with detailed information
    */
-  async checkLimit(identifier: string, limit: number, window: number): Promise<boolean> {
+  async checkLimit(identifier: string, limit: number, window: number): Promise<RateLimitResult> {
     const now = Date.now()
     const resetTime = now + (window * 1000)
     
@@ -35,35 +59,38 @@ export class RateLimiter {
     if (!entry) {
       // First request for this identifier
       this.store.set(identifier, { count: 1, resetTime })
-      return true
+      return {
+        allowed: true,
+        remaining: limit - 1,
+        resetTime: resetTime - now
+      }
     }
     
     if (now > entry.resetTime) {
       // Window has expired, reset counter
       this.store.set(identifier, { count: 1, resetTime })
-      return true
+      return {
+        allowed: true,
+        remaining: limit - 1,
+        resetTime: resetTime - now
+      }
     }
     
     if (entry.count >= limit) {
       // Rate limit exceeded
-      return false
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime: entry.resetTime - now
+      }
     }
     
     // Increment counter
     entry.count++
-    return true
-  }
-
-  /**
-   * Increment the counter for an identifier
-   * @param identifier - Unique identifier
-   */
-  async increment(identifier: string): Promise<void> {
-    const now = Date.now()
-    const entry = this.store.get(identifier)
-    
-    if (entry && now <= entry.resetTime) {
-      entry.count++
+    return {
+      allowed: true,
+      remaining: limit - entry.count,
+      resetTime: entry.resetTime - now
     }
   }
 
@@ -150,26 +177,9 @@ export const RATE_LIMITS = {
 // Global rate limiter instance
 export const rateLimiter = new RateLimiter()
 
-// Helper function to get client IP
-export function getClientIP(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  const realIP = request.headers.get('x-real-ip')
-  const cfConnectingIP = request.headers.get('cf-connecting-ip')
-  
-  if (forwarded) {
-    return forwarded.split(',')[0].trim()
-  }
-  if (realIP) {
-    return realIP
-  }
-  if (cfConnectingIP) {
-    return cfConnectingIP
-  }
-  
-  return 'unknown'
-}
-
-// Helper function to create rate limit identifier
+/**
+ * Helper function to create rate limit identifier
+ */
 export function createRateLimitIdentifier(
   type: 'ip' | 'user' | 'email',
   value: string,
@@ -182,26 +192,15 @@ export function createRateLimitIdentifier(
   return parts.join(':')
 }
 
-// Helper function to check rate limit with proper error handling
+/**
+ * Check rate limit with proper error handling
+ */
 export async function checkRateLimit(
   identifier: string,
   config: RateLimitConfig
-): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
-  const allowed = await rateLimiter.checkLimit(identifier, config.limit, config.window)
-  const remaining = allowed ? config.limit - rateLimiter.getCount(identifier) : 0
-  const resetTime = rateLimiter.getTimeRemaining(identifier)
-  
-  return { allowed, remaining, resetTime }
-}
-
-// Middleware function for rate limiting that can be used in API handlers
-export async function withRateLimit(
-  request: Request,
-  config: RateLimitConfig,
-  identifier: string
-): Promise<{ allowed: boolean; remaining: number; resetTime: number } | null> {
+): Promise<RateLimitResult> {
   try {
-    return await checkRateLimit(identifier, config)
+    return await rateLimiter.checkLimit(identifier, config.limit, config.window)
   } catch (error) {
     console.error('Rate limiting error:', error)
     // Allow request to proceed if rate limiting fails
@@ -209,12 +208,121 @@ export async function withRateLimit(
   }
 }
 
-// Enhanced rate limiting for API middleware
+/**
+ * Middleware function to apply rate limiting to API routes
+ */
+export async function withRateLimit(
+  request: NextRequest,
+  options: RateLimitOptions,
+  handler: (request: NextRequest) => Promise<NextResponse>
+): Promise<NextResponse> {
+  try {
+    // Get client IP
+    const clientIP = getClientIP(request)
+    
+    // Create rate limit identifier
+    const identifier = options.identifier || createRateLimitIdentifier('ip', clientIP)
+    
+    // Check rate limit
+    const { allowed, remaining, resetTime } = await checkRateLimit(identifier, {
+      limit: options.limit,
+      window: options.window
+    })
+    
+    if (!allowed) {
+      // Rate limit exceeded
+      const response = NextResponse.json(
+        { 
+          error: options.errorMessage || 'Rate limit exceeded',
+          retryAfter: Math.ceil(resetTime / 1000)
+        },
+        { status: 429 }
+      )
+      
+      // Add rate limit headers
+      response.headers.set('X-RateLimit-Limit', options.limit.toString())
+      response.headers.set('X-RateLimit-Remaining', '0')
+      response.headers.set('X-RateLimit-Reset', new Date(Date.now() + resetTime).toISOString())
+      response.headers.set('Retry-After', Math.ceil(resetTime / 1000).toString())
+      
+      return response
+    }
+    
+    // Rate limit check passed, execute the handler
+    const response = await handler(request)
+    
+    // Add rate limit headers to successful response
+    response.headers.set('X-RateLimit-Limit', options.limit.toString())
+    response.headers.set('X-RateLimit-Remaining', remaining.toString())
+    response.headers.set('X-RateLimit-Reset', new Date(Date.now() + resetTime).toISOString())
+    
+    return response
+  } catch (error) {
+    console.error('Rate limiting error:', error)
+    // If rate limiting fails, allow the request to proceed
+    return await handler(request)
+  }
+}
+
+/**
+ * Predefined rate limit wrappers for common endpoints
+ */
+export const rateLimitWrappers = {
+  // General API rate limiting
+  api: (handler: (request: NextRequest) => Promise<NextResponse>) => {
+    return (request: NextRequest) => withRateLimit(request, RATE_LIMITS.API_GENERAL, handler)
+  },
+  
+  // Authentication rate limiting
+  auth: (handler: (request: NextRequest) => Promise<NextResponse>) => {
+    return (request: NextRequest) => withRateLimit(request, RATE_LIMITS.AUTH_LOGIN, handler)
+  },
+  
+  // Download rate limiting
+  download: (handler: (request: NextRequest) => Promise<NextResponse>) => {
+    return (request: NextRequest) => withRateLimit(request, RATE_LIMITS.DOWNLOAD_GENERAL, handler)
+  },
+  
+  // Vote rate limiting
+  vote: (handler: (request: NextRequest) => Promise<NextResponse>) => {
+    return (request: NextRequest) => withRateLimit(request, RATE_LIMITS.VOTE, handler)
+  },
+  
+  // Comment rate limiting
+  comment: (handler: (request: NextRequest) => Promise<NextResponse>) => {
+    return (request: NextRequest) => withRateLimit(request, RATE_LIMITS.COMMENT, handler)
+  },
+  
+  // Campaign entry rate limiting
+  campaignEntry: (handler: (request: NextRequest) => Promise<NextResponse>) => {
+    return (request: NextRequest) => withRateLimit(request, RATE_LIMITS.CAMPAIGN_ENTRY, handler)
+  }
+}
+
+/**
+ * Custom rate limit wrapper with specific configuration
+ */
+export function withCustomRateLimit(
+  options: RateLimitOptions
+) {
+  return (handler: (request: NextRequest) => Promise<NextResponse>) => {
+    return (request: NextRequest) => withRateLimit(request, options, handler)
+  }
+}
+
+/**
+ * Enhanced rate limiting for API middleware
+ */
 export async function checkApiRateLimit(
-  request: Request,
+  request: NextRequest,
   config: RateLimitConfig,
   identifier: string
-): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
-  const result = await withRateLimit(request, config, identifier)
-  return result || { allowed: true, remaining: config.limit, resetTime: 0 }
+): Promise<RateLimitResult> {
+  try {
+    return await checkRateLimit(identifier, config)
+  } catch (error) {
+    console.error('Rate limiting error:', error)
+    // Allow request to proceed if rate limiting fails
+    return { allowed: true, remaining: config.limit, resetTime: 0 }
+  }
 }
