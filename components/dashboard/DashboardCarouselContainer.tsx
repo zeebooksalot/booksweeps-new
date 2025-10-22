@@ -41,7 +41,7 @@ export function DashboardCarouselContainer({ children }: CarouselContainerProps)
       <Button
         variant="outline"
         size="icon"
-        className="absolute -left-12 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full"
+        className="absolute -left-12 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
         onClick={() => scrollCarousel("left")}
       >
         <ChevronLeft className="h-4 w-4" />
@@ -60,7 +60,7 @@ export function DashboardCarouselContainer({ children }: CarouselContainerProps)
       <Button
         variant="outline"
         size="icon"
-        className="absolute -right-12 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full"
+        className="absolute -right-12 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
         onClick={() => scrollCarousel("right")}
       >
         <ChevronRight className="h-4 w-4" />

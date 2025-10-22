@@ -482,7 +482,7 @@ export default function DashboardPage() {
       <Header searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
       <div className="container mx-auto px-4 py-8 pt-24">
-        <div className="flex gap-8">
+        <div className="flex gap-12">
           {/* Floating Left Sidebar */}
           <DashboardSidebar
             activeTab={activeTab}
