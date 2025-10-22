@@ -36,7 +36,7 @@ export function HeroEmailForm() {
            <Button
              variant="link"
              size="sm"
-             className="h-auto p-0 text-black hover:text-black/80 transition-all hover:scale-110"
+             className="h-auto p-0 text-black hover:text-black/80 transition-all hover:scale-105"
            >
              Fantasy
            </Button>
@@ -44,7 +44,7 @@ export function HeroEmailForm() {
            <Button
              variant="link"
              size="sm"
-             className="h-auto p-0 text-black hover:text-black/80 transition-all hover:scale-110"
+             className="h-auto p-0 text-black hover:text-black/80 transition-all hover:scale-105"
            >
              Romance
            </Button>
@@ -52,7 +52,7 @@ export function HeroEmailForm() {
            <Button
              variant="link"
              size="sm"
-             className="h-auto p-0 text-black hover:text-black/80 transition-all hover:scale-110"
+             className="h-auto p-0 text-black hover:text-black/80 transition-all hover:scale-105"
            >
              Mystery
            </Button>

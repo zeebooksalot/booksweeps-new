@@ -51,6 +51,11 @@ export function MobileMenu() {
   // Memoized navigation items to prevent unnecessary re-renders
   const navigationItems = useMemo(() => [
     {
+      label: "Giveaways",
+      href: "/book-giveaways",
+      dropdownItems: []
+    },
+    {
       label: "Books",
       href: "#",
       dropdownItems: [
@@ -68,11 +73,6 @@ export function MobileMenu() {
         { label: "New Authors", href: "#" },
         { label: "Author Interviews", href: "#" }
       ]
-    },
-    {
-      label: "Giveaways",
-      href: "/book-giveaways",
-      dropdownItems: []
     }
   ], [])
 

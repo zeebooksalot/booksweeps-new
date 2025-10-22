@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { SearchBar } from "./SearchBar"
 import { Button } from "@/components/ui/button"
@@ -16,10 +16,25 @@ interface HeaderProps {
 
 export const Header = React.memo(({ searchQuery, onSearchChange }: HeaderProps) => {
   const [showMobileSearch, setShowMobileSearch] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY
+      setIsScrolled(scrollTop > 50)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   return (
     <header 
-      className="fixed top-0 z-20 w-full border-b border-border bg-white dark:bg-background transition-colors"
+      className={`fixed top-0 z-20 w-full transition-all duration-300 ${
+        isScrolled 
+          ? 'bg-white/95 dark:bg-background/95 backdrop-blur-md border-b border-border shadow-sm' 
+          : 'bg-transparent border-b border-transparent'
+      }`}
       role="banner"
       aria-label="Main navigation"
     >

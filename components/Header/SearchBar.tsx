@@ -35,7 +35,7 @@ const useDebouncedSearch = (callback: (query: string) => void, delay: number = 3
 export function SearchBar({ 
   searchQuery, 
   onSearchChange, 
-  placeholder = "Search books, authors...",
+  placeholder = "Search...",
   className = "",
   showMobileToggle = false,
   onMobileToggle,
