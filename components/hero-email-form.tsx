@@ -10,18 +10,18 @@ export function HeroEmailForm() {
       {/* Email subscription form */}
       <div className="flex flex-col sm:flex-row gap-3 max-w-2xl mx-auto">
         <div className="flex gap-2 flex-1">
-          <Input type="email" placeholder="Enter your email" className="flex-1 transition-all focus:scale-[1.02]" />
-          <Button className="bg-primary hover:bg-primary/90 px-6 transition-all hover:scale-105 hover:shadow-lg text-white">
+          <Input type="email" placeholder="Enter your email" className="flex-1 h-12 transition-all focus:scale-[1.02]" style={{ fontSize: 'var(--text-hero-primary)' }} />
+          <Button className="bg-primary hover:bg-primary/90 px-6 h-12 transition-all hover:scale-105 hover:shadow-lg text-white" style={{ height: '48px', fontSize: 'var(--text-hero-primary)' }}>
             Subscribe
           </Button>
         </div>
         <Button
           variant="outline"
-          size="lg"
-          className="border-primary text-primary hover:bg-primary/5 bg-transparent transition-all hover:scale-105 hover:shadow-md group"
+          className="border-primary text-primary hover:bg-primary/5 hover:text-primary bg-transparent !h-12 transition-all hover:scale-105 hover:shadow-md group"
+          style={{ fontSize: 'var(--text-hero-secondary)' }}
         >
-          Browse Giveaways
-          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+          Browse
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" style={{ marginLeft: '2px' }} />
         </Button>
       </div>
 

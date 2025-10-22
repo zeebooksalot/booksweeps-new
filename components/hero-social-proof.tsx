@@ -1,7 +1,7 @@
 "use client"
 
 import { AnimatedCounter } from "@/components/animated-counter"
-import { Users, Gift, Download } from "lucide-react"
+import { Users, Gift } from "lucide-react"
 
 export function HeroSocialProof() {
   return (
@@ -44,18 +44,6 @@ export function HeroSocialProof() {
         </div>
       </div>
 
-      {/* Books downloaded stat */}
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-          <Download className="h-6 w-6 text-primary" />
-        </div>
-        <div className="text-left">
-          <div className="text-sm font-semibold">
-            <AnimatedCounter end={15234} /> books
-          </div>
-          <p className="text-xs text-muted-foreground">downloaded today</p>
-        </div>
-      </div>
     </div>
   )
 }

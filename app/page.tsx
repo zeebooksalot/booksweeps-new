@@ -18,6 +18,7 @@ import { DashboardFeaturedGiveawayCard } from "@/components/dashboard/DashboardF
 import { HeroFloatingBooks } from "@/components/hero-floating-books"
 import { HeroEmailForm } from "@/components/hero-email-form"
 import { HeroSocialProof } from "@/components/hero-social-proof"
+import { WavyDivider } from "@/components/WavyDivider"
 
 const featuredGiveaways = [
   {
@@ -298,9 +299,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      <div className="container mx-auto px-4 py-8">
+      {/* Wavy Divider */}
+      <WavyDivider />
 
-        <main className="space-y-10">
+      {/* Main Content Section */}
+      <section className="bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <main className="space-y-10">
           {/* Featured Giveaways Section */}
           <div>
             <div className="flex items-center justify-between">
@@ -365,8 +370,9 @@ export default function HomePage() {
               ))}
             </DashboardCarouselContainer>
           </div>
-        </main>
-      </div>
+          </main>
+        </div>
+      </section>
     </div>
   )
 }

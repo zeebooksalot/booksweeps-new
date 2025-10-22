@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/components/auth/AuthProvider"
 import { Button } from "@/components/ui/button"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { useTheme } from "@/components/theme-provider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { User, Settings, LogOut } from "lucide-react"
+import { User, Settings, LogOut, Sun, Moon, Monitor } from "lucide-react"
 import Link from "next/link"
 import { useCallback } from "react"
 import { useRouter } from "next/navigation"
@@ -24,6 +24,7 @@ interface UserActionsProps {
 
 export function UserActions({ className = "" }: UserActionsProps) {
   const { user, userProfile, signOut } = useAuth()
+  const { setTheme, theme } = useTheme()
   const router = useRouter()
 
   // Use the new debug utilities
@@ -110,6 +111,14 @@ export function UserActions({ className = "" }: UserActionsProps) {
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => {
+                if (theme === "light") setTheme("dark")
+                else if (theme === "dark") setTheme("system")
+                else setTheme("light")
+              }} className="theme-toggle-menu-item">
+                Toggle Theme
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={handleSignOut}
                 className="text-destructive focus:text-destructive signout-menu-item"
@@ -121,7 +130,15 @@ export function UserActions({ className = "" }: UserActionsProps) {
         </>
       ) : (
         <>
-          <ThemeToggle />
+          <Button variant="ghost" size="sm" onClick={() => {
+            if (theme === "light") setTheme("dark")
+            else if (theme === "dark") setTheme("system")
+            else setTheme("light")
+          }} className="h-9 w-9 px-0">
+            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Toggle theme</span>
+          </Button>
           <Link href="/signup" className="hidden md:block">
             <Button variant="outline" className="rounded-md">Subscribe</Button>
           </Link>
