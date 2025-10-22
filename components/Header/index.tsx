@@ -62,6 +62,7 @@ export const Header = React.memo(({ searchQuery, onSearchChange }: HeaderProps) 
                 searchQuery={searchQuery}
                 onSearchChange={onSearchChange}
                 className="w-64"
+                isTransparent={!isScrolled}
               />
             </div>
           </div>

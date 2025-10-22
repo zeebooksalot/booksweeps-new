@@ -13,6 +13,7 @@ interface SearchBarProps {
   showMobileToggle?: boolean
   onMobileToggle?: (show: boolean) => void
   isMobileSearchOpen?: boolean
+  isTransparent?: boolean
 }
 
 // Custom hook for debounced search
@@ -39,7 +40,8 @@ export function SearchBar({
   className = "",
   showMobileToggle = false,
   onMobileToggle,
-  isMobileSearchOpen = false
+  isMobileSearchOpen = false,
+  isTransparent = false
 }: SearchBarProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -134,7 +136,7 @@ export function SearchBar({
   return (
     <div className={`relative ${className}`}>
       <Search 
-        className="absolute left-4 top-3 h-4 w-4 text-muted-foreground" 
+        className={`absolute left-4 top-3 h-4 w-4 z-10 ${isTransparent ? 'text-gray-600' : 'text-muted-foreground'}`}
         aria-hidden="true"
       />
       <Input
@@ -142,7 +144,11 @@ export function SearchBar({
         placeholder={placeholder}
         value={localSearchQuery}
         onChange={handleSearchChange}
-        className="h-10 w-full md:min-w-[240px] md:max-w-[420px] lg:max-w-[520px] cursor-pointer appearance-none rounded-full border-0 bg-muted px-10 pl-[40px] pr-20 text-foreground placeholder:text-muted-foreground focus:outline-none"
+        className={`h-10 w-full md:min-w-[240px] md:max-w-[420px] lg:max-w-[520px] cursor-pointer appearance-none rounded-full px-10 pl-[40px] pr-20 text-foreground placeholder:text-muted-foreground focus:outline-none ${
+          isTransparent 
+            ? 'bg-white/50 backdrop-blur-sm border border-gray-200' 
+            : 'bg-muted border border-border'
+        }`}
         aria-label="Search books and authors"
         role="searchbox"
       />
