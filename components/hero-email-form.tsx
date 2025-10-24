@@ -11,9 +11,9 @@ export function HeroEmailForm() {
       <div className="flex flex-col sm:flex-row gap-3 max-w-2xl mx-auto">
         <div className="flex gap-2 flex-1">
           <Input type="email" placeholder="Enter your email" className="flex-1 h-12 transition-all focus:scale-[1.02]" style={{ fontSize: 'var(--text-hero-primary)' }} />
-          <Button className="bg-primary hover:bg-primary/90 px-6 h-12 transition-all hover:scale-105 hover:shadow-lg text-white" style={{ height: '48px', fontSize: 'var(--text-hero-primary)' }}>
-            Subscribe
-          </Button>
+        <Button className="bg-primary hover:bg-primary/90 px-6 h-12 transition-all hover:scale-105 hover:shadow-lg text-white" style={{ height: '48px', fontSize: 'var(--text-hero-primary)' }}>
+          Get Started
+        </Button>
         </div>
         <Button
           variant="outline"

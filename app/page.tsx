@@ -266,7 +266,7 @@ export default function HomePage() {
       <Header searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
       {/* Hero Section - Enhanced */}
-      <section className="relative bg-gradient-to-b from-primary/5 via-background to-background pt-36 pb-6 md:pt-36 md:pb-6 overflow-hidden">
+      <section className="relative bg-gradient-to-b from-primary/5 via-background to-background pt-32 pb-6 md:pt-32 md:pb-6 overflow-hidden">
         {/* Decorative background pattern */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(16,185,129,0.05),transparent_50%),radial-gradient(circle_at_70%_60%,rgba(16,185,129,0.03),transparent_50%)] pointer-events-none" />
 
