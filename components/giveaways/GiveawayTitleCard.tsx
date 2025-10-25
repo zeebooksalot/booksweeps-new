@@ -3,9 +3,11 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { useEffect, useState } from "react"
 import { Book, Trophy } from "lucide-react"
+import { useGiveawayEntries } from "@/hooks/useGiveawayEntries"
 
 interface GiveawayTitleCardProps {
   giveaway?: {
+    id: string
     title: string
     description: string
     entry_count: number
@@ -17,6 +19,7 @@ interface GiveawayTitleCardProps {
 
 export function GiveawayTitleCard({ giveaway }: GiveawayTitleCardProps) {
   const giveawayData = giveaway || {
+    id: "1",
     title: "Enter to Win Ocean's Echo by Elena Rodriguez",
     description: "Win a signed copy of Ocean's Echo plus exclusive bookmarks and a personal letter from author Elena Rodriguez",
     entry_count: 1247,
@@ -24,6 +27,9 @@ export function GiveawayTitleCard({ giveaway }: GiveawayTitleCardProps) {
     end_date: "2024-12-30",
     prize_description: "Win a signed copy of Ocean's Echo plus exclusive bookmarks and a personal letter from author Elena Rodriguez"
   }
+
+  // Use real-time entry count
+  const { entryCount } = useGiveawayEntries(giveawayData.id)
 
   const totalDays = 30
   const daysRemaining = Math.ceil((new Date(giveawayData.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
@@ -68,7 +74,7 @@ export function GiveawayTitleCard({ giveaway }: GiveawayTitleCardProps) {
             <div className="text-sm text-muted-foreground">Your Entries</div>
           </div>
           <div className="text-center space-y-1 border-r border-border/40">
-            <div className="text-2xl md:text-3xl font-bold text-foreground tabular-nums">{giveawayData.entry_count.toLocaleString()}</div>
+            <div className="text-2xl md:text-3xl font-bold text-foreground tabular-nums">{(entryCount ?? giveawayData.entry_count).toLocaleString()}</div>
             <div className="text-sm text-muted-foreground">Total Entries</div>
           </div>
           <div className="text-center space-y-1">
@@ -80,24 +86,24 @@ export function GiveawayTitleCard({ giveaway }: GiveawayTitleCardProps) {
         <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-teal-500 to-emerald-500" />
       </div>
 
-      <CardContent className="pt-6 pb-4 px-6 md:pt-10 md:pb-6 md:px-10 bg-[#F2F5F8]">
+      <CardContent className="p-10s bg-[#F2F5F8]">
         <div className="space-y-6 text-center px-10">
           <div className="space-y-4">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground leading-10">
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground giveaway-title-line-height">
               {giveawayData.title}
             </h1>
             <div className="flex items-center justify-center gap-3 text-sm">
               <div className="inline-flex items-center gap-2 bg-white/80 px-4 py-2 rounded-full border border-border/50">
                 <Book className="h-4 w-4 text-[goldenrod]" />
-                <span className="font-semibold text-foreground">{giveawayData.number_of_winners} Winners</span>
+                <span className="font-medium text-foreground">{giveawayData.number_of_winners} Winners</span>
               </div>
               <div className="inline-flex items-center gap-2 bg-white/80 px-4 py-2 rounded-full border border-border/50">
                 <Trophy className="h-4 w-4 text-[goldenrod]" />
-                <span className="font-semibold text-foreground">$100 Prize Value</span>
+                <span className="font-medium text-foreground">$100 Prize Value</span>
               </div>
             </div>
             <p className="text-base text-muted-foreground leading-loose text-pretty max-w-2xl mx-auto pb-0">
-              {giveawayData.prize_description}
+              {giveawayData.description}
             </p>
           </div>
         </div>

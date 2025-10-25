@@ -36,11 +36,11 @@ export function GiveawayLiveSidebar({ author, book }: GiveawayLiveSidebarProps) 
   return (
     <>
       <div className="space-y-3">
-        <div className="w-full mb-6 h-[120px] rounded-lg overflow-hidden shadow-md">
+        <div className="w-full mb-6 h-[120px] rounded-lg overflow-hidden">
           <img src={authorData.avatar_url} alt={authorData.name} className="w-full h-full object-cover" />
         </div>
 
-        <div className="w-full aspect-[2/3.25] rounded-lg overflow-hidden shadow-md">
+        <div className="w-full aspect-[2/3.25] rounded-lg overflow-hidden">
           <img
             src={bookData.cover_image_url}
             alt={`${bookData.title} book cover`}

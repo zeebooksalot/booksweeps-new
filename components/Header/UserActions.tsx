@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { User, Settings, LogOut, Sun, Moon, Monitor } from "lucide-react"
+import { User, Settings, LogOut, Sun, Moon, Monitor, Bell } from "lucide-react"
 import Link from "next/link"
 import { useCallback } from "react"
 import { useRouter } from "next/navigation"
@@ -67,7 +67,7 @@ export function UserActions({ className = "" }: UserActionsProps) {
         <>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="hover:border-[goldenrod] hover:border-2 hover:rounded-full transition-colors">
                 <EnhancedAvatar
                   src={userProfile?.avatar_url}
                   email={user?.email}
@@ -108,6 +108,10 @@ export function UserActions({ className = "" }: UserActionsProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <div className="relative cursor-pointer w-10 h-10 flex items-center justify-center group">
+             <Bell className="h-5 w-5 fill-transparent stroke-foreground group-hover:fill-[goldenrod] group-hover:stroke-[#B8860B] transition-all duration-500 ease-in-out" style={{ width: '20px', height: '20px', transitionDuration: '500ms !important' }} />
+            <span className="absolute -top-1 -right-1 h-3 w-3 bg-[goldenrod] rounded-full"></span>
+          </div>
         </>
       ) : (
         <>

@@ -956,3 +956,8 @@ html::-webkit-scrollbar-thumb:hover {
     animation: none !important;
   }
 }
+
+/* Custom line height for giveaway title */
+.giveaway-title-line-height {
+  line-height: 3rem !important;
+}

@@ -30,7 +30,7 @@ export function Navigation({ className = "" }: NavigationProps) {
         <Link
           key={item.label}
           href={item.href}
-          className="text-16 font-medium text-muted-foreground transition-all duration-300 hover:text-foreground hover:scale-110 underline-offset-4 hover:underline whitespace-nowrap"
+          className="text-16 font-normal text-muted-foreground transition-all duration-300 hover:text-foreground hover:scale-105 underline-offset-4 hover:underline whitespace-nowrap"
         >
           {item.label}
         </Link>

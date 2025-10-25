@@ -51,7 +51,7 @@ export function useGiveaway({ params }: UseGiveawayProps) {
       const mockGiveaway: Giveaway = {
         id: id || "1",
         title: "Enter to Win Ocean's Echo by Elena Rodriguez",
-        description: "Enter to win a signed copy of this magical tale of love and adventure beneath the waves.",
+        description: "Win a signed copy of Ocean's Echo plus exclusive bookmarks and a personal letter from author Elena Rodriguez",
         book: {
           id: "1",
           title: "Ocean's Echo",
@@ -90,20 +90,36 @@ export function useGiveaway({ params }: UseGiveawayProps) {
 
   // Handle form submission
   const handleSubmit = useCallback(async (email: string) => {
+    if (!id) return
+    
     setIsSubmitting(true)
     setError(null)
     
     try {
-      // Simulate API call - in production this would submit to the API
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const response = await fetch(`/api/giveaways/${id}/entries`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email })
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to submit entry')
+      }
+      
+      const result = await response.json()
+      console.log('Entry submitted successfully:', result)
       setIsSubmitted(true)
     } catch (err) {
-      setError('Failed to submit entry')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit entry'
+      setError(errorMessage)
       console.error('Error submitting entry:', err)
     } finally {
       setIsSubmitting(false)
     }
-  }, [])
+  }, [id])
 
   // Utility functions
   const getTimeRemaining = useCallback((endDate: string) => {

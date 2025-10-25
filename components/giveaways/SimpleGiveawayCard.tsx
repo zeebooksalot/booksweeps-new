@@ -11,7 +11,7 @@ interface SimpleGiveawayCardProps {
 
 export function SimpleGiveawayCard({ title, author, genre, daysLeft, cover, description }: SimpleGiveawayCardProps) {
   return (
-    <div className="p-4 border border-border rounded-lg hover:shadow-md hover:border-accent transition-all duration-200 cursor-pointer shadow-sm bg-card relative">
+    <div className="p-4 border border-border rounded-lg hover:shadow-md hover:border-accent transition-all duration-200 cursor-pointer shadow-xs bg-card relative">
       <Badge className="absolute -top-3.5 -right-2.5 bg-accent text-accent-foreground text-xs px-2 py-1 shadow-sm z-10 font-medium">
         {daysLeft}
       </Badge>
