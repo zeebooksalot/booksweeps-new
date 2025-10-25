@@ -9,7 +9,7 @@ const giveaways = [
     author: "Sarah Blake",
     genre: "Fantasy Romance",
     daysLeft: "3 days left",
-    cover: "/midnights-promise-cover.jpg",
+    cover: "/placeholder.jpg",
     description: "A dark fantasy romance where ancient magic meets forbidden love in a world on the brink of war.",
   },
   {
@@ -17,7 +17,7 @@ const giveaways = [
     author: "Michael Chen",
     genre: "Epic Fantasy",
     daysLeft: "7 days left",
-    cover: "/dragons-heart-cover.jpg",
+    cover: "/placeholder.jpg",
     description: "An epic tale of dragons, destiny, and the warrior who must unite the realms to save them all.",
   },
   {
@@ -25,7 +25,7 @@ const giveaways = [
     author: "Luna Martinez",
     genre: "Urban Fantasy",
     daysLeft: "12 days left",
-    cover: "/whispers-of-magic-cover.jpg",
+    cover: "/placeholder.jpg",
     description: "Modern magic hidden in plain sight as a young witch discovers her true power in the city.",
   },
 ]

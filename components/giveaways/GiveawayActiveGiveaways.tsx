@@ -1,7 +1,4 @@
-"use client"
-
-import { RelatedGiveawayCard } from "./RelatedGiveawayCard"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { SimpleGiveawayCard } from "./SimpleGiveawayCard"
 
 const giveaways = [
   {
@@ -30,15 +27,13 @@ const giveaways = [
   },
 ]
 
-export function GiveawayRelated() {
-  const isMobile = useIsMobile()
-
+export function GiveawayActiveGiveaways() {
   return (
     <div className="mb-8">
-      <h2 className="text-xl font-semibold mb-6">Active Book Giveaways You Might Like</h2>
-      <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'md:grid-cols-3'}`}>
+      <h2 className="text-xl font-semibold mb-6">More Book Giveaways You Might Like</h2>
+      <div className="grid md:grid-cols-3 gap-6">
         {giveaways.map((book, index) => (
-          <RelatedGiveawayCard key={index} {...book} />
+          <SimpleGiveawayCard key={index} {...book} />
         ))}
       </div>
     </div>

@@ -43,16 +43,14 @@ export function useGiveaway({ params }: UseGiveawayProps) {
 
   // Fetch giveaway data
   const fetchGiveaway = useCallback(async () => {
-    if (!id) return
-    
     setIsLoading(true)
     setError(null)
     
     try {
       // For now, use mock data - in production this would be an API call
       const mockGiveaway: Giveaway = {
-        id: id,
-        title: "Win 'Ocean's Echo' - Fantasy Romance",
+        id: id || "1",
+        title: "Enter to Win Ocean's Echo by Elena Rodriguez",
         description: "Enter to win a signed copy of this magical tale of love and adventure beneath the waves.",
         book: {
           id: "1",
@@ -69,7 +67,7 @@ export function useGiveaway({ params }: UseGiveawayProps) {
           bio: "Fantasy romance author who transports readers to magical worlds filled with adventure and love."
         },
         start_date: "2024-01-01",
-        end_date: "2024-12-31",
+        end_date: "2025-12-31",
         entry_count: 156,
         max_entries: 1000,
         number_of_winners: 5,

@@ -42,7 +42,7 @@ export function GiveawaySingleAuthor({ author }: GiveawayAuthorSectionProps) {
       <CardContent>
         <div className="flex gap-4">
           <Avatar className="h-16 w-16">
-            <AvatarImage src={authorData.avatar_url} />
+            <AvatarImage src={authorData.avatar_url?.startsWith('gradient:') ? undefined : authorData.avatar_url} />
             <AvatarFallback>{authorData.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
           </Avatar>
           <div className="space-y-2">

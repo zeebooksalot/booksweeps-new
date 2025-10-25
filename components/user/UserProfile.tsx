@@ -98,7 +98,7 @@ export function UserProfile() {
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center gap-4">
         <Avatar className="h-16 w-16">
-          <AvatarImage src={userProfile?.avatar_url || undefined} />
+          <AvatarImage src={userProfile?.avatar_url?.startsWith('gradient:') ? undefined : (userProfile?.avatar_url || undefined)} />
           <AvatarFallback>
             {userProfile?.display_name?.charAt(0) || user.email?.charAt(0) || 'U'}
           </AvatarFallback>
