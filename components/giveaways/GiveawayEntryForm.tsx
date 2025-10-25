@@ -9,7 +9,7 @@ import { GiveawayEntrySuccessMessage } from "./GiveawayEntrySuccessMessage"
 interface GiveawayEntryFormProps {
   onShowRules: () => void
   endDate: string
-  onSubmit: (email: string) => Promise<void>
+  onSubmit: (email: string, entries?: any) => Promise<any>
 }
 
 export function GiveawayEntryForm({ onShowRules, endDate, onSubmit }: GiveawayEntryFormProps) {
@@ -59,9 +59,26 @@ export function GiveawayEntryForm({ onShowRules, endDate, onSubmit }: GiveawayEn
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (email && entries.email) {
-      setIsSubmitted(true)
-      setIsExploding(true)
-      await onSubmit(email)
+      try {
+        setIsSubmitted(true)
+        setIsExploding(true)
+        
+        // Convert UI entries to API format
+        const apiEntries = {
+          twitter: entries.twitter,
+          facebook: entries.facebook,
+          newsletter: entries.newsletter,
+          earlyBirdBooks: entries.earlyBirdBooks
+        }
+        
+        const result = await onSubmit(email, apiEntries)
+        console.log('Bonus entries submitted:', result)
+      } catch (error) {
+        console.error('Error submitting bonus entries:', error)
+        // Reset state on error
+        setIsSubmitted(false)
+        setIsExploding(false)
+      }
     }
   }
 

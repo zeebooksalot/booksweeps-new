@@ -88,8 +88,8 @@ export function useGiveaway({ params }: UseGiveawayProps) {
     }
   }, [id])
 
-  // Handle form submission
-  const handleSubmit = useCallback(async (email: string) => {
+  // Handle form submission with bonus entries
+  const handleSubmit = useCallback(async (email: string, entries?: any) => {
     if (!id) return
     
     setIsSubmitting(true)
@@ -101,7 +101,7 @@ export function useGiveaway({ params }: UseGiveawayProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email, entries })
       })
       
       if (!response.ok) {
@@ -112,12 +112,32 @@ export function useGiveaway({ params }: UseGiveawayProps) {
       const result = await response.json()
       console.log('Entry submitted successfully:', result)
       setIsSubmitted(true)
+      return result
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit entry'
       setError(errorMessage)
       console.error('Error submitting entry:', err)
+      throw err
     } finally {
       setIsSubmitting(false)
+    }
+  }, [id])
+
+  // Get user's current entries
+  const getUserEntries = useCallback(async (email: string) => {
+    if (!id || !email) return null
+    
+    try {
+      const response = await fetch(`/api/giveaways/${id}/entries?email=${encodeURIComponent(email)}`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch user entries')
+      }
+      
+      return await response.json()
+    } catch (err) {
+      console.error('Error fetching user entries:', err)
+      return null
     }
   }, [id])
 
@@ -164,6 +184,7 @@ export function useGiveaway({ params }: UseGiveawayProps) {
     // Actions
     setEmail,
     handleSubmit,
+    getUserEntries,
     
     // Utilities
     getTimeRemaining,
