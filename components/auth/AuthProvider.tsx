@@ -12,13 +12,35 @@ import { User } from "@supabase/supabase-js"
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<User | null>(() => {
+    // Try to restore user from localStorage on initial render
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedUser = localStorage.getItem('auth_user')
+        return cachedUser ? JSON.parse(cachedUser) : null
+      } catch {
+        return null
+      }
+    }
+    return null
+  })
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [profileLoading, setProfileLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [sessionEstablished, setSessionEstablished] = useState(false)
+  const [sessionEstablished, setSessionEstablished] = useState(() => {
+    // Try to restore session state from localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem('auth_session') === 'true'
+      } catch {
+        return false
+      }
+    }
+    return false
+  })
+  const [isHydrated, setIsHydrated] = useState(false)
   const router = useRouter()
 
   // Use refs to maintain state across re-renders
@@ -31,6 +53,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Create Supabase client using the SSR-compatible client
   const supabase = createClientComponentClient()
+
+  // Cache auth state to localStorage
+  const cacheAuthState = useCallback((user: User | null, sessionEstablished: boolean) => {
+    if (typeof window !== 'undefined') {
+      try {
+        if (user) {
+          localStorage.setItem('auth_user', JSON.stringify(user))
+          localStorage.setItem('auth_session', 'true')
+        } else {
+          localStorage.removeItem('auth_user')
+          localStorage.setItem('auth_session', 'false')
+        }
+      } catch (error) {
+        debug.log('Error caching auth state:', error)
+      }
+    }
+  }, [debug])
+
+  // Clear cached auth state
+  const clearAuthCache = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('auth_user')
+        localStorage.removeItem('auth_session')
+      } catch (error) {
+        debug.log('Error clearing auth cache:', error)
+      }
+    }
+  }, [debug])
 
   // Create user profile
   const createUserProfile = useCallback(async (userId: string, email: string) => {
@@ -292,6 +343,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear storage
       debugStorageClearing()
       
+      // Clear auth cache
+      clearAuthCache()
+      
       // Sign out from Supabase
       const { error: signOutError } = await supabase.auth.signOut()
       if (signOutError) throw signOutError
@@ -313,6 +367,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null)
   }, [])
 
+  // Hydration guard
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
   // Initialize auth state - Only runs once on mount
   useEffect(() => {
     // Prevent multiple initializations
@@ -332,6 +391,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
+        debug.log('Checking for existing session...')
+        
+        // Check for existing session first
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          debug.log('Error getting session:', error)
+        } else if (session?.user) {
+          debug.log('Found existing session for user:', session.user.id)
+          setUser(session.user)
+          setSessionEstablished(true)
+          
+          // Cache the restored session
+          cacheAuthState(session.user, true)
+          
+          // Load profile and settings in background
+          Promise.all([
+            loadUserProfileInternal(session.user.id, session.user.email),
+            loadUserSettingsInternal(session.user.id)
+          ]).catch(error => {
+            debug.log('Error loading profile/settings on session restore:', error)
+          })
+        } else {
+          debug.log('No existing session found')
+        }
+        
         debug.log('Initial auth setup complete')
       } catch (err) {
         debug.log('Error in auth initialization:', err)
@@ -355,8 +440,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           hasSession: !!session
         })
         
-        setUser(session?.user ?? null)
-        setSessionEstablished(!!session?.user)
+        const newUser = session?.user ?? null
+        const newSessionEstablished = !!session?.user
+        
+        setUser(newUser)
+        setSessionEstablished(newSessionEstablished)
+        
+        // Cache the auth state
+        cacheAuthState(newUser, newSessionEstablished)
         
         // Handle different auth events - make profile loading non-blocking
         if (event === 'SIGNED_IN' && session?.user) {
@@ -406,7 +497,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userProfile,
     userSettings,
     userType: userProfile?.user_type || null,
-    loading,
+    loading: isHydrated ? loading : true,
     profileLoading,
     error,
     sessionEstablished,

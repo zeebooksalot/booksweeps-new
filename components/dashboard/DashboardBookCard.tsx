@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { GradientBookCover } from "@/components/ui/gradient-book-cover"
 import Image from "next/image"
+import { useDynamicBadgeColor } from "@/hooks/useDynamicBadgeColor"
 
 interface EnhancedBookCardProps {
   id: number
@@ -38,6 +39,8 @@ export function DashboardBookCard({
   winner,
   showDownloadButton = false,
 }: EnhancedBookCardProps) {
+  const badgeColors = useDynamicBadgeColor(coverImage)
+  
   return (
     <Card className="group overflow-hidden hover:shadow-md transition-all duration-300 border-border/50 hover:border-primary/20 py-0 gap-0">
       <div className="aspect-[2/3] relative bg-muted overflow-hidden">
@@ -58,7 +61,18 @@ export function DashboardBookCard({
             sizes="(max-width: 768px) 100vw, 20vw"
           />
         )}
-        <Badge className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs">{genre}</Badge>
+        {!badgeColors.isLoading && (
+          <Badge
+            className="absolute top-2 right-2 text-xs"
+            style={{
+              backgroundColor: badgeColors.background,
+              borderColor: badgeColors.border,
+              color: badgeColors.text
+            }}
+          >
+            {genre}
+          </Badge>
+        )}
         {winner && <Badge className="absolute top-2 left-2 bg-green-600 text-white text-xs">Won</Badge>}
       </div>
       <div className="p-3 space-y-2">
@@ -98,12 +112,19 @@ export function DashboardBookCard({
         {wonDate && status && (
           <div className="flex items-center justify-between text-xs pt-2 border-t border-border/50">
             <span className="text-muted-foreground text-[10px]">Won {wonDate}</span>
-            <Badge
-              variant={status === "Delivered" ? "default" : "outline"}
-              className="text-[10px] font-medium px-1.5 py-0"
-            >
-              {status}
-            </Badge>
+        {!badgeColors.isLoading && (
+          <Badge
+            variant={status === "Delivered" ? "default" : "outline"}
+            className="text-[10px] font-medium px-1.5 py-0"
+            style={{
+              backgroundColor: status === "Delivered" ? badgeColors.background : 'transparent',
+              borderColor: badgeColors.border,
+              color: status === "Delivered" ? badgeColors.text : badgeColors.text
+            }}
+          >
+            {status}
+          </Badge>
+        )}
           </div>
         )}
 
@@ -114,6 +135,11 @@ export function DashboardBookCard({
             <Badge
               variant={status === "Reading" ? "default" : "outline"}
               className="text-[10px] font-medium px-1.5 py-0"
+              style={{
+                backgroundColor: status === "Reading" ? badgeColors.background : 'transparent',
+                borderColor: badgeColors.border,
+                color: status === "Reading" ? badgeColors.text : badgeColors.text
+              }}
             >
               {status}
             </Badge>

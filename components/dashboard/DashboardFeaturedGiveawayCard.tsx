@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { GradientBookCover } from "@/components/ui/gradient-book-cover"
 import Image from "next/image"
+import { useDynamicBadgeColor } from "@/hooks/useDynamicBadgeColor"
 
 interface FeaturedGiveawayCardProps {
   id: number
@@ -22,6 +23,8 @@ export function DashboardFeaturedGiveawayCard({
   daysLeft,
   featured = true,
 }: FeaturedGiveawayCardProps) {
+  const badgeColors = useDynamicBadgeColor(coverImage)
+  
   return (
     <Card className="flex-none w-[calc(33.333%-11px)] min-w-[280px] snap-start group/card overflow-hidden hover:shadow-md transition-all duration-300 border-border/50 hover:border-primary/20 py-0">
       <div className="relative">
@@ -42,8 +45,17 @@ export function DashboardFeaturedGiveawayCard({
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
-          {featured && (
-            <Badge className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs">Featured</Badge>
+          {featured && !badgeColors.isLoading && (
+            <Badge
+              className="absolute top-2 right-2 text-xs"
+              style={{
+                backgroundColor: badgeColors.background,
+                borderColor: badgeColors.border,
+                color: badgeColors.text
+              }}
+            >
+              Featured
+            </Badge>
           )}
         </div>
         <div className="p-3 space-y-2">

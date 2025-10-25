@@ -17,6 +17,14 @@ const ENTRY_METHODS = {
 
 type EntryMethod = keyof typeof ENTRY_METHODS
 
+type UserEntry = {
+  method: string
+  label: string
+  bonus_entries: number
+  created_at: string
+  entry_data: any
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -163,7 +171,7 @@ export async function GET(
       }, { status: 404 })
     }
 
-    let userEntries = []
+    let userEntries: UserEntry[] = []
     let userTotalEntries = 0
 
     // If email provided, get user's entries

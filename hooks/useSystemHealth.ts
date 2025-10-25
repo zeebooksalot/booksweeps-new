@@ -17,7 +17,7 @@ interface SystemHealthCache {
 export function useSystemHealth() {
   const [healthState, setHealthState] = useState<SystemHealthState>({
     status: 'checking',
-    timestamp: Date.now(),
+    timestamp: 0,
     lastCheck: 0
   })
   

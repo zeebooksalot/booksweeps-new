@@ -67,10 +67,10 @@ export function DashboardSidebar({
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border border-transparent",
                     isSidebarCollapsed && "justify-center px-2",
                     activeTab === item.id
-                      ? "bg-primary text-primary-foreground shadow-sm"
+                      ? "bg-primary/10 text-primary border-primary/20 shadow-sm"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                   )}
                   title={isSidebarCollapsed ? item.label : undefined}

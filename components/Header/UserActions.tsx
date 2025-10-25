@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { User, Settings, LogOut, Sun, Moon, Monitor, Bell } from "lucide-react"
 import Link from "next/link"
-import { useCallback } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createAuthDebugLogger, debugNavigation } from "@/lib/debug-utils"
 
@@ -26,6 +26,11 @@ export function UserActions({ className = "" }: UserActionsProps) {
   const { user, userProfile, signOut } = useAuth()
   const { setTheme, theme } = useTheme()
   const router = useRouter()
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   // Use the new debug utilities
   const debug = createAuthDebugLogger('UserActions')
@@ -63,7 +68,14 @@ export function UserActions({ className = "" }: UserActionsProps) {
 
   return (
     <div className={`hidden md:flex items-center gap-3 ${className}`}>
-      {user ? (
+      {!isHydrated ? (
+        // Show loading state during hydration
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-muted animate-pulse rounded-full"></div>
+          <div className="w-16 h-9 bg-muted animate-pulse rounded"></div>
+          <div className="w-20 h-9 bg-muted animate-pulse rounded"></div>
+        </div>
+      ) : user ? (
         <>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

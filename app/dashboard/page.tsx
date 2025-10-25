@@ -1,11 +1,11 @@
 "use client"
 import { CardContent } from "@/components/ui/card"
 import { Card } from "@/components/ui/card"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Header } from "@/components/header/index"
 import { DashboardStatsCard } from "@/components/dashboard/DashboardStatsCard"
-import { BookOpen, Trophy, Heart, Flame, Library, ArrowRight } from "lucide-react"
+import { BookOpen, Trophy, Heart, Flame, Library, ArrowRight, Megaphone } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -17,13 +17,15 @@ import { DashboardCarouselContainer } from "@/components/dashboard/DashboardCaro
 import { DashboardAuthorCard } from "@/components/dashboard/DashboardAuthorCard"
 import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState"
 import { DashboardFeaturedGiveawayCard } from "@/components/dashboard/DashboardFeaturedGiveawayCard"
+import { FeaturedSlider } from "@/components/dashboard/FeaturedSlider"
+import { useAuth } from "@/components/auth/AuthProvider"
 
 const featuredGiveaways = [
   {
     id: 1,
     title: "Epic Fantasy Bundle",
     description: "Win 5 bestselling fantasy novels + $50 Amazon gift card",
-    coverImage: "/dragon-fantasy-book-cover.png",
+    coverImage: "gradient:fantasy",
     entries: 2847,
     daysLeft: 5,
     featured: true,
@@ -32,7 +34,7 @@ const featuredGiveaways = [
     id: 2,
     title: "Romance Reader's Dream",
     description: "Complete romance collection with signed editions",
-    coverImage: "gradient:fantasy",
+    coverImage: "gradient:romance",
     entries: 1923,
     daysLeft: 3,
     featured: true,
@@ -41,7 +43,7 @@ const featuredGiveaways = [
     id: 3,
     title: "Mystery Lover's Package",
     description: "3 mystery thrillers + exclusive author merchandise",
-    coverImage: "/urban-fantasy-book-cover.jpg",
+    coverImage: "gradient:mystery",
     entries: 1456,
     daysLeft: 8,
     featured: true,
@@ -109,7 +111,7 @@ const activeEntries = [
     title: "The Dragon's Heart",
     author: "Michael Chen",
     genre: "Epic Fantasy",
-    coverImage: "/dragon-fantasy-book-cover.png",
+    coverImage: "gradient:fantasy",
     entryDate: "Jan 12",
     daysLeft: 7,
   },
@@ -118,7 +120,7 @@ const activeEntries = [
     title: "Whispers of Magic",
     author: "Luna Martinez",
     genre: "Urban Fantasy",
-    coverImage: "/urban-fantasy-book-cover.jpg",
+    coverImage: "gradient:urban",
     entryDate: "Jan 10",
     daysLeft: 12,
   },
@@ -127,7 +129,7 @@ const activeEntries = [
     title: "Ocean's Echo",
     author: "Elena Rodriguez",
     genre: "Romance",
-    coverImage: "/ocean-romance-book-cover.jpg",
+    coverImage: "gradient:romance",
     entryDate: "Jan 8",
     daysLeft: 5,
   },
@@ -136,7 +138,7 @@ const activeEntries = [
     title: "Shadow's Edge",
     author: "James Morrison",
     genre: "Dark Fantasy",
-    coverImage: "/dark-fantasy-book-cover.png",
+    coverImage: "gradient:fantasy",
     entryDate: "Jan 5",
     daysLeft: 9,
   },
@@ -367,7 +369,7 @@ const recommendedFreeBooks = [
     title: "Shadows of the Past",
     author: "Marcus Black",
     genre: "Mystery",
-    coverImage: "/dark-fantasy-book-cover.png",
+    coverImage: "gradient:mystery",
     rating: 4.3,
     downloads: 15200,
   },
@@ -376,7 +378,7 @@ const recommendedFreeBooks = [
     title: "Love in Paris",
     author: "Sophie Laurent",
     genre: "Romance",
-    coverImage: "/ocean-romance-book-cover.jpg",
+    coverImage: "gradient:romance",
     rating: 4.6,
     downloads: 10800,
   },
@@ -412,7 +414,7 @@ const recommendedFreeBooks = [
     title: "Urban Legends",
     author: "Maya Chen",
     genre: "Urban Fantasy",
-    coverImage: "/urban-fantasy-book-cover.jpg",
+    coverImage: "gradient:urban",
     rating: 4.8,
     downloads: 13400,
   },
@@ -437,10 +439,16 @@ const recommendedFreeBooks = [
 ]
 
 export default function DashboardPage() {
+  const { user, userProfile } = useAuth()
   const [activeTab, setActiveTab] = useState("home")
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [entriesFilter, setEntriesFilter] = useState<"active" | "ended">("active")
   const [searchQuery, setSearchQuery] = useState("")
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
   const [genrePreferences, setGenrePreferences] = useState({
     fantasy: true,
     romance: true,
@@ -453,6 +461,23 @@ export default function DashboardPage() {
     youngAdult: false,
     paranormal: false,
   })
+
+  // Get display name with fallbacks
+  const getDisplayName = () => {
+    if (userProfile?.display_name) {
+      return userProfile.display_name
+    }
+    if (userProfile?.first_name && userProfile?.last_name) {
+      return `${userProfile.first_name} ${userProfile.last_name}`
+    }
+    if (userProfile?.first_name) {
+      return userProfile.first_name
+    }
+    if (user?.email) {
+      return user.email.split('@')[0]
+    }
+    return 'User'
+  }
 
   const [emailNotifications, setEmailNotifications] = useState({
     newGiveaways: true,
@@ -496,10 +521,64 @@ export default function DashboardPage() {
             {/* Home Tab Content */}
             {activeTab === "home" && (
               <div className="space-y-10">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Entries</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">12</p>
+                      </div>
+                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                        <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Books Won</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">3</p>
+                      </div>
+                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                        <Trophy className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Following</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">28</p>
+                      </div>
+                      <div className="w-10 h-10 bg-pink-100 dark:bg-pink-900/20 rounded-lg flex items-center justify-center">
+                        <Heart className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Reading Streak</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">15 days</p>
+                      </div>
+                      <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
+                        <Flame className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Featured Slider */}
+                <FeaturedSlider getDisplayName={getDisplayName} isHydrated={isHydrated} />
+
                 <div>
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xl font-bold tracking-tight">Welcome, Jane Doe!</h3>
+                      <h3 className="text-2xl font-bold">Recommended Book Giveaways to Enter</h3>
                       <p className="text-sm text-muted-foreground mt-1">
                         Discover new giveaways and free books tailored to your interests
                       </p>
@@ -680,18 +759,6 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <div className="space-y-6 mt-6">
-                  {/* Stats Overview */}
-                  <div>
-                    <h3 className="text-lg font-semibold">Your Stats</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-                      <DashboardStatsCard title="Active Entries" value={12} icon={BookOpen} />
-                      <DashboardStatsCard title="Books Won" value={3} icon={Trophy} />
-                      <DashboardStatsCard title="My Books" value={3} icon={Library} />
-                      <DashboardStatsCard title="Following" value={28} icon={Heart} />
-                      <DashboardStatsCard title="Reading Streak" value="15 days" icon={Flame} />
-                    </div>
-                  </div>
-
                   {/* Profile Information Card */}
                   <Card className="border-border/50">
                     <CardContent className="p-6">
@@ -708,9 +775,9 @@ export default function DashboardPage() {
                           <Label className="text-sm font-medium">Profile Picture</Label>
                           <div className="flex items-center gap-4">
                             <Avatar className="h-20 w-20">
-                              <AvatarImage src="/placeholder.svg" alt="Jane Doe" />
+                              <AvatarImage src={userProfile?.avatar_url || "/placeholder.svg"} alt={isHydrated ? getDisplayName() : 'User'} />
                               <AvatarFallback className="bg-primary text-primary-foreground text-xl font-semibold">
-                                JD
+                                {!isHydrated ? 'U' : getDisplayName().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                               </AvatarFallback>
                             </Avatar>
                             <div className="space-y-2">
@@ -727,7 +794,7 @@ export default function DashboardPage() {
                           <Label htmlFor="email" className="text-sm font-medium">
                             Email Address
                           </Label>
-                          <Input id="email" type="email" defaultValue="jane.doe@example.com" className="max-w-md" />
+                          <Input id="email" type="email" defaultValue={user?.email || ""} className="max-w-md" />
                           <p className="text-xs text-muted-foreground">
                             This is the email address associated with your account
                           </p>

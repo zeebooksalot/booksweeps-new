@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [checkingUserType, setCheckingUserType] = useState(false)
   const [showAuthorChoice, setShowAuthorChoice] = useState(false)
   const [hasRedirected, setHasRedirected] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
   
   const { signIn, user, loading: authLoading } = useAuth()
   const { toast } = useToast()
@@ -30,6 +31,11 @@ export default function LoginPage() {
   
   // Use shared system health hook
   const { isUnhealthy } = useSystemHealth()
+
+  // Hydration guard to prevent mismatches
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   // Fix the auth state check to prevent multiple redirects
   useEffect(() => {
@@ -360,11 +366,15 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={loading || authLoading || isUnhealthy}
+                disabled={!isHydrated || !!(loading || authLoading || isUnhealthy)}
                 className="inline-flex items-center justify-center h-11 w-full rounded-full bg-orange-500 text-white text-14 font-semibold hover:bg-orange-600 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
                 aria-describedby={errorMessage ? "error-message" : undefined}
               >
-                {loading ? 'Signing in...' : (checkingUserType ? 'Checking account...' : 'Sign in')}
+                {!isHydrated ? 'Loading...' : (() => {
+                  if (loading) return 'Signing in...'
+                  if (checkingUserType) return 'Checking account...'
+                  return 'Sign in'
+                })()}
               </button>
 
               <div className="text-center text-14 text-gray-600 dark:text-gray-400">

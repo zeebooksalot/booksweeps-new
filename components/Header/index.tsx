@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Navigation } from "./Navigation"
 import { UserActions } from "./UserActions"
 import { MobileMenu } from "./MobileMenu"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { Home } from "lucide-react"
 
 interface HeaderProps {
   searchQuery: string
@@ -15,8 +17,14 @@ interface HeaderProps {
 }
 
 export const Header = React.memo(({ searchQuery, onSearchChange }: HeaderProps) => {
+  const { user } = useAuth()
   const [showMobileSearch, setShowMobileSearch] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -37,10 +45,11 @@ export const Header = React.memo(({ searchQuery, onSearchChange }: HeaderProps) 
       }`}
       role="banner"
       aria-label="Main navigation"
+      suppressHydrationWarning
     >
       <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex items-center gap-4">
-          {/* Left cluster: Logo + Nav + Search */}
+          {/* Left cluster: Logo + Homepage icon + Nav */}
           <div className="flex items-center gap-4 md:gap-6">
             {/* Logo */}
             <Link 
@@ -53,9 +62,24 @@ export const Header = React.memo(({ searchQuery, onSearchChange }: HeaderProps) 
               </span>
             </Link>
 
+            {/* Homepage icon for logged-in users */}
+            {isHydrated && user && (
+              <Link
+                href="/dashboard"
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 hover:border-yellow-500/40 transition-colors"
+                aria-label="Go to dashboard"
+                title="Dashboard"
+              >
+                <Home className="h-5 w-5 text-yellow-600" />
+              </Link>
+            )}
+
             {/* Desktop Navigation */}
             <Navigation />
+          </div>
 
+          {/* Right: Search + User actions */}
+          <div className="flex items-center gap-3 ml-auto">
             {/* Search Bar */}
             <div className="hidden md:block">
               <SearchBar
@@ -65,10 +89,6 @@ export const Header = React.memo(({ searchQuery, onSearchChange }: HeaderProps) 
                 isTransparent={!isScrolled}
               />
             </div>
-          </div>
-
-          {/* Right: User actions */}
-          <div className="flex items-center gap-3 ml-auto">
             <UserActions />
             {/* Mobile Menu */}
             <div className="md:hidden">
