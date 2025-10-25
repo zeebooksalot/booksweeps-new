@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage, EnhancedAvatar } from "@/components/ui/avatar"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { DashboardBookCard } from "@/components/dashboard/DashboardBookCard"
 import { DashboardCarouselContainer } from "@/components/dashboard/DashboardCarouselContainer"
 import { DashboardAuthorCard } from "@/components/dashboard/DashboardAuthorCard"
@@ -457,6 +458,7 @@ export default function DashboardPage() {
   const [entriesFilter, setEntriesFilter] = useState<"active" | "ended">("active")
   const [searchQuery, setSearchQuery] = useState("")
   const [isHydrated, setIsHydrated] = useState(false)
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
 
   useEffect(() => {
     setIsHydrated(true)
@@ -782,85 +784,211 @@ export default function DashboardPage() {
                     Manage your account information and view your BookSweeps activity
                   </p>
                 </div>
-                <div className="space-y-6 mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6 items-start">
                   {/* Profile Information Card */}
-                  <Card className="border-border/50">
+                  <Card className="border-border/50 lg:col-span-2">
                     <CardContent className="p-6">
                       <div className="space-y-6">
                         <div>
-                          <h3 className="font-semibold text-lg mb-1">Profile Information</h3>
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-semibold text-lg">Profile Information</h3>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">Member Since</span>
+                              <span className="text-sm font-medium text-foreground">
+                                {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  year: 'numeric' 
+                                }) : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
                           <p className="text-sm text-muted-foreground leading-relaxed">
                             Manage your account information and preferences
                           </p>
                         </div>
 
-                        {/* Avatar Section */}
+                        {/* Avatar and Form Fields Section */}
                         <div className="space-y-3">
-                          <Label className="text-sm font-medium">Profile Picture</Label>
-                          <div className="flex items-center gap-4">
-                            <Avatar className="h-20 w-20">
-                              <AvatarImage src={userProfile?.avatar_url || "/placeholder.svg"} alt={isHydrated ? getDisplayName() : 'User'} />
-                              <AvatarFallback className="bg-primary text-primary-foreground text-xl font-semibold">
-                                {!isHydrated ? 'U' : getDisplayName().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="space-y-2">
-                              <Button variant="outline" size="sm">
-                                Upload New Photo
-                              </Button>
-                              <p className="text-xs text-muted-foreground">JPG, PNG or GIF. Max size 2MB.</p>
+                          <div className="flex items-start gap-8">
+                            <div className="space-y-3 flex flex-col items-center">
+                              <Label className="text-sm font-medium">Profile Picture</Label>
+                              {!isHydrated ? (
+                                <div className="h-20 w-20 bg-muted animate-pulse rounded-full flex items-center justify-center">
+                                  <span className="text-muted-foreground text-sm">Loading...</span>
+                                </div>
+                              ) : (
+                                <EnhancedAvatar
+                                  src={userProfile?.avatar_url}
+                                  email={user?.email}
+                                  name={userProfile?.display_name || undefined}
+                                  size={80}
+                                  alt={getDisplayName()}
+                                  className="h-20 w-20"
+                                />
+                              )}
+                              <div className="text-center">
+                                <TooltipProvider delayDuration={0}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        className="bg-yellow-500/10 text-yellow-700 border-yellow-500/30 hover:bg-yellow-500/20 hover:text-yellow-700 hover:border-yellow-500/40"
+                                      >
+                                        Upload New Photo
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>JPG, PNG or GIF. Max size 2MB.</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                            </div>
+                            
+                            {/* Name and Email Fields */}
+                            <div className="space-y-4 flex-1">
+                              <div className="space-y-2">
+                                <Label htmlFor="display_name" className="text-sm font-medium">
+                                  Display Name
+                                </Label>
+                                {!isHydrated ? (
+                                  <div className="h-10 bg-muted animate-pulse rounded-md max-w-md"></div>
+                                ) : (
+                                  <Input 
+                                    id="display_name" 
+                                    type="text" 
+                                    defaultValue={userProfile?.display_name || ""} 
+                                    className="max-w-md" 
+                                    placeholder="Enter your display name"
+                                  />
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                  This is how your name will appear to other users
+                                </p>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor="email" className="text-sm font-medium">
+                                  Email Address
+                                </Label>
+                                {!isHydrated ? (
+                                  <div className="h-10 bg-muted animate-pulse rounded-md max-w-md"></div>
+                                ) : (
+                                  <Input id="email" type="email" defaultValue={user?.email || ""} className="max-w-md" />
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                  This is the email address associated with your account
+                                </p>
+                              </div>
+                              
+                              <div className="pt-2 space-y-3">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="text-sm bg-background border-border text-foreground font-normal hover:border-foreground/50 hover:bg-background hover:text-foreground"
+                                  onClick={() => setShowPasswordForm(!showPasswordForm)}
+                                >
+                                  {showPasswordForm ? 'Cancel' : 'Change Password'}
+                                </Button>
+                                
+                                {showPasswordForm && (
+                                  <div className="space-y-3 p-4 border border-border/50 rounded-lg bg-muted/30">
+                                    <h4 className="font-semibold text-sm">Change Password</h4>
+                                    <div className="space-y-3">
+                                      <div className="space-y-2">
+                                        <Label htmlFor="current-password" className="text-sm font-medium">
+                                          Current Password
+                                        </Label>
+                                        <Input id="current-password" type="password" className="max-w-md" />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label htmlFor="new-password" className="text-sm font-medium">
+                                          New Password
+                                        </Label>
+                                        <Input id="new-password" type="password" className="max-w-md" />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label htmlFor="confirm-password" className="text-sm font-medium">
+                                          Confirm New Password
+                                        </Label>
+                                        <Input id="confirm-password" type="password" className="max-w-md" />
+                                      </div>
+                                      <div className="flex gap-2 pt-2">
+                                        <Button size="sm" className="bg-primary hover:bg-primary/90 text-white">
+                                          Update Password
+                                        </Button>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm"
+                                          onClick={() => setShowPasswordForm(false)}
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-
-                        {/* Email Field */}
-                        <div className="space-y-2">
-                          <Label htmlFor="email" className="text-sm font-medium">
-                            Email Address
-                          </Label>
-                          <Input id="email" type="email" defaultValue={user?.email || ""} className="max-w-md" />
-                          <p className="text-xs text-muted-foreground">
-                            This is the email address associated with your account
+                      </div>
+                    </CardContent>
+                    <div className="flex gap-3 p-6 border-t border-border/50">
+                      <Button className="bg-primary hover:bg-primary/90 text-white">Save Changes</Button>
+                      <Button variant="outline">Cancel</Button>
+                    </div>
+                  </Card>
+                  
+                  {/* Invite Your Friends Card */}
+                  <Card className="border-border/50">
+                    <CardContent className="p-6">
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="font-semibold text-lg mb-1">Invite Your Friends</h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            Share BookSweeps with your book-loving friends and earn rewards!
                           </p>
                         </div>
-
-                        {/* Password Reset Section */}
-                        <div className="space-y-4 pt-4 border-t border-border/50">
-                          <div>
-                            <h4 className="font-semibold text-base mb-1">Change Password</h4>
-                            <p className="text-sm text-muted-foreground">
-                              Update your password to keep your account secure
-                            </p>
-                          </div>
-
-                          <div className="space-y-4 max-w-md">
-                            <div className="space-y-2">
-                              <Label htmlFor="current-password" className="text-sm font-medium">
-                                Current Password
-                              </Label>
-                              <Input id="current-password" type="password" />
+                        
+                        <div className="space-y-3">
+                          <div className="bg-muted/50 rounded-lg p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span className="text-sm font-medium">Your Referral Link</span>
                             </div>
-
-                            <div className="space-y-2">
-                              <Label htmlFor="new-password" className="text-sm font-medium">
-                                New Password
-                              </Label>
-                              <Input id="new-password" type="password" />
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label htmlFor="confirm-password" className="text-sm font-medium">
-                                Confirm New Password
-                              </Label>
-                              <Input id="confirm-password" type="password" />
+                            <div className="flex items-center gap-2">
+                              <code className="text-xs bg-background px-2 py-1 rounded border flex-1 truncate">
+                                booksweeps.com/ref/yourcode
+                              </code>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="shrink-0"
+                              >
+                                Copy
+                              </Button>
                             </div>
                           </div>
-                        </div>
-
-                        {/* Save Button */}
-                        <div className="flex gap-3 pt-4">
-                          <Button className="bg-primary hover:bg-primary/90 text-white">Save Changes</Button>
-                          <Button variant="outline">Cancel</Button>
+                          
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Friends Referred</span>
+                              <span className="font-medium">0</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Rewards Earned</span>
+                              <span className="font-medium">$0</span>
+                            </div>
+                          </div>
+                          
+                          <Button 
+                            variant="outline" 
+                            className="w-full bg-yellow-500/10 text-yellow-700 border-yellow-500/30 hover:bg-yellow-500/20 hover:text-yellow-700 hover:border-yellow-500/40"
+                          >
+                            Share with Friends
+                          </Button>
                         </div>
                       </div>
                     </CardContent>

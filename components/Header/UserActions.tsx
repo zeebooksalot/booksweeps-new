@@ -27,6 +27,7 @@ export function UserActions({ className = "" }: UserActionsProps) {
   const { setTheme, theme } = useTheme()
   const router = useRouter()
   const [isHydrated, setIsHydrated] = useState(false)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   useEffect(() => {
     setIsHydrated(true)
@@ -77,9 +78,17 @@ export function UserActions({ className = "" }: UserActionsProps) {
         </div>
       ) : user ? (
         <>
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="hover:border-[goldenrod] hover:border-2 hover:rounded-full transition-colors">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className={`transition-colors ${
+                  isDropdownOpen 
+                    ? "border-[goldenrod] border-2 rounded-full" 
+                    : "hover:border-[goldenrod] hover:border-2 hover:rounded-full"
+                }`}
+              >
                 <EnhancedAvatar
                   src={userProfile?.avatar_url}
                   email={user?.email}

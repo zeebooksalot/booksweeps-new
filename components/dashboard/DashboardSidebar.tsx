@@ -114,7 +114,7 @@ export function DashboardSidebar({
               <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
                 Browse trending book giveaways in your favorite genres
               </p>
-              <Button size="sm" className="w-full bg-primary hover:bg-primary/90 text-white text-xs h-8">
+              <Button size="sm" variant="outline" className="w-full text-xs h-8 bg-transparent">
                 Explore Giveaways
               </Button>
             </div>
