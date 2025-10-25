@@ -2,6 +2,7 @@
 import { CardContent } from "@/components/ui/card"
 import { Card } from "@/components/ui/card"
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Header } from "@/components/header/index"
 import { DashboardStatsCard } from "@/components/dashboard/DashboardStatsCard"
@@ -440,7 +441,18 @@ const recommendedFreeBooks = [
 
 export default function DashboardPage() {
   const { user, userProfile } = useAuth()
-  const [activeTab, setActiveTab] = useState("home")
+  const searchParams = useSearchParams()
+  
+  // Initialize activeTab from URL search params immediately
+  const getInitialTab = () => {
+    const tab = searchParams.get('tab')
+    if (tab && ['home', 'active-entries', 'books-won', 'your-books', 'following', 'profile', 'settings'].includes(tab)) {
+      return tab
+    }
+    return "home"
+  }
+  
+  const [activeTab, setActiveTab] = useState(getInitialTab)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [entriesFilter, setEntriesFilter] = useState<"active" | "ended">("active")
   const [searchQuery, setSearchQuery] = useState("")
@@ -449,6 +461,18 @@ export default function DashboardPage() {
   useEffect(() => {
     setIsHydrated(true)
   }, [])
+
+  // Update URL when activeTab changes
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab)
+    const url = new URL(window.location.href)
+    if (tab === 'home') {
+      url.searchParams.delete('tab')
+    } else {
+      url.searchParams.set('tab', tab)
+    }
+    window.history.replaceState({}, '', url.toString())
+  }
   const [genrePreferences, setGenrePreferences] = useState({
     fantasy: true,
     romance: true,
@@ -509,12 +533,12 @@ export default function DashboardPage() {
       <div className="container mx-auto px-4 py-8 pt-24">
         <div className="flex gap-12">
           {/* Floating Left Sidebar */}
-          <DashboardSidebar
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            isSidebarCollapsed={isSidebarCollapsed}
-            setIsSidebarCollapsed={setIsSidebarCollapsed}
-          />
+        <DashboardSidebar
+          activeTab={activeTab}
+          setActiveTab={handleTabChange}
+          isSidebarCollapsed={isSidebarCollapsed}
+          setIsSidebarCollapsed={setIsSidebarCollapsed}
+        />
 
           {/* Main Content Area */}
           <main className="flex-1 min-w-0">
@@ -835,7 +859,7 @@ export default function DashboardPage() {
 
                         {/* Save Button */}
                         <div className="flex gap-3 pt-4">
-                          <Button className="bg-primary hover:bg-primary/90">Save Changes</Button>
+                          <Button className="bg-primary hover:bg-primary/90 text-white">Save Changes</Button>
                           <Button variant="outline">Cancel</Button>
                         </div>
                       </div>
@@ -970,7 +994,7 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="flex gap-3 pt-4 border-t border-border/50">
-                          <Button className="bg-primary hover:bg-primary/90">Save Preferences</Button>
+                          <Button className="bg-primary hover:bg-primary/90 text-white">Save Preferences</Button>
                           <Button variant="outline">Reset to Default</Button>
                         </div>
                       </div>
